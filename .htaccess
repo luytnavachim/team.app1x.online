@@ -1,0 +1,15 @@
+DirectoryIndex index.php
+RedirectMatch 404 /\.git
+
+<Files "config.php">
+  Require all denied
+</Files>
+<Files "boot.php">
+  Require all denied
+</Files>
+
+<IfModule mod_headers.c>
+  <FilesMatch "\.(html|htm|js|php)$">
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+  </FilesMatch>
+</IfModule>

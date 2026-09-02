@@ -1,0 +1,8 @@
+.DS_Store
+Thumbs.db
+*.log
+.env
+.env.*
+config.php
+.data/
+.deploy-hold

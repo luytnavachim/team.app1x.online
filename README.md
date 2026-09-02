@@ -1,6 +1,6 @@
-# ROHDA 14-2 · team.app1x.online
+# Kitroom · team.app1x.online
 
-Kleding- en selectieoverzicht voor **ROHDA Raalte JO14-2**. Live: [https://team.app1x.online](https://team.app1x.online)
+Kleding- en selectieoverzicht voor **team 14-2**. Live: [https://team.app1x.online](https://team.app1x.online)
 
 ## Wat erin zit
 

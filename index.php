@@ -283,30 +283,68 @@ $voetLabel = static function (string $v): string {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Kitroom · 14-2</title>
 <meta name="theme-color" content="#0F1216">
+<script>
+(function(){
+  var t='dark';
+  try { t=localStorage.getItem('kitroom-theme')||'dark'; } catch(e) {}
+  if(t!=='light') t='dark';
+  document.documentElement.setAttribute('data-theme', t);
+  document.documentElement.style.colorScheme=t;
+})();
+</script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%22478.658%20474.658%201090.5839999999998%201090.5839999999998%22%3E%3Crect%20x%3D%22478.658%22%20y%3D%22474.658%22%20width%3D%221090.5839999999998%22%20height%3D%221090.5839999999998%22%20rx%3D%22239.92847999999995%22%20fill%3D%22%2312151A%22%2F%3E%3Cpath%20transform%3D%22translate(0%2C0)%22%20fill%3D%22%23C8FF3D%22%20d%3D%22M%20921.182%20786.705%20C%20921.088%20748.191%20924.254%20721.832%20952.882%20692.548%20C%201015.98%20628.006%201122.48%20672.735%201124.65%20761.167%20C%201125.5%20795.816%201102.43%20832.056%201081.81%20859.102%20C%201173.63%20909.241%201268.41%20963.174%201360.93%201011.13%20L%201361%201131.03%20C%201319.03%201131.1%201275.61%201130.63%201233.75%201131.29%20L%201233.19%201375.08%20L%201049.35%201375.98%20C%201012.25%201376.33%20975.285%201377.55%20938.134%201377.03%20C%20917.37%201362.43%20883.662%201343.49%20865.937%201326.65%20C%20904.772%201326.82%20943.608%201326.66%20982.44%201326.19%20L%201181.84%201325.99%20L%201181.77%201081.01%20C%201223.2%201081.15%201266.55%201081.59%201307.88%201080.71%20L%201307.78%201041.6%20C%201291.08%201031.4%201272.57%201022.84%201255.7%201013.2%20C%201209.38%20986.726%201158.4%20962.557%201112.55%20935.731%20L%201022.94%20987.354%20C%20993.336%20970.865%20960.046%20953.378%20929.916%20937.92%20C%20920.677%20942.578%20898.06%20955.722%20889.447%20958.678%20C%20884.065%20957.576%20873.468%20958.363%20868.546%20958.12%20C%20855.177%20957.462%20795.501%20959.764%20787.18%20956.615%20C%20823.019%20935.682%20860.332%20916.939%20896.692%20896.892%20C%20908.282%20890.501%20919.978%20884.554%20932.037%20879.089%20C%20947.323%20886.595%20963.46%20896.026%20978.428%20904.412%20C%20992.956%20912.551%201009.08%20921.18%201023.02%20930.015%20C%201031.8%20923.173%201052.8%20912.06%201063.31%20905.352%20C%201044.94%20894.018%201024.84%20883.287%201005.8%20873.072%20C%201027.7%20847.761%201051.43%20821.947%201065.94%20791.627%20C%201076.9%20768.732%201076.85%20743.614%201055.63%20726.522%20C%201019.55%20697.466%20974.242%20726.414%20971.812%20768.411%20C%20971.469%20774.337%20971.873%20780.788%20972.045%20786.715%20C%20955.299%20786.729%20937.87%20786.998%20921.182%20786.705%20z%22%2F%3E%3Cpath%20transform%3D%22translate(0%2C0)%22%20fill%3D%22%23C8FF3D%22%20d%3D%22M%20687.097%201011.14%20L%20787.18%20956.615%20C%20795.501%20959.764%20855.177%20957.462%20868.546%20958.12%20C%20873.468%20958.363%20884.065%20957.576%20889.447%20958.678%20C%20873.458%20968.871%20851.83%20980.353%20835.021%20989.785%20C%20803.509%201007.51%20771.807%201024.9%20739.921%201041.95%20L%20739.755%201081.04%20L%20865.102%201081.01%20C%20865.082%201106.56%20864.201%201324.24%20865.937%201326.65%20C%20883.662%201343.49%20917.37%201362.43%20938.134%201377.03%20L%20812.355%201377.16%20L%20812.749%201132.92%20L%20687.027%201133.03%20L%20687.097%201011.14%20z%22%2F%3E%3C%2Fsvg%3E">
 <meta name="description" content="Kleding- en selectieoverzicht voor 14-2.">
 <style>
-:root{
+:root,html[data-theme="dark"]{
   --bg:#0F1216; --surface:#171B21; --surface2:#1D222A; --raise:#232A33;
   --line:#272E38; --line2:#333C48;
   --ink:#F2F4F7; --muted:#8B95A4; --dim:#5D6773;
-  --accent:#C8FF3D; --accent-dim:#A9DC2A; --on-accent:#12151A;
+  --accent:#C8FF3D; --accent-dim:#A9DC2A; --on-accent:#12151A; --accent-text:#C8FF3D;
   --green:#3DDC91; --greenbg:rgba(61,220,145,.13);
   --miss:#FF6B6B; --missbg:rgba(255,107,107,.13);
   --warn:#FFD166; --warnbg:rgba(255,197,61,.10);
   --na:#5D6773; --nabg:rgba(255,255,255,.035);
+  --glow-a:rgba(200,255,61,.10); --glow-b:rgba(61,220,145,.05);
+  --nav-fade:rgba(15,18,22,0);
+  --featured:linear-gradient(140deg,#1B2129,#12161B 62%);
+  --mark-bg:linear-gradient(155deg,var(--surface2),#12161B);
+  --overlay:rgba(8,10,13,.72);
+  --hover:rgba(255,255,255,.02);
+  --editbar-bg:rgba(200,255,61,.06); --editbar-ink:#D6DEE8;
+  --pill-ink:#C3CCD8;
+  --modal-shadow:0 24px 60px rgba(0,0,0,.55);
   --r:14px; --r-lg:20px;
+}
+html[data-theme="light"]{
+  --bg:#F3F5F0; --surface:#FFFFFF; --surface2:#F7F8F4; --raise:#EEF1E8;
+  --line:#E1E6D8; --line2:#C9D0BC;
+  --ink:#14181D; --muted:#5A6470; --dim:#7A8490;
+  --accent:#C8FF3D; --accent-dim:#9ACC20; --on-accent:#12151A; --accent-text:#4F6C00;
+  --green:#0F8F5C; --greenbg:rgba(15,143,92,.12);
+  --miss:#C62828; --missbg:rgba(198,40,40,.10);
+  --warn:#A15C00; --warnbg:rgba(161,92,0,.12);
+  --na:#7A8490; --nabg:rgba(20,24,29,.04);
+  --glow-a:rgba(200,255,61,.22); --glow-b:rgba(15,143,92,.07);
+  --nav-fade:rgba(243,245,240,0);
+  --featured:linear-gradient(140deg,#FFFFFF,#F3F5F0 62%);
+  --mark-bg:linear-gradient(155deg,#FFFFFF,#EEF1E8);
+  --overlay:rgba(20,24,29,.42);
+  --hover:rgba(20,24,29,.03);
+  --editbar-bg:rgba(200,255,61,.28); --editbar-ink:#14181D;
+  --pill-ink:#3D454E;
+  --modal-shadow:0 24px 60px rgba(20,24,29,.16);
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth;color-scheme:dark;-webkit-text-size-adjust:100%}
+html[data-theme="light"]{color-scheme:light}
 body{
   margin:0;color:var(--ink);
   font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   font-size:15px;line-height:1.45;
   background:var(--bg);
   background-image:
-    radial-gradient(900px 420px at 78% -12%,rgba(200,255,61,.10),transparent 62%),
-    radial-gradient(700px 380px at 8% -6%,rgba(61,220,145,.05),transparent 60%);
+    radial-gradient(900px 420px at 78% -12%,var(--glow-a),transparent 62%),
+    radial-gradient(700px 380px at 8% -6%,var(--glow-b),transparent 60%);
   background-attachment:fixed;
   font-variant-numeric:tabular-nums;
 }
@@ -317,9 +355,18 @@ a{color:inherit}
 /* ---------- header ---------- */
 .top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
 .club{display:flex;gap:11px;align-items:center;min-width:0}
+.top-right{display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.theme-switch{
+  display:flex;border:1px solid var(--line);border-radius:999px;background:var(--surface);overflow:hidden;
+}
+.theme-switch button{
+  border:0;background:transparent;color:var(--muted);padding:7px 11px;
+  font-weight:800;font-size:11px;letter-spacing:.1px;cursor:pointer;font-family:inherit;
+}
+.theme-switch button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
 .mark{
   width:44px;height:44px;flex:0 0 44px;border-radius:13px;
-  background:linear-gradient(155deg,var(--surface2),#12161B);
+  background:var(--mark-bg);
   border:1px solid var(--line2);
   display:grid;place-items:center;padding:8px;
 }
@@ -334,7 +381,7 @@ a{color:inherit}
 
 /* ---------- nav ---------- */
 .navwrap{position:sticky;top:0;z-index:20;margin:0 -14px 16px;padding:8px 14px;
-  background:linear-gradient(var(--bg) 62%,rgba(15,18,22,0));backdrop-filter:blur(6px)}
+  background:linear-gradient(var(--bg) 62%,var(--nav-fade));backdrop-filter:blur(6px)}
 .nav{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
 .nav::-webkit-scrollbar{display:none}
 .nav a,.btn{
@@ -355,8 +402,8 @@ button.btn{font-family:inherit;cursor:pointer}
   font-weight:500;margin-bottom:16px;
 }
 .note b{color:var(--ink);font-weight:700}
-.editbar{border-left-color:var(--accent);background:rgba(200,255,61,.06);color:#D6DEE8}
-.editbar b{color:var(--accent)}
+.editbar{border-left-color:var(--accent);background:var(--editbar-bg);color:var(--editbar-ink)}
+.editbar b{color:var(--accent-text)}
 
 /* ---------- stats ---------- */
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
@@ -364,13 +411,13 @@ button.btn{font-family:inherit;cursor:pointer}
 .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:13px 14px}
 .stat b{display:block;font-size:27px;line-height:1.05;font-weight:800;letter-spacing:-1px}
 .stat span{display:block;margin-top:4px;font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.2px}
-.stat.accent b{color:var(--accent)}
+.stat.accent b{color:var(--accent-text)}
 .progress{height:5px;background:var(--raise);border-radius:99px;overflow:hidden;margin-top:9px}
 .progress i{display:block;height:100%;background:linear-gradient(90deg,var(--accent-dim),var(--accent));border-radius:99px}
 
 /* ---------- featured ---------- */
 .featured{
-  background:linear-gradient(140deg,#1B2129,#12161B 62%);
+  background:var(--featured);
   border:1px solid var(--line2);border-radius:var(--r-lg);padding:16px 17px;margin-bottom:16px;
   position:relative;overflow:hidden;
 }
@@ -378,7 +425,7 @@ button.btn{font-family:inherit;cursor:pointer}
 .featured h2{margin:0 0 3px;font-size:20px;font-weight:800;letter-spacing:-.4px}
 .featured p{margin:0 0 13px;color:var(--muted);font-size:12.5px;font-weight:500}
 .pills{display:flex;flex-wrap:wrap;gap:7px}
-.pill{background:var(--raise);border:1px solid var(--line);border-radius:999px;padding:6px 11px;font-size:11.5px;font-weight:700;color:#C3CCD8}
+.pill{background:var(--raise);border:1px solid var(--line);border-radius:999px;padding:6px 11px;font-size:11.5px;font-weight:700;color:var(--pill-ink)}
 .pill.ok{background:var(--greenbg);border-color:rgba(61,220,145,.3);color:var(--green)}
 .pill.no{background:var(--missbg);border-color:rgba(255,107,107,.3);color:var(--miss)}
 
@@ -430,7 +477,7 @@ td.ok{background:var(--greenbg);color:var(--green);font-weight:700}
 td.no{background:var(--missbg);color:var(--miss);font-weight:700}
 td.wait{background:var(--warnbg);color:var(--warn);font-weight:700}
 td.na{background:transparent;color:var(--na)}
-tbody tr:hover td{background-color:rgba(255,255,255,.02)}
+tbody tr:hover td{background-color:var(--hover)}
 tbody tr:hover td.name{background:var(--raise)}
 
 /* ---------- filters ---------- */
@@ -462,9 +509,9 @@ tbody tr:hover td.name{background:var(--raise)}
 .size-select:hover{border-color:var(--accent)}
 
 /* ---------- modal / toast ---------- */
-.modal{position:fixed;inset:0;background:rgba(8,10,13,.72);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:40;padding:16px}
+.modal{position:fixed;inset:0;background:var(--overlay);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:40;padding:16px}
 .modal.hidden{display:none}
-.modalbox{background:var(--surface);border:1px solid var(--line2);border-radius:var(--r-lg);padding:20px;width:min(370px,100%);box-shadow:0 24px 60px rgba(0,0,0,.55)}
+.modalbox{background:var(--surface);border:1px solid var(--line2);border-radius:var(--r-lg);padding:20px;width:min(370px,100%);box-shadow:var(--modal-shadow)}
 .modalbox h3{margin:0 0 5px;font-size:18px;font-weight:800}
 .modalbox p{margin:0 0 12px;color:var(--muted);font-size:13px;font-weight:500}
 .modalbox input{
@@ -487,6 +534,7 @@ tbody tr:hover td.name{background:var(--raise)}
   .stat b{font-size:24px}
   .cards{grid-template-columns:1fr}
   .barrow{grid-template-columns:80px 1fr 30px}
+  .top{flex-wrap:wrap}
 }
 
 /* ---------- print: terug naar licht ---------- */
@@ -497,7 +545,7 @@ tbody tr:hover td.name{background:var(--raise)}
         --warn:#a16207;--warnbg:#fef3c7;--na:#71717a;--nabg:#fafafa}
   html{color-scheme:light}
   body{background:#fff;color:#111}
-  .navwrap,.filters,.actions,.note,.toast,.modal{display:none !important}
+  .navwrap,.filters,.actions,.note,.toast,.modal,.theme-switch{display:none !important}
   .section,.featured,.card{break-inside:avoid;border:1px solid #d4d4d8}
   .featured{background:#fff;color:#111}
   .featured p,.pill{color:#333}
@@ -517,7 +565,13 @@ tbody tr:hover td.name{background:var(--raise)}
       <div class="mark" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="623.0 619.0 801.9 801.9" ><path transform="translate(0,0)" fill="#C8FF3D" d="M 921.182 786.705 C 921.088 748.191 924.254 721.832 952.882 692.548 C 1015.98 628.006 1122.48 672.735 1124.65 761.167 C 1125.5 795.816 1102.43 832.056 1081.81 859.102 C 1173.63 909.241 1268.41 963.174 1360.93 1011.13 L 1361 1131.03 C 1319.03 1131.1 1275.61 1130.63 1233.75 1131.29 L 1233.19 1375.08 L 1049.35 1375.98 C 1012.25 1376.33 975.285 1377.55 938.134 1377.03 C 917.37 1362.43 883.662 1343.49 865.937 1326.65 C 904.772 1326.82 943.608 1326.66 982.44 1326.19 L 1181.84 1325.99 L 1181.77 1081.01 C 1223.2 1081.15 1266.55 1081.59 1307.88 1080.71 L 1307.78 1041.6 C 1291.08 1031.4 1272.57 1022.84 1255.7 1013.2 C 1209.38 986.726 1158.4 962.557 1112.55 935.731 L 1022.94 987.354 C 993.336 970.865 960.046 953.378 929.916 937.92 C 920.677 942.578 898.06 955.722 889.447 958.678 C 884.065 957.576 873.468 958.363 868.546 958.12 C 855.177 957.462 795.501 959.764 787.18 956.615 C 823.019 935.682 860.332 916.939 896.692 896.892 C 908.282 890.501 919.978 884.554 932.037 879.089 C 947.323 886.595 963.46 896.026 978.428 904.412 C 992.956 912.551 1009.08 921.18 1023.02 930.015 C 1031.8 923.173 1052.8 912.06 1063.31 905.352 C 1044.94 894.018 1024.84 883.287 1005.8 873.072 C 1027.7 847.761 1051.43 821.947 1065.94 791.627 C 1076.9 768.732 1076.85 743.614 1055.63 726.522 C 1019.55 697.466 974.242 726.414 971.812 768.411 C 971.469 774.337 971.873 780.788 972.045 786.715 C 955.299 786.729 937.87 786.998 921.182 786.705 z"/><path transform="translate(0,0)" fill="#C8FF3D" d="M 687.097 1011.14 L 787.18 956.615 C 795.501 959.764 855.177 957.462 868.546 958.12 C 873.468 958.363 884.065 957.576 889.447 958.678 C 873.458 968.871 851.83 980.353 835.021 989.785 C 803.509 1007.51 771.807 1024.9 739.921 1041.95 L 739.755 1081.04 L 865.102 1081.01 C 865.082 1106.56 864.201 1324.24 865.937 1326.65 C 883.662 1343.49 917.37 1362.43 938.134 1377.03 L 812.355 1377.16 L 812.749 1132.92 L 687.027 1133.03 L 687.097 1011.14 z"/></svg></div>
       <div><b>Kitroom</b><small>14-2 · kleding &amp; selectie</small></div>
     </div>
-    <div class="badge">26/27</div>
+    <div class="top-right">
+      <div class="theme-switch" role="group" aria-label="Thema">
+        <button type="button" data-theme-set="dark" aria-pressed="true">Donker</button>
+        <button type="button" data-theme-set="light" aria-pressed="false">Licht</button>
+      </div>
+      <div class="badge">26/27</div>
+    </div>
   </header>
 
   <div class="navwrap">
@@ -883,6 +937,27 @@ tbody tr:hover td.name{background:var(--raise)}
 </div>
 <div id="toast" class="toast"></div>
 <script>
+(function(){
+  const KEY='kitroom-theme';
+  const meta=document.querySelector('meta[name="theme-color"]');
+  function theme(){
+    return document.documentElement.getAttribute('data-theme')==='light' ? 'light' : 'dark';
+  }
+  function apply(t){
+    const next=t==='light' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    document.documentElement.style.colorScheme=next;
+    if(meta) meta.setAttribute('content', next==='light' ? '#F3F5F0' : '#0F1216');
+    document.querySelectorAll('[data-theme-set]').forEach(btn=>{
+      btn.setAttribute('aria-pressed', btn.getAttribute('data-theme-set')===next ? 'true' : 'false');
+    });
+    try { localStorage.setItem(KEY, next); } catch(e) {}
+  }
+  document.querySelectorAll('[data-theme-set]').forEach(btn=>{
+    btn.addEventListener('click', ()=>apply(btn.getAttribute('data-theme-set')));
+  });
+  apply(theme());
+})();
 const TEAM = { csrf: <?= json_encode($csrf) ?>, editing: <?= $canEdit ? 'true' : 'false' ?> };
 function toast(msg){
   const el=document.getElementById('toast');

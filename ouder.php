@@ -12,9 +12,9 @@ if (!$player) {
 }
 
 $types = loadTypes($mysqli);
-$need = $player ? ((($player['position'] ?? '') === 'goalkeeper') ? [9, 4, 10] : [1, 4, 3, 7]) : [];
-$extra = [11, 12];
-$typeOrder = array_values(array_unique(array_merge($need, $extra)));
+$formSettings = loadParentFormSettings();
+$need = $player ? parentAllowedTypeIds($player) : [];
+$typeOrder = $need;
 
 if ($player) {
     $player['items'] = [];
@@ -162,7 +162,16 @@ body{
       <p class="sub">Deze ouderlink werkt niet meer. Vraag de trainer of manager om een nieuwe link.</p>
     </div>
   <?php else: ?>
-    <p class="note">Vul de kledingmaten van <b><?= h($name) ?></b> in en druk op opslaan. Shirt en broek in 14-2 zijn nu vooral <b>164</b> of <b>176</b>, sokken <b>36-40</b> of <b>41-44</b>.</p>
+    <p class="note">
+      Vul de kledingmaten van <b><?= h($name) ?></b> in en druk op opslaan.
+      <?php if ($formSettings['note'] !== ''): ?><?= h($formSettings['note']) ?><?php else: ?>Shirt en broek in 14-2 zijn nu vooral <b>164</b> of <b>176</b>, sokken <b>36-40</b> of <b>41-44</b>.<?php endif; ?>
+    </p>
+    <?php if ($typeOrder === []): ?>
+    <div class="section">
+      <h2><?= h($name) ?></h2>
+      <p class="sub">Er staat nu niets klaar om in te vullen. Vraag de trainer of manager.</p>
+    </div>
+    <?php else: ?>
     <div class="section">
       <h2><?= h($name) ?></h2>
       <p class="sub"><?= h($posLabel[$player['position'] ?? ''] ?? 'speler') ?><?= !empty($player['jersey_number']) ? ' · #' . h((string) $player['jersey_number']) : '' ?></p>
@@ -172,15 +181,11 @@ body{
             if (!isset($types[$tid])) continue;
             $t = $types[$tid];
             $it = itemFor($player, $tid);
-            $isReq = in_array($tid, $need, true);
-            $pending = isPendingItem($it) && $isReq;
-            $cls = $it ? ($pending ? 'wait' : ($isReq ? 'ok' : 'extra')) : ($isReq ? 'no' : 'extra');
-            if ($tid === 11 || $tid === 12):
+            $pending = isPendingItem($it);
+            $cls = $it ? ($pending ? 'wait' : 'ok') : 'no';
           ?>
-            <?php if ($tid === 11): ?><div class="line">Extra</div><?php endif; ?>
-          <?php endif; ?>
           <div class="row <?= $cls ?>">
-            <span><?= h($t['display_name']) ?><?= $isReq ? '' : ' · extra' ?><?= $pending ? ' · bestellen' : '' ?></span>
+            <span><?= h($t['display_name']) ?><?= $pending ? ' · bestellen' : '' ?></span>
             <?= sizeSelect($tid, (string) ($it['size'] ?? ''), 'player', (int) $player['id']) ?>
           </div>
           <?php endforeach; ?>
@@ -191,6 +196,7 @@ body{
         </div>
       </form>
     </div>
+    <?php endif; ?>
   <?php endif; ?>
 </div>
 <div id="toast" class="toast"></div>

@@ -221,9 +221,152 @@ function parentWhatsAppUrl(string $name, string $url): string {
     return 'https://wa.me/?text=' . rawurlencode(parentMessage($name, $url));
 }
 
+function parentFormPath(): string {
+    return __DIR__ . '/.data/parent-form.json';
+}
+
+function parentTypeChoices(string $kind): array {
+    return $kind === 'keeper' ? [9, 4, 10, 11, 12] : [1, 4, 3, 7, 11, 12];
+}
+
+function allParentTypeIds(): array {
+    return [1, 4, 3, 7, 9, 10, 11, 12];
+}
+
+function shortTypeName(int $tid, array $types = []): string {
+    return match ($tid) {
+        1 => 'Shirt',
+        4 => 'Broek',
+        3 => 'Sokken',
+        7 => 'Grip',
+        9 => 'K-shirt',
+        10 => 'K-sokken',
+        11 => 'Polo',
+        12 => 'Zip',
+        default => (string) ($types[$tid]['display_name'] ?? $tid),
+    };
+}
+
+function normalizeParentTypeIds(array $ids, array $allowed): array {
+    $out = [];
+    foreach ($ids as $id) {
+        $id = (int) $id;
+        if (in_array($id, $allowed, true)) {
+            $out[$id] = $id;
+        }
+    }
+    return array_values($out);
+}
+
+function defaultParentFormSettings(): array {
+    return [
+        'note' => '',
+        'field' => [1, 4, 3, 7],
+        'keeper' => [9, 4, 10],
+        'players' => [],
+    ];
+}
+
+function loadParentFormSettings(bool $reload = false): array {
+    static $cached = null;
+    if ($reload) {
+        $cached = null;
+    }
+    if ($cached !== null) {
+        return $cached;
+    }
+    $def = defaultParentFormSettings();
+    $file = parentFormPath();
+    if (!is_readable($file)) {
+        return $cached = $def;
+    }
+    $raw = json_decode((string) file_get_contents($file), true);
+    if (!is_array($raw)) {
+        return $cached = $def;
+    }
+    $settings = $def;
+    $settings['note'] = mb_substr(trim((string) ($raw['note'] ?? '')), 0, 280);
+    $field = normalizeParentTypeIds($raw['field'] ?? $def['field'], parentTypeChoices('field'));
+    $keeper = normalizeParentTypeIds($raw['keeper'] ?? $def['keeper'], parentTypeChoices('keeper'));
+    $settings['field'] = $field !== [] ? $field : $def['field'];
+    $settings['keeper'] = $keeper !== [] ? $keeper : $def['keeper'];
+    $players = [];
+    foreach (($raw['players'] ?? []) as $pid => $ids) {
+        if (!is_array($ids)) {
+            continue;
+        }
+        $pid = (int) $pid;
+        if ($pid < 1) {
+            continue;
+        }
+        $norm = normalizeParentTypeIds($ids, allParentTypeIds());
+        if ($norm !== []) {
+            $players[$pid] = $norm;
+        }
+    }
+    $settings['players'] = $players;
+    return $cached = $settings;
+}
+
+function saveParentFormSettings(array $settings): void {
+    $dir = dirname(parentFormPath());
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0750, true);
+    }
+    $field = normalizeParentTypeIds($settings['field'] ?? [], parentTypeChoices('field'));
+    $keeper = normalizeParentTypeIds($settings['keeper'] ?? [], parentTypeChoices('keeper'));
+    $def = defaultParentFormSettings();
+    $players = [];
+    foreach (($settings['players'] ?? []) as $pid => $ids) {
+        $pid = (int) $pid;
+        if ($pid < 1 || !is_array($ids)) {
+            continue;
+        }
+        $norm = normalizeParentTypeIds($ids, allParentTypeIds());
+        if ($norm !== []) {
+            $players[$pid] = $norm;
+        }
+    }
+    $clean = [
+        'note' => mb_substr(trim((string) ($settings['note'] ?? '')), 0, 280),
+        'field' => $field !== [] ? $field : $def['field'],
+        'keeper' => $keeper !== [] ? $keeper : $def['keeper'],
+        'players' => $players,
+    ];
+    file_put_contents(parentFormPath(), json_encode($clean, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
+    loadParentFormSettings(true);
+}
+
+function parentDefaultTypeIds(array $p): array {
+    $settings = loadParentFormSettings();
+    return (($p['position'] ?? '') === 'goalkeeper') ? $settings['keeper'] : $settings['field'];
+}
+
 function parentAllowedTypeIds(array $p): array {
-    $need = (($p['position'] ?? '') === 'goalkeeper') ? [9, 4, 10] : [1, 4, 3, 7];
-    return array_values(array_unique(array_merge($need, [11, 12])));
+    $settings = loadParentFormSettings();
+    $pid = (int) ($p['id'] ?? 0);
+    if ($pid > 0 && isset($settings['players'][$pid])) {
+        return $settings['players'][$pid];
+    }
+    return parentDefaultTypeIds($p);
+}
+
+function parentUsesCustomTypes(array $p): bool {
+    $settings = loadParentFormSettings();
+    return isset($settings['players'][(int) ($p['id'] ?? 0)]);
+}
+
+function ensureParentSavedAtColumn(mysqli $db): void {
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    $r = $db->query("SHOW COLUMNS FROM players LIKE 'parent_saved_at'");
+    if ($r && $r->num_rows > 0) {
+        return;
+    }
+    $db->query('ALTER TABLE players ADD COLUMN parent_saved_at DATETIME NULL DEFAULT NULL AFTER parent_token');
 }
 
 function findPlayerByParentToken(mysqli $db, string $token): ?array {
@@ -582,6 +725,7 @@ function sizeSelect(int $tid, string $current, string $who, int $id, bool $na = 
 }
 
 ensureParentTokenColumn($mysqli);
+ensureParentSavedAtColumn($mysqli);
 startTeamSession();
 $canEdit = canEdit();
 $csrf = csrfToken();

@@ -79,21 +79,28 @@ if ($action === 'parent_save') {
         jsonOut(['ok' => false, 'error' => 'Niets om op te slaan.'], 400);
     }
     $allowed = array_fill_keys(parentAllowedTypeIds($player), true);
+    if ($allowed === []) {
+        jsonOut(['ok' => false, 'error' => 'Er staat niets klaar om in te vullen. Vraag de staf.'], 400);
+    }
     $types = loadTypes($mysqli);
     $saved = 0;
     $mysqli->begin_transaction();
     try {
-        foreach ($items as $tid => $size) {
-            $tid = (int) $tid;
-            if (!isset($allowed[$tid])) {
-                continue;
+        foreach ($allowed as $tid => $_) {
+            if (!array_key_exists((string) $tid, $items) && !array_key_exists($tid, $items)) {
+                throw new RuntimeException('Vul alle maten in.');
             }
-            upsertPersonItem($mysqli, $types, 'player', (int) $player['id'], $tid, (string) $size, 'pending');
+            $size = (string) ($items[$tid] ?? $items[(string) $tid] ?? '');
+            if (sanitizeSize($size) === '') {
+                throw new RuntimeException('Vul alle maten in.');
+            }
+            upsertPersonItem($mysqli, $types, 'player', (int) $player['id'], (int) $tid, $size, 'pending');
             $saved++;
         }
-        if ($saved < 1) {
-            throw new RuntimeException('Niets om op te slaan.');
-        }
+        $pid = (int) $player['id'];
+        $stamp = $mysqli->prepare('UPDATE players SET parent_saved_at=NOW() WHERE id=?');
+        $stamp->bind_param('i', $pid);
+        $stamp->execute();
         $mysqli->commit();
     } catch (Throwable $e) {
         $mysqli->rollback();
@@ -101,6 +108,55 @@ if ($action === 'parent_save') {
     }
     registerParentSave();
     jsonOut(['ok' => true, 'saved' => $saved]);
+}
+
+if ($action === 'parent_form') {
+    if (!canEdit()) {
+        jsonOut(['ok' => false, 'error' => 'Niet ingelogd.'], 401);
+    }
+    $tokenCsrf = (string) ($body['csrf'] ?? '');
+    if ($tokenCsrf === '' || !hash_equals(csrfToken(), $tokenCsrf)) {
+        jsonOut(['ok' => false, 'error' => 'Sessie verlopen. Vernieuw de pagina.'], 403);
+    }
+    $settings = loadParentFormSettings();
+    $scope = (string) ($body['scope'] ?? '');
+    if ($scope === 'defaults') {
+        if (isset($body['note'])) {
+            $settings['note'] = (string) $body['note'];
+        }
+        if (isset($body['field']) && is_array($body['field'])) {
+            $settings['field'] = $body['field'];
+        }
+        if (isset($body['keeper']) && is_array($body['keeper'])) {
+            $settings['keeper'] = $body['keeper'];
+        }
+        saveParentFormSettings($settings);
+        jsonOut(['ok' => true, 'settings' => loadParentFormSettings()]);
+    }
+    if ($scope === 'player') {
+        $id = (int) ($body['id'] ?? 0);
+        if ($id < 1) {
+            jsonOut(['ok' => false, 'error' => 'Speler ontbreekt.'], 400);
+        }
+        $st = $mysqli->prepare("SELECT id, position FROM players WHERE id=? AND status='active' LIMIT 1");
+        $st->bind_param('i', $id);
+        $st->execute();
+        $p = $st->get_result()->fetch_assoc();
+        if (!$p) {
+            jsonOut(['ok' => false, 'error' => 'Speler niet gevonden.'], 400);
+        }
+        $reset = !empty($body['reset']);
+        $typesIn = is_array($body['types'] ?? null) ? $body['types'] : [];
+        if ($reset || $typesIn === []) {
+            unset($settings['players'][$id]);
+        } else {
+            $settings['players'][$id] = $typesIn;
+        }
+        saveParentFormSettings($settings);
+        $p['id'] = $id;
+        jsonOut(['ok' => true, 'types' => parentAllowedTypeIds($p), 'custom' => parentUsesCustomTypes($p)]);
+    }
+    jsonOut(['ok' => false, 'error' => 'Onbekende instelling.'], 400);
 }
 
 if ($action === 'save' || $action === 'save_all') {

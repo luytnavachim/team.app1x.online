@@ -60,6 +60,16 @@ function requiredIds(array $p, array $FIELD_CORE, array $KEEPER_CORE): array {
     return ($p['position'] ?? '') === 'goalkeeper' ? $KEEPER_CORE : $FIELD_CORE;
 }
 
+function parentChecksHtml(string $scope, array $choices, array $selected, int $playerId = 0, array $defaultIds = []): string {
+    $html = '<div class="checks" data-parent-scope="'.h($scope).'" data-id="'.$playerId.'" data-default="'.h(implode(',', $defaultIds)).'">';
+    foreach ($choices as $tid) {
+        $on = in_array($tid, $selected, true) ? ' checked' : '';
+        $html .= '<label><input type="checkbox" value="'.$tid.'"'.$on.'> '.h(shortTypeName($tid)).'</label>';
+    }
+    $html .= '</div>';
+    return $html;
+}
+
 $portal = loadScoutPortal();
 syncPlayersFromScout($mysqli, $players, $portal);
 
@@ -129,6 +139,11 @@ if ($canEdit) {
             'url' => $url,
             'wa' => parentWhatsAppUrl($nm, $url),
             'missing' => (int) ($lp['miss'] ?? 0),
+            'types' => parentAllowedTypeIds($lp),
+            'custom' => parentUsesCustomTypes($lp),
+            'saved' => $lp['parent_saved_at'] ?? null,
+            'position' => (string) ($lp['position'] ?? ''),
+            'player' => $lp,
         ];
     }
 }
@@ -520,6 +535,23 @@ tbody tr:hover td.name{background:var(--raise)}
 .chip{display:inline-flex;gap:6px;align-items:center;background:var(--raise);border-radius:999px;padding:5px 10px;font-size:11px;font-weight:700;margin:0 6px 6px 0}
 .actions{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 0}
 .muted{color:var(--muted);font-size:12px}
+.checks{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0 4px}
+.checks label{
+  display:inline-flex;align-items:center;gap:6px;cursor:pointer;
+  border:1px solid var(--line);background:var(--surface2);color:var(--ink);
+  border-radius:999px;padding:7px 11px;font-size:12.5px;font-weight:700;
+}
+.checks label:has(input:checked){background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.checks input{margin:0}
+.note-input{
+  width:100%;padding:10px 12px;border-radius:12px;border:1px solid var(--line2);
+  background:var(--raise);color:var(--ink);font:inherit;font-size:13.5px;font-weight:500;
+  margin:8px 0 12px;resize:vertical;min-height:64px;
+}
+.parent-defaults{border:1px solid var(--line);border-radius:var(--r);padding:12px;background:var(--surface2);margin-bottom:14px}
+.parent-defaults h4{margin:0 0 4px;font-size:13px;font-weight:800}
+.parent-defaults .hint{margin:0 0 6px;font-size:12px;color:var(--muted);font-weight:500}
+.tiny{font-size:11px;font-weight:700;color:var(--dim)}
 .size-select{
   max-width:118px;border:1px solid var(--line2);border-radius:8px;padding:5px 8px;
   font-weight:700;font-size:12.5px;background:var(--raise);color:var(--ink);
@@ -617,7 +649,7 @@ tbody tr:hover td.name{background:var(--raise)}
   <?php if ($canEdit): ?>
   <div class="note editbar">Bewerkmodus aan. Seizoen 26/27: iedereen krijgt een nieuwe basisset. Pas maten aan en druk op <b>Opslaan</b>. Pas als de set binnen is: <b>In bezit</b>.</div>
   <?php else: ?>
-  <div class="note">Seizoen 26/27: voor iedereen een nieuwe set (shirt, broek, sokken, grip; keepers: keepershirt, broek, keepersokken). Posities komen live uit scout.app1x.online. <b>Maten invullen</b> met pincode, of stuur ouders een eigen link.</div>
+  <div class="note">Seizoen 26/27: voor iedereen een nieuwe set (shirt, broek, sokken, grip; keepers: keepershirt, broek, keepersokken). Posities komen live uit scout.app1x.online. <b>Maten invullen</b> met pincode. Daar kies je ook wat ouders te zien krijgen.</div>
   <?php endif; ?>
 
   <div class="stats">
@@ -742,27 +774,52 @@ tbody tr:hover td.name{background:var(--raise)}
   <div class="section" id="ouders">
     <h3>Ouderlinks</h3>
     <?php if (!$canEdit): ?>
-    <p class="sub">Met pincode kun je per speler een eigen link maken. Ouders vullen daar alleen de maten van hun kind in en slaan op. Open <b>Maten invullen</b> om de links te zien.</p>
-    <?php else: ?>
-    <p class="sub">Elke speler heeft een eigen link. Kopieer die of stuur hem via WhatsApp. Een nieuwe link maakt de oude ongeldig.</p>
+    <p class="sub">Met pincode kun je kiezen <b>wat</b> ouders invullen (shirt, broek, sokken, …) en per speler een link sturen. Open <b>Maten invullen</b> om dat in te stellen.</p>
+    <?php else:
+      $parentForm = loadParentFormSettings();
+    ?>
+    <p class="sub">Kies eerst wat ouders te zien krijgen. Daarna kopieer je de link of stuur je hem via WhatsApp. Een nieuwe link maakt de oude ongeldig.</p>
+    <div class="parent-defaults" id="parentDefaults">
+      <h4>Wat ouders invullen</h4>
+      <p class="hint">Dit is de standaard. Per speler kun je hieronder afwijken. Polo en zip staan uit, tenzij je ze aanzet.</p>
+      <div class="line">Veldspelers</div>
+      <?= parentChecksHtml('field', parentTypeChoices('field'), $parentForm['field']) ?>
+      <div class="line">Keepers</div>
+      <?= parentChecksHtml('keeper', parentTypeChoices('keeper'), $parentForm['keeper']) ?>
+      <label class="hint" for="parentNote">Tekst bovenaan het ouderformulier (optioneel)</label>
+      <textarea class="note-input" id="parentNote" maxlength="280" placeholder="Bijvoorbeeld: alleen de nieuwe set voor 26/27, geen polo."><?= h($parentForm['note']) ?></textarea>
+    </div>
     <div class="tablewrap">
       <table>
         <thead>
           <tr>
             <th class="name">Speler</th>
-            <th>Open</th>
+            <th>Status</th>
+            <th class="name">Ziet</th>
             <th>Link</th>
           </tr>
         </thead>
         <tbody>
-          <?php foreach ($parentLinks as $pid => $pl): ?>
+          <?php foreach ($parentLinks as $pid => $pl):
+              $kind = (($pl['position'] ?? '') === 'goalkeeper') ? 'keeper' : 'field';
+              $choices = parentTypeChoices($kind);
+              $defaults = parentDefaultTypeIds($pl['player']);
+              $savedAt = $pl['saved'] ? date('d-m H:i', strtotime((string) $pl['saved'])) : '';
+          ?>
           <tr>
-            <td class="name"><?= h($pl['name']) ?></td>
-            <td><?= (int) $pl['missing'] > 0 ? (int) $pl['missing'] . ' maat' : 'ok' ?></td>
+            <td class="name"><?= h($pl['name']) ?><?php if ($pl['custom']): ?><div class="tiny">aangepast</div><?php endif; ?></td>
+            <td><?= $savedAt !== '' ? 'ingevuld '.$savedAt : ((int) $pl['missing'] > 0 ? (int) $pl['missing'].' open' : 'nog niet') ?></td>
+            <td class="left">
+              <?= parentChecksHtml('player', $choices, $pl['types'], (int) $pid, $defaults) ?>
+              <?php if ($pl['custom']): ?>
+                <button type="button" class="btn parent-reset" data-id="<?= (int) $pid ?>">Standaard</button>
+              <?php endif; ?>
+            </td>
             <td class="left">
               <div class="actions" style="margin:0">
                 <button type="button" class="btn dark parent-copy" data-url="<?= h($pl['url']) ?>">Kopiëren</button>
                 <a class="btn" href="<?= h($pl['wa']) ?>" target="_blank" rel="noopener">WhatsApp</a>
+                <a class="btn" href="<?= h($pl['url']) ?>" target="_blank" rel="noopener">Bekijk</a>
                 <button type="button" class="btn parent-rotate" data-id="<?= (int) $pid ?>">Nieuwe link</button>
               </div>
             </td>
@@ -1126,6 +1183,51 @@ document.querySelectorAll('.parent-rotate').forEach(btn=>{
     const out=await api({action:'parent_rotate', csrf:TEAM.csrf, id:+btn.dataset.id});
     if(!out.ok){ toast(out.error||'Mislukt'); return; }
     if(await copyText(out.url||'')) toast('Nieuwe link gekopieerd');
+    location.reload();
+  });
+});
+function checkedTypes(el){
+  return [...(el?.querySelectorAll('input[type="checkbox"]:checked')||[])].map(i=>+i.value);
+}
+function typesKey(list){
+  return [...list].map(Number).sort((a,b)=>a-b).join(',');
+}
+async function saveParentDefaults(){
+  const fieldEl=document.querySelector('[data-parent-scope="field"]');
+  const keeperEl=document.querySelector('[data-parent-scope="keeper"]');
+  if(!fieldEl||!keeperEl) return;
+  const field=checkedTypes(fieldEl);
+  const keeper=checkedTypes(keeperEl);
+  if(field.length<1||keeper.length<1){ toast('Kies minstens één item'); return; }
+  const note=document.getElementById('parentNote')?.value||'';
+  const out=await api({action:'parent_form', csrf:TEAM.csrf, scope:'defaults', field, keeper, note});
+  if(!out.ok){ toast(out.error||'Mislukt'); return; }
+  toast('Ouderformulier opgeslagen');
+}
+document.getElementById('parentDefaults')?.addEventListener('change', e=>{
+  if(e.target.id==='parentNote') return;
+  saveParentDefaults();
+});
+let parentNoteTimer;
+document.getElementById('parentNote')?.addEventListener('input', ()=>{
+  clearTimeout(parentNoteTimer);
+  parentNoteTimer=setTimeout(saveParentDefaults, 450);
+});
+document.querySelectorAll('[data-parent-scope="player"]').forEach(box=>{
+  box.addEventListener('change', async ()=>{
+    const types=checkedTypes(box);
+    if(types.length<1){ toast('Kies minstens één item'); return; }
+    const def=(box.dataset.default||'').split(',').filter(Boolean).map(Number);
+    const reset=typesKey(types)===typesKey(def);
+    const out=await api({action:'parent_form', csrf:TEAM.csrf, scope:'player', id:+box.dataset.id, types, reset:reset});
+    if(!out.ok){ toast(out.error||'Mislukt'); return; }
+    toast(out.custom ? 'Aangepast voor deze speler' : 'Standaard voor deze speler');
+  });
+});
+document.querySelectorAll('.parent-reset').forEach(btn=>{
+  btn.addEventListener('click', async ()=>{
+    const out=await api({action:'parent_form', csrf:TEAM.csrf, scope:'player', id:+btn.dataset.id, reset:true});
+    if(!out.ok){ toast(out.error||'Mislukt'); return; }
     location.reload();
   });
 });

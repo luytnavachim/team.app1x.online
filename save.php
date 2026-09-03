@@ -30,6 +30,79 @@ if ($action === 'logout') {
     jsonOut(['ok' => true]);
 }
 
+if ($action === 'parent_link' || $action === 'parent_rotate') {
+    if (!canEdit()) {
+        jsonOut(['ok' => false, 'error' => 'Niet ingelogd.'], 401);
+    }
+    $tokenCsrf = (string) ($body['csrf'] ?? '');
+    if ($tokenCsrf === '' || !hash_equals(csrfToken(), $tokenCsrf)) {
+        jsonOut(['ok' => false, 'error' => 'Sessie verlopen. Vernieuw de pagina.'], 403);
+    }
+    $id = (int) ($body['id'] ?? 0);
+    try {
+        $token = playerParentToken($mysqli, $id, $action === 'parent_rotate');
+    } catch (Throwable $e) {
+        jsonOut(['ok' => false, 'error' => $e->getMessage()], 400);
+    }
+    $st = $mysqli->prepare('SELECT first_name, last_name FROM players WHERE id=? LIMIT 1');
+    $st->bind_param('i', $id);
+    $st->execute();
+    $p = $st->get_result()->fetch_assoc() ?: ['first_name' => '', 'last_name' => ''];
+    $name = trim(($p['first_name'] ?? '') . ' ' . ($p['last_name'] ?? ''));
+    $url = parentLinkUrl($token);
+    jsonOut([
+        'ok' => true,
+        'url' => $url,
+        'name' => $name,
+        'wa' => parentWhatsAppUrl($name, $url),
+        'message' => parentMessage($name, $url),
+    ]);
+}
+
+if ($action === 'parent_save') {
+    $until = null;
+    if (parentSaveBlocked($until)) {
+        jsonOut(['ok' => false, 'error' => 'Te veel pogingen. Probeer na ' . $until . ' opnieuw.'], 429);
+    }
+    $parentToken = (string) ($body['token'] ?? '');
+    $player = findPlayerByParentToken($mysqli, $parentToken);
+    if (!$player) {
+        registerParentSave();
+        jsonOut(['ok' => false, 'error' => 'Deze link is ongeldig of verlopen.'], 403);
+    }
+    $tokenCsrf = (string) ($body['csrf'] ?? '');
+    if ($tokenCsrf === '' || !hash_equals(csrfToken(), $tokenCsrf)) {
+        jsonOut(['ok' => false, 'error' => 'Sessie verlopen. Vernieuw de pagina.'], 403);
+    }
+    $items = $body['items'] ?? [];
+    if (!is_array($items) || $items === []) {
+        jsonOut(['ok' => false, 'error' => 'Niets om op te slaan.'], 400);
+    }
+    $allowed = array_fill_keys(parentAllowedTypeIds($player), true);
+    $types = loadTypes($mysqli);
+    $saved = 0;
+    $mysqli->begin_transaction();
+    try {
+        foreach ($items as $tid => $size) {
+            $tid = (int) $tid;
+            if (!isset($allowed[$tid])) {
+                continue;
+            }
+            upsertPersonItem($mysqli, $types, 'player', (int) $player['id'], $tid, (string) $size, 'pending');
+            $saved++;
+        }
+        if ($saved < 1) {
+            throw new RuntimeException('Niets om op te slaan.');
+        }
+        $mysqli->commit();
+    } catch (Throwable $e) {
+        $mysqli->rollback();
+        jsonOut(['ok' => false, 'error' => $e->getMessage()], 400);
+    }
+    registerParentSave();
+    jsonOut(['ok' => true, 'saved' => $saved]);
+}
+
 if ($action === 'save' || $action === 'save_all') {
     if (!canEdit()) {
         jsonOut(['ok' => false, 'error' => 'Niet ingelogd.'], 401);

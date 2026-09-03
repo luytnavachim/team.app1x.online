@@ -191,6 +191,136 @@ function sizeOptions(int $tid): array {
     };
 }
 
+function ensureParentTokenColumn(mysqli $db): void {
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    $r = $db->query("SHOW COLUMNS FROM players LIKE 'parent_token'");
+    if ($r && $r->num_rows > 0) {
+        return;
+    }
+    $db->query('ALTER TABLE players ADD COLUMN parent_token CHAR(48) NULL DEFAULT NULL AFTER scout_id');
+    $db->query('ALTER TABLE players ADD UNIQUE KEY players_parent_token (parent_token)');
+}
+
+function newParentToken(): string {
+    return bin2hex(random_bytes(24));
+}
+
+function parentLinkUrl(string $token): string {
+    return 'https://team.app1x.online/ouder.php?t=' . $token;
+}
+
+function parentMessage(string $name, string $url): string {
+    return "Hoi, voor de kleding van 14-2 kun je de maten van {$name} invullen via deze link:\n{$url}";
+}
+
+function parentWhatsAppUrl(string $name, string $url): string {
+    return 'https://wa.me/?text=' . rawurlencode(parentMessage($name, $url));
+}
+
+function parentAllowedTypeIds(array $p): array {
+    $need = (($p['position'] ?? '') === 'goalkeeper') ? [9, 4, 10] : [1, 4, 3, 7];
+    return array_values(array_unique(array_merge($need, [11, 12])));
+}
+
+function findPlayerByParentToken(mysqli $db, string $token): ?array {
+    $token = strtolower(trim($token));
+    if (!preg_match('/^[a-f0-9]{48}$/', $token)) {
+        return null;
+    }
+    ensureParentTokenColumn($db);
+    $st = $db->prepare("SELECT * FROM players WHERE parent_token=? AND status='active' LIMIT 1");
+    $st->bind_param('s', $token);
+    $st->execute();
+    $row = $st->get_result()->fetch_assoc();
+    if (!$row) {
+        return null;
+    }
+    $row['id'] = (int) $row['id'];
+    return $row;
+}
+
+function playerParentToken(mysqli $db, int $playerId, bool $rotate = false): string {
+    ensureParentTokenColumn($db);
+    $chk = $db->prepare('SELECT id, parent_token FROM players WHERE id=? AND status=? LIMIT 1');
+    $status = 'active';
+    $chk->bind_param('is', $playerId, $status);
+    $chk->execute();
+    $row = $chk->get_result()->fetch_assoc();
+    if (!$row) {
+        throw new RuntimeException('Speler niet gevonden');
+    }
+    if (!$rotate && !empty($row['parent_token'])) {
+        return (string) $row['parent_token'];
+    }
+    for ($i = 0; $i < 6; $i++) {
+        $token = newParentToken();
+        $upd = $db->prepare('UPDATE players SET parent_token=?, updated_at=NOW() WHERE id=?');
+        $upd->bind_param('si', $token, $playerId);
+        if ($upd->execute()) {
+            return $token;
+        }
+        if ((int) $db->errno !== 1062) {
+            throw new RuntimeException('Kon geen ouderlink maken');
+        }
+    }
+    throw new RuntimeException('Kon geen ouderlink maken');
+}
+
+function parentSaveBlocked(?string &$untilHuman = null): bool {
+    $file = __DIR__ . '/.data/parent-save-lock.json';
+    if (!is_readable($file)) {
+        return false;
+    }
+    $data = json_decode((string) file_get_contents($file), true);
+    if (!is_array($data)) {
+        return false;
+    }
+    $row = $data[clientIp()] ?? null;
+    if (!is_array($row)) {
+        return false;
+    }
+    $until = (int) ($row['until'] ?? 0);
+    if ($until > time()) {
+        $untilHuman = date('H:i', $until);
+        return true;
+    }
+    return false;
+}
+
+function registerParentSave(): void {
+    $file = __DIR__ . '/.data/parent-save-lock.json';
+    $dir = dirname($file);
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0750, true);
+    }
+    $data = [];
+    if (is_readable($file)) {
+        $parsed = json_decode((string) file_get_contents($file), true);
+        $data = is_array($parsed) ? $parsed : [];
+    }
+    $ip = clientIp();
+    $row = $data[$ip] ?? ['n' => 0, 'window' => time(), 'until' => 0];
+    $window = (int) ($row['window'] ?? 0);
+    $n = (int) ($row['n'] ?? 0);
+    if (time() - $window > 600) {
+        $window = time();
+        $n = 0;
+    }
+    $n++;
+    $until = (int) ($row['until'] ?? 0);
+    if ($n >= 25) {
+        $until = time() + 15 * 60;
+        $n = 0;
+        $window = time();
+    }
+    $data[$ip] = ['n' => $n, 'window' => $window, 'until' => $until, 't' => time()];
+    file_put_contents($file, json_encode($data), LOCK_EX);
+}
+
 function startTeamSession(): void {
     if (session_status() === PHP_SESSION_ACTIVE) {
         return;
@@ -451,6 +581,7 @@ function sizeSelect(int $tid, string $current, string $who, int $id, bool $na = 
     return $html;
 }
 
+ensureParentTokenColumn($mysqli);
 startTeamSession();
 $canEdit = canEdit();
 $csrf = csrfToken();

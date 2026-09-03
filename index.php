@@ -114,6 +114,25 @@ $newPlayers = array_values(array_filter($active, fn($p) => count($p['missing']) 
 $orderPlayers = array_values(array_filter($active, fn($p) => count($p['to_order']) > 0));
 $guestPlayers = array_values(array_filter($players, fn($p) => (int) ($p['is_guest'] ?? 0) === 1 && ($p['status'] ?? '') === 'active'));
 
+$parentLinks = [];
+if ($canEdit) {
+    $linkPlayers = [];
+    foreach (array_merge($active, $guestPlayers) as $lp) {
+        $linkPlayers[(int) $lp['id']] = $lp;
+    }
+    foreach ($linkPlayers as $lp) {
+        $tok = playerParentToken($mysqli, (int) $lp['id']);
+        $url = parentLinkUrl($tok);
+        $nm = fullName($lp);
+        $parentLinks[(int) $lp['id']] = [
+            'name' => $nm,
+            'url' => $url,
+            'wa' => parentWhatsAppUrl($nm, $url),
+            'missing' => (int) ($lp['miss'] ?? 0),
+        ];
+    }
+}
+
 $moos = null;
 foreach ($active as $cand) {
     if (strcasecmp((string) $cand['first_name'], 'Moos') === 0) {
@@ -578,6 +597,7 @@ tbody tr:hover td.name{background:var(--raise)}
   <nav class="nav">
     <a href="#bestel">Bestellijst</a>
     <a href="#opmeten">Opmeten</a>
+    <a href="#ouders">Ouderlinks</a>
     <a href="#spelers">Spelers</a>
     <a href="#maten">Maatverdeling</a>
     <a href="#matrix">Matrix</a>
@@ -597,7 +617,7 @@ tbody tr:hover td.name{background:var(--raise)}
   <?php if ($canEdit): ?>
   <div class="note editbar">Bewerkmodus aan. Seizoen 26/27: iedereen krijgt een nieuwe basisset. Pas maten aan en druk op <b>Opslaan</b>. Pas als de set binnen is: <b>In bezit</b>.</div>
   <?php else: ?>
-  <div class="note">Seizoen 26/27: voor iedereen een nieuwe set (shirt, broek, sokken, grip; keepers: keepershirt, broek, keepersokken). Posities komen live uit scout.app1x.online. <b>Maten invullen</b> met pincode als iemand is gegroeid.</div>
+  <div class="note">Seizoen 26/27: voor iedereen een nieuwe set (shirt, broek, sokken, grip; keepers: keepershirt, broek, keepersokken). Posities komen live uit scout.app1x.online. <b>Maten invullen</b> met pincode, of stuur ouders een eigen link.</div>
   <?php endif; ?>
 
   <div class="stats">
@@ -719,6 +739,41 @@ tbody tr:hover td.name{background:var(--raise)}
     <?php endif; ?>
   </div>
 
+  <div class="section" id="ouders">
+    <h3>Ouderlinks</h3>
+    <?php if (!$canEdit): ?>
+    <p class="sub">Met pincode kun je per speler een eigen link maken. Ouders vullen daar alleen de maten van hun kind in en slaan op. Open <b>Maten invullen</b> om de links te zien.</p>
+    <?php else: ?>
+    <p class="sub">Elke speler heeft een eigen link. Kopieer die of stuur hem via WhatsApp. Een nieuwe link maakt de oude ongeldig.</p>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="name">Speler</th>
+            <th>Open</th>
+            <th>Link</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($parentLinks as $pid => $pl): ?>
+          <tr>
+            <td class="name"><?= h($pl['name']) ?></td>
+            <td><?= (int) $pl['missing'] > 0 ? (int) $pl['missing'] . ' maat' : 'ok' ?></td>
+            <td class="left">
+              <div class="actions" style="margin:0">
+                <button type="button" class="btn dark parent-copy" data-url="<?= h($pl['url']) ?>">Kopiëren</button>
+                <a class="btn" href="<?= h($pl['wa']) ?>" target="_blank" rel="noopener">WhatsApp</a>
+                <button type="button" class="btn parent-rotate" data-id="<?= (int) $pid ?>">Nieuwe link</button>
+              </div>
+            </td>
+          </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+    <?php endif; ?>
+  </div>
+
   <div class="section" id="spelers">
     <h3>Spelers</h3>
     <p class="sub">Gegroepeerd op scoutingpositie (CAM, CDM, K, …). Wijziging in scout.app1x.online komt hier terug.</p>
@@ -786,6 +841,10 @@ tbody tr:hover td.name{background:var(--raise)}
               <div class="actions">
                 <button type="button" class="btn dark save-one" data-who="player" data-id="<?= (int) $p['id'] ?>">Opslaan</button>
                 <button type="button" class="btn save-one" data-who="player" data-id="<?= (int) $p['id'] ?>" data-mode="active">In bezit</button>
+                <?php if (isset($parentLinks[(int) $p['id']])): $pl = $parentLinks[(int) $p['id']]; ?>
+                <button type="button" class="btn parent-copy" data-url="<?= h($pl['url']) ?>">Link ouders</button>
+                <a class="btn" href="<?= h($pl['wa']) ?>" target="_blank" rel="noopener">WhatsApp</a>
+                <?php endif; ?>
               </div>
             <?php endif; ?>
           </div>
@@ -1044,6 +1103,31 @@ document.getElementById('saveAllBtn')?.addEventListener('click', async ()=>{
   if(!out.ok){ toast(out.error||'Opslaan mislukt'); return; }
   toast('Alles opgeslagen');
   location.reload();
+});
+async function copyText(text){
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch(e) {
+    return false;
+  }
+}
+document.querySelectorAll('.parent-copy').forEach(btn=>{
+  btn.addEventListener('click', async ()=>{
+    const url=btn.dataset.url||'';
+    if(!url) return;
+    if(await copyText(url)) toast('Link gekopieerd');
+    else window.prompt('Kopieer deze link', url);
+  });
+});
+document.querySelectorAll('.parent-rotate').forEach(btn=>{
+  btn.addEventListener('click', async ()=>{
+    if(!confirm('De oude ouderlink stopt dan met werken. Nieuwe link maken?')) return;
+    const out=await api({action:'parent_rotate', csrf:TEAM.csrf, id:+btn.dataset.id});
+    if(!out.ok){ toast(out.error||'Mislukt'); return; }
+    if(await copyText(out.url||'')) toast('Nieuwe link gekopieerd');
+    location.reload();
+  });
 });
 </script>
 </body>

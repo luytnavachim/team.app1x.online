@@ -124,6 +124,17 @@ $newPlayers = array_values(array_filter($active, fn($p) => count($p['missing']) 
 $orderPlayers = array_values(array_filter($active, fn($p) => count($p['to_order']) > 0));
 $guestPlayers = array_values(array_filter($players, fn($p) => (int) ($p['is_guest'] ?? 0) === 1 && ($p['status'] ?? '') === 'active'));
 
+$parentFilled = array_values(array_filter($active, static fn($p) => !empty($p['parent_saved_at'])));
+usort($parentFilled, static fn($a, $b) => strcmp((string) ($b['parent_saved_at'] ?? ''), (string) ($a['parent_saved_at'] ?? '')));
+$parentFillJs = array_map(static function ($p) {
+    $ts = strtotime((string) $p['parent_saved_at']);
+    return [
+        'id' => (int) $p['id'],
+        'name' => fullName($p),
+        'at' => $ts ? $ts * 1000 : 0,
+    ];
+}, $parentFilled);
+
 $parentLinks = [];
 if ($canEdit) {
     $linkPlayers = [];
@@ -440,12 +451,23 @@ button.btn{font-family:inherit;cursor:pointer}
 .editbar b{color:var(--accent-text)}
 
 /* ---------- stats ---------- */
-.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:16px}
 @media(max-width:760px){.stats{grid-template-columns:repeat(2,1fr)}}
 .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:13px 14px}
 .stat b{display:block;font-size:27px;line-height:1.05;font-weight:800;letter-spacing:-1px}
 .stat span{display:block;margin-top:4px;font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.2px}
 .stat.accent b{color:var(--accent-text)}
+.nav .count{
+  display:inline-block;min-width:1.3em;margin-left:5px;padding:1px 6px;border-radius:999px;
+  background:var(--accent);color:var(--on-accent);font-size:10px;font-weight:800;line-height:1.4;text-align:center;
+}
+.nav .count.wait{background:var(--warn);color:#12151A}
+.note.alert{
+  border-left-color:var(--green);background:var(--greenbg);color:var(--ink);
+}
+.note.alert b{color:var(--green)}
+.note.alert.hidden{display:none}
+.note .okbtn{margin-left:8px}
 .progress{height:5px;background:var(--raise);border-radius:99px;overflow:hidden;margin-top:9px}
 .progress i{display:block;height:100%;background:linear-gradient(90deg,var(--accent-dim),var(--accent));border-radius:99px}
 
@@ -513,6 +535,7 @@ td.wait{background:var(--warnbg);color:var(--warn);font-weight:700}
 td.na{background:transparent;color:var(--na)}
 tbody tr:hover td{background-color:var(--hover)}
 tbody tr:hover td.name{background:var(--raise)}
+tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
 
 /* ---------- filters ---------- */
 .filters{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}
@@ -596,7 +619,7 @@ tbody tr:hover td.name{background:var(--raise)}
         --warn:#a16207;--warnbg:#fef3c7;--na:#71717a;--nabg:#fafafa}
   html{color-scheme:light}
   body{background:#fff;color:#111}
-  .navwrap,.filters,.actions,.note,.toast,.modal,.theme-switch{display:none !important}
+  .navwrap,.filters,.actions,.note,.toast,.modal,.theme-switch,#parentAlert{display:none !important}
   .section,.featured,.card{break-inside:avoid;border:1px solid #d4d4d8}
   .featured{background:#fff;color:#111}
   .featured p,.pill{color:#333}
@@ -629,7 +652,7 @@ tbody tr:hover td.name{background:var(--raise)}
   <nav class="nav">
     <a href="#bestel">Bestellijst</a>
     <a href="#opmeten">Opmeten</a>
-    <a href="#ouders">Ouderlinks</a>
+    <a href="#ouders">Ouderlinks<?php if ($parentFilled): ?> <span class="count" id="ouderNavCount"><?= count($parentFilled) ?></span><?php endif; ?></a>
     <a href="#spelers">Spelers</a>
     <a href="#maten">Maatverdeling</a>
     <a href="#matrix">Matrix</a>
@@ -652,6 +675,12 @@ tbody tr:hover td.name{background:var(--raise)}
   <div class="note">Seizoen 26/27: voor iedereen een nieuwe set (shirt, broek, sokken, grip; keepers: keepershirt, broek, keepersokken). Posities komen live uit scout.app1x.online. <b>Maten invullen</b> met pincode. Daar kies je ook wat ouders te zien krijgen.</div>
   <?php endif; ?>
 
+  <div class="note alert hidden" id="parentAlert">
+    <b>Nieuw ingevuld:</b> <span id="parentAlertNames"></span>
+    <a href="#ouders">Bekijken</a>
+    <button type="button" class="btn okbtn" id="parentAlertOk">Gezien</button>
+  </div>
+
   <div class="stats">
     <div class="stat"><b><?= count($active) ?></b><span>spelers in 14-2</span></div>
     <div class="stat accent">
@@ -660,7 +689,23 @@ tbody tr:hover td.name{background:var(--raise)}
     </div>
     <div class="stat"><b><?= count($newPlayers) ?></b><span>nog opmeten</span></div>
     <div class="stat"><b><?= count($orderPlayers) ?></b><span>nieuwe set bestellen</span></div>
+    <div class="stat accent">
+      <b><?= count($parentFilled) ?>/<?= count($active) ?></b><span>ouders ingevuld</span>
+      <div class="progress"><i style="width:<?= count($active) ? round(100 * count($parentFilled) / count($active)) : 0 ?>%"></i></div>
+    </div>
   </div>
+
+  <?php if ($parentFilled): ?>
+  <div class="featured" id="ouder-sein">
+    <h2>Ouders hebben ingevuld</h2>
+    <p><?= count($parentFilled) ?> van <?= count($active) ?> · nieuwste eerst. Open de site later opnieuw: nieuwe namen krijgen een seintje bovenaan.</p>
+    <div class="pills">
+      <?php foreach ($parentFilled as $pf): ?>
+        <span class="pill ok"><?= h(fullName($pf)) ?> · <?= h(date('d-m H:i', strtotime((string) $pf['parent_saved_at']))) ?></span>
+      <?php endforeach; ?>
+    </div>
+  </div>
+  <?php endif; ?>
 
   <?php if ($moos): ?>
   <div class="featured">
@@ -806,9 +851,9 @@ tbody tr:hover td.name{background:var(--raise)}
               $defaults = parentDefaultTypeIds($pl['player']);
               $savedAt = $pl['saved'] ? date('d-m H:i', strtotime((string) $pl['saved'])) : '';
           ?>
-          <tr>
+          <tr<?= $savedAt !== '' ? ' class="parent-done"' : '' ?>>
             <td class="name"><?= h($pl['name']) ?><?php if ($pl['custom']): ?><div class="tiny">aangepast</div><?php endif; ?></td>
-            <td><?= $savedAt !== '' ? 'ingevuld '.$savedAt : ((int) $pl['missing'] > 0 ? (int) $pl['missing'].' open' : 'nog niet') ?></td>
+            <td class="<?= $savedAt !== '' ? 'ok' : 'no' ?>"><?= $savedAt !== '' ? 'ingevuld '.$savedAt : 'nog niet' ?></td>
             <td class="left">
               <?= parentChecksHtml('player', $choices, $pl['types'], (int) $pid, $defaults) ?>
               <?php if ($pl['custom']): ?>
@@ -866,6 +911,9 @@ tbody tr:hover td.name{background:var(--raise)}
               $meta[] = $voetLabel((string) $p['voet']);
           }
           $meta[] = $p['complete'] ? 'set ontvangen' : ($p['to_order'] ? 'nieuwe set bestellen' : $p['miss'].' open');
+          if (!empty($p['parent_saved_at'])) {
+              $meta[] = 'ouder ingevuld';
+          }
         ?>
         <article class="card<?= $isMoos ? ' moos' : '' ?><?= $p['complete'] ? '' : ' gap' ?>"
                  data-pos="<?= h($p['position'] ?? '') ?>">
@@ -1074,7 +1122,7 @@ tbody tr:hover td.name{background:var(--raise)}
   });
   apply(theme());
 })();
-const TEAM = { csrf: <?= json_encode($csrf) ?>, editing: <?= $canEdit ? 'true' : 'false' ?> };
+const TEAM = { csrf: <?= json_encode($csrf) ?>, editing: <?= $canEdit ? 'true' : 'false' ?>, parentFills: <?= json_encode($parentFillJs, JSON_UNESCAPED_UNICODE) ?> };
 function toast(msg){
   const el=document.getElementById('toast');
   el.textContent=msg;
@@ -1082,6 +1130,27 @@ function toast(msg){
   clearTimeout(toast._t);
   toast._t=setTimeout(()=>el.classList.remove('show'), 2200);
 }
+(function(){
+  const KEY='kitroom-parent-seen';
+  const fills=Array.isArray(TEAM.parentFills)?TEAM.parentFills:[];
+  const seen=parseInt(localStorage.getItem(KEY)||'0',10)||0;
+  const neu=fills.filter(f=>f.at>seen);
+  const box=document.getElementById('parentAlert');
+  const names=document.getElementById('parentAlertNames');
+  const nav=document.getElementById('ouderNavCount');
+  function markSeen(){
+    const latest=fills.reduce((m,f)=>Math.max(m, f.at||0), Date.now());
+    try { localStorage.setItem(KEY, String(latest)); } catch(e) {}
+    box?.classList.add('hidden');
+    if(nav){ nav.textContent=String(fills.length); nav.classList.remove('wait'); }
+  }
+  if(neu.length && box && names){
+    names.textContent=neu.map(f=>f.name).join(', ');
+    box.classList.remove('hidden');
+    if(nav){ nav.textContent=String(neu.length); nav.classList.add('wait'); }
+  }
+  document.getElementById('parentAlertOk')?.addEventListener('click', markSeen);
+})();
 async function api(payload){
   const res=await fetch('save.php', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload), credentials:'same-origin'});
   let data={};

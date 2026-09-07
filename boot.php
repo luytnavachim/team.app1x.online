@@ -361,11 +361,13 @@ function parentFormPath(): string {
 }
 
 function parentTypeChoices(string $kind): array {
-    return $kind === 'keeper' ? [9, 4, 10, 11, 12] : [1, 4, 3, 7, 11, 12];
+    return $kind === 'keeper'
+        ? [9, 4, 13, 14, 10, 11, 12]
+        : [1, 4, 13, 14, 3, 7, 11, 12];
 }
 
 function allParentTypeIds(): array {
-    return [1, 4, 3, 7, 9, 10, 11, 12];
+    return [1, 4, 3, 7, 9, 10, 11, 12, 13, 14];
 }
 
 function shortTypeName(int $tid, array $types = []): string {
@@ -448,10 +450,21 @@ function normalizeParentTypeIds(array $ids, array $allowed): array {
 function defaultParentFormSettings(): array {
     return [
         'note' => '',
-        'field' => [1, 4, 3, 7],
-        'keeper' => [9, 4, 10],
+        'field' => [1, 4, 13, 14, 3, 7],
+        'keeper' => [9, 4, 13, 14, 10],
         'players' => [],
+        'v' => 2,
     ];
+}
+
+function withParentJacketTypes(array $ids, array $allowed): array {
+    $ids = normalizeParentTypeIds($ids, $allowed);
+    foreach ([13, 14] as $tid) {
+        if (in_array($tid, $allowed, true) && !in_array($tid, $ids, true)) {
+            $ids[] = $tid;
+        }
+    }
+    return $ids;
 }
 
 function loadParentFormSettings(bool $reload = false): array {
@@ -475,6 +488,11 @@ function loadParentFormSettings(bool $reload = false): array {
     $settings['note'] = mb_substr(trim((string) ($raw['note'] ?? '')), 0, 280);
     $field = normalizeParentTypeIds($raw['field'] ?? $def['field'], parentTypeChoices('field'));
     $keeper = normalizeParentTypeIds($raw['keeper'] ?? $def['keeper'], parentTypeChoices('keeper'));
+    $version = (int) ($raw['v'] ?? 1);
+    if ($version < 2) {
+        $field = withParentJacketTypes($field, parentTypeChoices('field'));
+        $keeper = withParentJacketTypes($keeper, parentTypeChoices('keeper'));
+    }
     $settings['field'] = $field !== [] ? $field : $def['field'];
     $settings['keeper'] = $keeper !== [] ? $keeper : $def['keeper'];
     $players = [];
@@ -487,11 +505,15 @@ function loadParentFormSettings(bool $reload = false): array {
             continue;
         }
         $norm = normalizeParentTypeIds($ids, allParentTypeIds());
+        if ($version < 2) {
+            $norm = withParentJacketTypes($norm, allParentTypeIds());
+        }
         if ($norm !== []) {
             $players[$pid] = $norm;
         }
     }
     $settings['players'] = $players;
+    $settings['v'] = 2;
     return $cached = $settings;
 }
 
@@ -519,6 +541,7 @@ function saveParentFormSettings(array $settings): void {
         'field' => $field !== [] ? $field : $def['field'],
         'keeper' => $keeper !== [] ? $keeper : $def['keeper'],
         'players' => $players,
+        'v' => 2,
     ];
     file_put_contents(parentFormPath(), json_encode($clean, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
     loadParentFormSettings(true);

@@ -798,7 +798,7 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
     <p class="sub">Kies eerst wat ouders te zien krijgen. Daarna kopieer je de link of stuur je hem via WhatsApp. Een nieuwe link maakt de oude ongeldig.</p>
     <div class="parent-defaults" id="parentDefaults">
       <h4>Wat ouders invullen</h4>
-      <p class="hint">Dit is de standaard. Per speler kun je hieronder afwijken. Polo en zip staan uit, tenzij je ze aanzet.</p>
+      <p class="hint">Dit is de standaard. Per speler kun je hieronder afwijken. Regenjack en winterjas staan aan; polo en zip uit, tenzij je ze aanzet.</p>
       <div class="line">Veldspelers</div>
       <?= parentChecksHtml('field', parentTypeChoices('field'), $parentForm['field']) ?>
       <div class="line">Keepers</div>

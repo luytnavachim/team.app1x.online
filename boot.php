@@ -299,6 +299,7 @@ function packageCatalog(): array {
         [
             'id' => 'shirt',
             'name' => 'Trainingsshirt',
+            'article' => '',
             'size_key' => 'shirt',
             'rohda' => true,
             'initials' => true,
@@ -308,7 +309,8 @@ function packageCatalog(): array {
         ],
         [
             'id' => 'rain',
-            'name' => 'Regenjack',
+            'name' => 'Field Jack',
+            'article' => '454002',
             'size_key' => 'jacket',
             'rohda' => true,
             'initials' => true,
@@ -318,7 +320,8 @@ function packageCatalog(): array {
         ],
         [
             'id' => 'puffer',
-            'name' => 'Winterjas',
+            'name' => 'Prime Padded Jacket',
+            'article' => '456004',
             'size_key' => 'jacket',
             'rohda' => true,
             'initials' => true,
@@ -329,6 +332,7 @@ function packageCatalog(): array {
         [
             'id' => 'shorts',
             'name' => 'Broekje',
+            'article' => '',
             'size_key' => 'shorts',
             'rohda' => false,
             'initials' => true,
@@ -338,7 +342,8 @@ function packageCatalog(): array {
         ],
         [
             'id' => 'bag',
-            'name' => 'Sporttas',
+            'name' => 'Pro Bag Prime',
+            'article' => '484837',
             'size_key' => 'bag',
             'rohda' => true,
             'initials' => true,
@@ -349,6 +354,7 @@ function packageCatalog(): array {
         [
             'id' => 'socks',
             'name' => 'Sokken',
+            'article' => '',
             'size_key' => 'socks',
             'rohda' => false,
             'initials' => false,
@@ -359,6 +365,7 @@ function packageCatalog(): array {
         [
             'id' => 'grip',
             'name' => 'Grip sokken',
+            'article' => '',
             'size_key' => 'grip',
             'rohda' => false,
             'initials' => false,
@@ -400,6 +407,7 @@ function buildPackageQuote(array $players): array {
             if (!isset($products[$id])) {
                 $products[$id] = [
                     'name' => $item['name'],
+                    'article' => (string) ($item['article'] ?? ''),
                     'place' => $item['place'],
                     'rohda' => $item['rohda'],
                     'initials' => $item['initials'],

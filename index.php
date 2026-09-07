@@ -323,11 +323,12 @@ if (isset($_GET['csv']) && $_GET['csv'] === 'offerte') {
     fputcsv($out, ['Sponsorlogo', $quote['brand']['sponsor'], '1 groot blok (Eckelboom / Triplet / R&J / Salland)'], ';');
     fputcsv($out, ['Naam op rug', $quote['brand']['name_back'], 'Alleen trainingsshirt'], ';');
     fputcsv($out, [], ';');
-    fputcsv($out, ['Product', 'Maat', 'Aantal', 'Rohda', 'Initialen', 'Sponsorblok', 'Naam rug', 'Voor'], ';');
+    fputcsv($out, ['Product', 'Artikel', 'Maat', 'Aantal', 'Rohda', 'Initialen', 'Sponsorblok', 'Naam rug', 'Voor'], ';');
     foreach ($quote['products'] as $prod) {
         foreach ($prod['sizes'] as $sz => $row) {
             fputcsv($out, [
                 $prod['name'],
+                $prod['article'] ?? '',
                 $sz,
                 $row['count'],
                 $prod['rohda'] ? $row['count'] : 0,
@@ -339,7 +340,7 @@ if (isset($_GET['csv']) && $_GET['csv'] === 'offerte') {
         }
     }
     fputcsv($out, [], ';');
-    fputcsv($out, ['Speler', 'Initialen', 'Shirt', 'Broekje', 'Sokken', 'Grip', 'Jack / jas', 'Tas'], ';');
+    fputcsv($out, ['Speler', 'Initialen', 'Shirt', 'Broekje', 'Sokken', 'Grip', 'Field Jack 454002', 'Prime Padded 456004', 'Pro Bag Prime 484837'], ';');
     foreach ($quote['people'] as $person) {
         $s = $person['sizes'];
         fputcsv($out, [
@@ -349,6 +350,7 @@ if (isset($_GET['csv']) && $_GET['csv'] === 'offerte') {
             $s['shorts'],
             $s['socks'],
             $s['grip'],
+            $s['jacket'],
             $s['jacket'],
             $s['bag'],
         ], ';');
@@ -802,7 +804,7 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
 
   <div class="section" id="offerte">
     <h3>Offerte · pakket 14-2</h3>
-    <p class="sub">Aantallen voor de leverancier: het kledingstuk zelf, het Rohda-logo, de initialen (zoals MvT) en het sponsorlogo als <b>1 groot blok</b> (Eckelboom, Triplet IT, R&amp;J, Salland). Jackmaat volgt uit shirtmaat (164→S, 176→M). <?= (int) $quote['n'] ?> spelers · <?= (int) $quote['pieces'] ?> stuks.</p>
+    <p class="sub">Aantallen voor de leverancier: het kledingstuk zelf, het Rohda-logo, de initialen (zoals MvT) en het sponsorlogo als <b>1 groot blok</b> (Eckelboom, Triplet IT, R&amp;J, Salland). Field Jack <b>454002</b>, Prime Padded Jacket <b>456004</b>, Pro Bag Prime <b>484837</b>. Jackmaat volgt uit shirtmaat (164→S, 176→M). <?= (int) $quote['n'] ?> spelers · <?= (int) $quote['pieces'] ?> stuks.</p>
     <img class="packshot" src="pakket-14-2.png" alt="Pakket 14-2: trainingsshirt, regenjack, winterjas, broekje, sporttas, sokken en grip sokken met Rohda-logo, initialen en sponsorblok">
     <div class="brandbits">
       <div class="stat accent"><b><?= (int) $quote['pieces'] ?></b><span>producten</span></div>
@@ -828,17 +830,17 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
           <tr>
             <td class="name">Rohda Raalte logo</td>
             <td><b><?= (int) $quote['brand']['rohda'] ?></b></td>
-            <td class="left">Clublogo op shirt, beide jassen en tas</td>
+            <td class="left">Clublogo op shirt, Field Jack, Prime Padded Jacket en Pro Bag Prime</td>
           </tr>
           <tr>
             <td class="name">Initialen</td>
             <td><b><?= (int) $quote['brand']['initials'] ?></b></td>
-            <td class="left">Per speler, zoals MvT · shirt, jassen, broekje, tas</td>
+            <td class="left">Per speler, zoals MvT · shirt, Field Jack, Prime Padded Jacket, broekje, Pro Bag Prime</td>
           </tr>
           <tr>
             <td class="name">Sponsorlogo</td>
             <td><b><?= (int) $quote['brand']['sponsor'] ?></b></td>
-            <td class="left">1 groot blok, niet 4 losse logo’s · shirt, jassen, tas</td>
+            <td class="left">1 groot blok, niet 4 losse logo’s · shirt, Field Jack, Prime Padded Jacket, Pro Bag Prime</td>
           </tr>
           <tr>
             <td class="name">Naam op rug</td>
@@ -854,6 +856,7 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
         <thead>
           <tr>
             <th class="name">Product</th>
+            <th>Artikel</th>
             <th>Maat</th>
             <th>Aantal</th>
             <th>Rohda</th>
@@ -867,6 +870,7 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
             <?php foreach ($prod['sizes'] as $sz => $row): ?>
             <tr>
               <td class="name"><?= h($prod['name']) ?><div class="place"><?= h($prod['place']) ?></div></td>
+              <td><?= h((string) ($prod['article'] ?? '')) ?></td>
               <td><?= h((string) $sz) ?></td>
               <td><b><?= (int) $row['count'] ?></b></td>
               <td><?= $prod['rohda'] ? (int) $row['count'] : '—' ?></td>
@@ -878,6 +882,7 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
           <?php endforeach; ?>
           <tr>
             <td class="name">Totaal stuks</td>
+            <td></td>
             <td></td>
             <td><b><?= (int) $quote['pieces'] ?></b></td>
             <td><b><?= (int) $quote['brand']['rohda'] ?></b></td>
@@ -899,8 +904,9 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
             <th>Broekje</th>
             <th>Sokken</th>
             <th>Grip</th>
-            <th>Jack / jas</th>
-            <th>Tas</th>
+            <th>Field Jack</th>
+            <th>Prime Padded</th>
+            <th>Pro Bag Prime</th>
           </tr>
         </thead>
         <tbody>
@@ -912,6 +918,7 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
             <td><?= h($s['shorts']) ?></td>
             <td><?= h($s['socks']) ?></td>
             <td><?= h($s['grip']) ?></td>
+            <td><?= h($s['jacket']) ?></td>
             <td><?= h($s['jacket']) ?></td>
             <td><?= h($s['bag']) ?></td>
           </tr>

@@ -247,6 +247,15 @@ function shortTypeName(int $tid, array $types = []): string {
     };
 }
 
+function typeOptionsHtml(array $types, string $placeholder = 'Type'): string {
+    $html = '<option value="">'.h($placeholder).'</option>';
+    foreach ($types as $tid => $t) {
+        $tid = (int) $tid;
+        $html .= '<option value="'.$tid.'">'.h(shortTypeName($tid, $types)).'</option>';
+    }
+    return $html;
+}
+
 function normalizeParentTypeIds(array $ids, array $allowed): array {
     $out = [];
     foreach ($ids as $id) {

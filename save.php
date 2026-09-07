@@ -159,6 +159,34 @@ if ($action === 'parent_form') {
     jsonOut(['ok' => false, 'error' => 'Onbekende instelling.'], 400);
 }
 
+if ($action === 'add_item') {
+    if (!canEdit()) {
+        jsonOut(['ok' => false, 'error' => 'Niet ingelogd.'], 401);
+    }
+    $token = (string) ($body['csrf'] ?? '');
+    if ($token === '' || !hash_equals(csrfToken(), $token)) {
+        jsonOut(['ok' => false, 'error' => 'Sessie verlopen. Vernieuw de pagina.'], 403);
+    }
+    $who = (string) ($body['who'] ?? '');
+    $id = (int) ($body['id'] ?? 0);
+    $tid = (int) ($body['tid'] ?? 0);
+    $size = (string) ($body['size'] ?? '');
+    $mode = (($body['mode'] ?? '') === 'active') ? 'active' : 'pending';
+    if ($id < 1 || $tid < 1 || !in_array($who, ['player', 'staff'], true)) {
+        jsonOut(['ok' => false, 'error' => 'Kies een speler en een item.'], 400);
+    }
+    if (sanitizeSize($size) === '') {
+        jsonOut(['ok' => false, 'error' => 'Kies een maat.'], 400);
+    }
+    $types = loadTypes($mysqli);
+    try {
+        upsertPersonItem($mysqli, $types, $who, $id, $tid, $size, $mode);
+    } catch (Throwable $e) {
+        jsonOut(['ok' => false, 'error' => $e->getMessage()], 400);
+    }
+    jsonOut(['ok' => true, 'saved' => 1]);
+}
+
 if ($action === 'save' || $action === 'save_all') {
     if (!canEdit()) {
         jsonOut(['ok' => false, 'error' => 'Niet ingelogd.'], 401);

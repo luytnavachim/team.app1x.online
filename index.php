@@ -92,6 +92,7 @@ foreach ($active as &$p) {
     $p['need'] = $need;
     $p['missing'] = [];
     $p['to_order'] = [];
+    $p['extra_order'] = [];
     foreach ($need as $tid) {
         $it = itemFor($p, $tid);
         if (isIssued($it)) {
@@ -101,6 +102,15 @@ foreach ($active as &$p) {
             $p['to_order'][] = $tid;
         } else {
             $p['missing'][] = $tid;
+        }
+    }
+    foreach ($p['items'] as $tid => $list) {
+        $tid = (int) $tid;
+        if (in_array($tid, $need, true)) {
+            continue;
+        }
+        if (isPendingItem(itemFor($p, $tid))) {
+            $p['extra_order'][] = $tid;
         }
     }
     $p['miss'] = count($p['missing']) + count($p['to_order']);
@@ -121,7 +131,7 @@ usort($active, static function ($a, $b) use ($posOrder) {
 
 $complete = count(array_filter($active, fn($p) => $p['complete']));
 $newPlayers = array_values(array_filter($active, fn($p) => count($p['missing']) > 0));
-$orderPlayers = array_values(array_filter($active, fn($p) => count($p['to_order']) > 0));
+$orderPlayers = array_values(array_filter($active, fn($p) => count($p['to_order']) > 0 || count($p['extra_order']) > 0));
 $guestPlayers = array_values(array_filter($players, fn($p) => (int) ($p['is_guest'] ?? 0) === 1 && ($p['status'] ?? '') === 'active'));
 
 $parentFilled = array_values(array_filter($active, static fn($p) => !empty($p['parent_saved_at'])));
@@ -208,6 +218,24 @@ foreach ($staff as $s) {
             'size' => $sz,
             'price' => priceFor($t, $sz !== '' ? $sz : 'M'),
             'staff' => true,
+        ];
+    }
+}
+foreach ($active as $p) {
+    foreach ($p['extra_order'] as $tid) {
+        $t = $types[$tid] ?? null;
+        $it = itemFor($p, $tid);
+        if (!$t || !$it) {
+            continue;
+        }
+        $sz = (string) ($it['size'] ?? '');
+        $gaps[] = [
+            'who' => fullName($p),
+            'player' => $p,
+            'tid' => $tid,
+            'type' => $t,
+            'size' => $sz,
+            'price' => priceFor($t, $sz !== '' ? $sz : 'M'),
         ];
     }
 }
@@ -581,6 +609,22 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
   font-family:inherit;cursor:pointer;
 }
 .size-select:hover{border-color:var(--accent)}
+.assign{
+  display:grid;grid-template-columns:minmax(140px,1.4fr) minmax(110px,1fr) 110px auto auto;
+  gap:8px;align-items:center;
+}
+.assign select,.addrow select{
+  width:100%;border:1px solid var(--line2);border-radius:8px;padding:8px 10px;
+  font-weight:700;font-size:12.5px;background:var(--raise);color:var(--ink);
+  font-family:inherit;cursor:pointer;
+}
+.assign select:hover,.addrow select:hover{border-color:var(--accent)}
+.addrow{display:grid;grid-template-columns:1fr 86px auto;gap:6px;margin-top:8px;align-items:center}
+@media(max-width:760px){
+  .assign{grid-template-columns:1fr}
+  .addrow{grid-template-columns:1fr 1fr}
+  .addrow .btn{grid-column:1 / -1}
+}
 
 /* ---------- modal / toast ---------- */
 .modal{position:fixed;inset:0;background:var(--overlay);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:40;padding:16px}
@@ -619,7 +663,7 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
         --warn:#a16207;--warnbg:#fef3c7;--na:#71717a;--nabg:#fafafa}
   html{color-scheme:light}
   body{background:#fff;color:#111}
-  .navwrap,.filters,.actions,.note,.toast,.modal,.theme-switch,#parentAlert{display:none !important}
+  .navwrap,.filters,.actions,.note,.toast,.modal,.theme-switch,#parentAlert,.assign,.addrow,#toewijzen{display:none !important}
   .section,.featured,.card{break-inside:avoid;border:1px solid #d4d4d8}
   .featured{background:#fff;color:#111}
   .featured p,.pill{color:#333}
@@ -654,6 +698,9 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
     <a href="#opmeten">Opmeten</a>
     <a href="#ouders">Ouderlinks<?php if ($parentFilled): ?> <span class="count" id="ouderNavCount"><?= count($parentFilled) ?></span><?php endif; ?></a>
     <a href="#spelers">Spelers</a>
+    <?php if ($canEdit): ?>
+    <a href="#toewijzen">Toewijzen</a>
+    <?php endif; ?>
     <a href="#maten">Maatverdeling</a>
     <a href="#matrix">Matrix</a>
     <a href="#staf">Staf</a>
@@ -876,9 +923,35 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
     <?php endif; ?>
   </div>
 
+  <?php if ($canEdit): ?>
+  <div class="section" id="toewijzen">
+    <h3>Item toewijzen</h3>
+    <p class="sub">Zoals in de oude kledingadministratie: kies een speler, een item uit de catalogus en een maat. <b>Bestellen</b> zet het op de bestellijst, <b>In bezit</b> als het al binnen is. Polo en zip staan niet in de basisset; die voeg je hier toe.</p>
+    <div class="assign" id="assignForm">
+      <select id="assignPerson">
+        <option value="">Kies speler…</option>
+        <optgroup label="Spelers">
+          <?php foreach ($active as $ap): ?>
+            <option value="player:<?= (int) $ap['id'] ?>"><?= h(fullName($ap)) ?></option>
+          <?php endforeach; ?>
+        </optgroup>
+        <optgroup label="Staf">
+          <?php foreach ($staff as $as): ?>
+            <option value="staff:<?= (int) $as['id'] ?>"><?= h(fullName($as)) ?> (staf)</option>
+          <?php endforeach; ?>
+        </optgroup>
+      </select>
+      <select id="assignType"><?= typeOptionsHtml($types, 'Kies item…') ?></select>
+      <select id="assignSize" disabled><option value="">Maat</option></select>
+      <button type="button" class="btn" id="assignPending">Bestellen</button>
+      <button type="button" class="btn dark" id="assignActive">In bezit</button>
+    </div>
+  </div>
+  <?php endif; ?>
+
   <div class="section" id="spelers">
     <h3>Spelers</h3>
-    <p class="sub">Gegroepeerd op scoutingpositie (CAM, CDM, K, …). Wijziging in scout.app1x.online komt hier terug.</p>
+    <p class="sub">Gegroepeerd op scoutingpositie (CAM, CDM, K, …). Wijziging in scout.app1x.online komt hier terug.<?= $canEdit ? ' Extra items (polo, zip, …) voeg je toe via <a href="#toewijzen">Toewijzen</a> of onderaan de kaart.' : '' ?></p>
     <div class="filters" id="playerFilters">
       <button class="on" data-f="all">Iedereen</button>
       <?php if ($guestPlayers): ?>
@@ -923,18 +996,27 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
           </div>
           <div class="meta"><?= h(implode(' · ', array_filter($meta))) ?></div>
           <div class="kit">
-            <?php foreach ($typeOrder as $tid):
+            <?php
+              $cardTypes = $typeOrder;
+              foreach (array_keys($p['items']) as $extraTid) {
+                  $extraTid = (int) $extraTid;
+                  if ($extraTid > 0 && !in_array($extraTid, $cardTypes, true)) {
+                      $cardTypes[] = $extraTid;
+                  }
+              }
+            ?>
+            <?php foreach ($cardTypes as $tid):
               if (!isset($types[$tid])) continue;
               $t = $types[$tid];
               $it = itemFor($p, $tid);
               $isReq = in_array($tid, $p['need'], true);
               $isKeeperOnly = in_array($tid, $KEEPER_ONLY, true) && ($p['position'] ?? '') !== 'goalkeeper';
-              $pending = isPendingItem($it) && $isReq;
+              $pending = isPendingItem($it);
               $cls = $it ? ($pending ? 'wait' : ($isReq ? 'ok' : 'extra')) : ($isKeeperOnly ? 'na' : ($isReq ? 'no' : 'extra'));
               $val = $it ? $it['size'] : ($isKeeperOnly ? 'n.v.t.' : ($isReq ? 'ontbreekt' : '—'));
             ?>
             <div class="row <?= $cls ?>">
-              <span><?= h($t['display_name']) ?><?= $pending ? ' · bestellen' : '' ?></span>
+              <span><?= h(shortTypeName($tid, $types)) ?><?= $pending ? ' · bestellen' : '' ?></span>
               <?php if ($canEdit && !$isKeeperOnly): ?>
                 <?= sizeSelect($tid, (string) ($it['size'] ?? ''), 'player', (int) $p['id']) ?>
               <?php else: ?>
@@ -943,6 +1025,11 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
             </div>
             <?php endforeach; ?>
             <?php if ($canEdit): ?>
+              <div class="addrow" data-who="player" data-id="<?= (int) $p['id'] ?>">
+                <select class="assign-type"><?= typeOptionsHtml($types, 'Item toevoegen…') ?></select>
+                <select class="assign-size" disabled><option value="">Maat</option></select>
+                <button type="button" class="btn dark assign-add">Toevoegen</button>
+              </div>
               <div class="actions">
                 <button type="button" class="btn dark save-one" data-who="player" data-id="<?= (int) $p['id'] ?>">Opslaan</button>
                 <button type="button" class="btn save-one" data-who="player" data-id="<?= (int) $p['id'] ?>" data-mode="active">In bezit</button>
@@ -1036,7 +1123,7 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
               $cls = isIssued($it) ? 'ok' : ($pending ? 'wait' : 'no');
           ?>
             <div class="row <?= $cls ?>">
-              <span><?= h($types[$tid]['display_name'] ?? '') ?><?= $pending ? ' · bestellen' : '' ?></span>
+              <span><?= h(shortTypeName($tid, $types)) ?><?= $pending ? ' · bestellen' : '' ?></span>
               <?php if ($canEdit): ?>
                 <?= sizeSelect($tid, (string) ($it['size'] ?? ''), 'staff', (int) $s['id']) ?>
               <?php else: ?>
@@ -1045,6 +1132,11 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
             </div>
           <?php endforeach; ?>
           <?php if ($canEdit): ?>
+            <div class="addrow" data-who="staff" data-id="<?= (int) $s['id'] ?>">
+              <select class="assign-type"><?= typeOptionsHtml($types, 'Item toevoegen…') ?></select>
+              <select class="assign-size" disabled><option value="">Maat</option></select>
+              <button type="button" class="btn dark assign-add">Toevoegen</button>
+            </div>
             <div class="actions">
               <button type="button" class="btn dark save-one" data-who="staff" data-id="<?= (int) $s['id'] ?>">Opslaan</button>
               <button type="button" class="btn save-one" data-who="staff" data-id="<?= (int) $s['id'] ?>" data-mode="active">In bezit</button>
@@ -1122,7 +1214,15 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
   });
   apply(theme());
 })();
-const TEAM = { csrf: <?= json_encode($csrf) ?>, editing: <?= $canEdit ? 'true' : 'false' ?>, parentFills: <?= json_encode($parentFillJs, JSON_UNESCAPED_UNICODE) ?> };
+const TEAM = {
+  csrf: <?= json_encode($csrf) ?>,
+  editing: <?= $canEdit ? 'true' : 'false' ?>,
+  parentFills: <?= json_encode($parentFillJs, JSON_UNESCAPED_UNICODE) ?>,
+  types: <?= json_encode(array_values(array_map(static function ($t) use ($types) {
+      $id = (int) $t['id'];
+      return ['id' => $id, 'name' => shortTypeName($id, $types), 'sizes' => sizeOptions($id)];
+  }, $types)), JSON_UNESCAPED_UNICODE) ?>
+};
 function toast(msg){
   const el=document.getElementById('toast');
   el.textContent=msg;
@@ -1298,6 +1398,45 @@ document.querySelectorAll('.parent-reset').forEach(btn=>{
     const out=await api({action:'parent_form', csrf:TEAM.csrf, scope:'player', id:+btn.dataset.id, reset:true});
     if(!out.ok){ toast(out.error||'Mislukt'); return; }
     location.reload();
+  });
+});
+function typeSizes(tid){
+  const t=(TEAM.types||[]).find(x=>x.id===tid);
+  return t && Array.isArray(t.sizes) ? t.sizes : [];
+}
+function fillSizeSelect(sel, tid, current){
+  const sizes=typeSizes(tid);
+  sel.innerHTML='<option value="">Maat</option>'+sizes.map(s=>'<option value="'+String(s).replace(/"/g,'')+'">'+String(s)+'</option>').join('');
+  sel.disabled=sizes.length<1;
+  if(current && sizes.includes(current)) sel.value=current;
+}
+async function addItem(who, id, tid, size, mode){
+  if(!who || !id || !tid){ toast('Kies een speler en een item'); return; }
+  if(!size){ toast('Kies een maat'); return; }
+  const out=await api({action:'add_item', csrf:TEAM.csrf, who, id, tid, size, mode: mode||'pending'});
+  if(!out.ok){ toast(out.error||'Toevoegen mislukt'); return; }
+  toast(mode==='active' ? 'In bezit gezet' : 'Item toegevoegd');
+  location.reload();
+}
+document.getElementById('assignType')?.addEventListener('change', e=>{
+  fillSizeSelect(document.getElementById('assignSize'), +e.target.value);
+});
+async function submitAssign(mode){
+  const person=(document.getElementById('assignPerson')?.value||'').split(':');
+  await addItem(person[0], +person[1], +document.getElementById('assignType')?.value, document.getElementById('assignSize')?.value, mode);
+}
+document.getElementById('assignPending')?.addEventListener('click', ()=>submitAssign('pending'));
+document.getElementById('assignActive')?.addEventListener('click', ()=>submitAssign('active'));
+document.querySelectorAll('.addrow .assign-type').forEach(sel=>{
+  sel.addEventListener('change', ()=>{
+    const sizeSel=sel.parentElement.querySelector('.assign-size');
+    fillSizeSelect(sizeSel, +sel.value);
+  });
+});
+document.querySelectorAll('.addrow .assign-add').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const row=btn.closest('.addrow');
+    addItem(row.dataset.who, +row.dataset.id, +row.querySelector('.assign-type').value, row.querySelector('.assign-size').value, 'pending');
   });
 });
 </script>

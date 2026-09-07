@@ -187,6 +187,62 @@ if ($action === 'add_item') {
     jsonOut(['ok' => true, 'saved' => 1]);
 }
 
+if ($action === 'add_package') {
+    if (!canEdit()) {
+        jsonOut(['ok' => false, 'error' => 'Niet ingelogd.'], 401);
+    }
+    $token = (string) ($body['csrf'] ?? '');
+    if ($token === '' || !hash_equals(csrfToken(), $token)) {
+        jsonOut(['ok' => false, 'error' => 'Sessie verlopen. Vernieuw de pagina.'], 403);
+    }
+    $who = (string) ($body['who'] ?? 'player');
+    $id = (int) ($body['id'] ?? 0);
+    $mode = (($body['mode'] ?? '') === 'active') ? 'active' : 'pending';
+    if ($id < 1 || !in_array($who, ['player', 'staff'], true)) {
+        jsonOut(['ok' => false, 'error' => 'Kies een speler.'], 400);
+    }
+    $types = loadTypes($mysqli);
+    try {
+        $out = assignPackageToPerson($mysqli, $types, $who, $id, $mode, true);
+    } catch (Throwable $e) {
+        jsonOut(['ok' => false, 'error' => $e->getMessage()], 400);
+    }
+    if ($out['saved'] < 1 && $out['skipped'] !== []) {
+        jsonOut(['ok' => false, 'error' => 'Geen shirtmaat, dus geen jackmaat. Vul eerst het shirt in.'], 400);
+    }
+    jsonOut(['ok' => true, 'saved' => $out['saved'], 'skipped' => $out['skipped']]);
+}
+
+if ($action === 'add_package_all') {
+    if (!canEdit()) {
+        jsonOut(['ok' => false, 'error' => 'Niet ingelogd.'], 401);
+    }
+    $token = (string) ($body['csrf'] ?? '');
+    if ($token === '' || !hash_equals(csrfToken(), $token)) {
+        jsonOut(['ok' => false, 'error' => 'Sessie verlopen. Vernieuw de pagina.'], 403);
+    }
+    $mode = (($body['mode'] ?? '') === 'active') ? 'active' : 'pending';
+    $types = loadTypes($mysqli);
+    $saved = 0;
+    $people = 0;
+    $res = $mysqli->query("SELECT id FROM players WHERE status='active' AND IFNULL(is_guest,0)=0 ORDER BY last_name, first_name");
+    $mysqli->begin_transaction();
+    try {
+        while ($row = $res->fetch_assoc()) {
+            $out = assignPackageToPerson($mysqli, $types, 'player', (int) $row['id'], $mode, true);
+            if ($out['saved'] > 0) {
+                $people++;
+                $saved += $out['saved'];
+            }
+        }
+        $mysqli->commit();
+    } catch (Throwable $e) {
+        $mysqli->rollback();
+        jsonOut(['ok' => false, 'error' => $e->getMessage()], 400);
+    }
+    jsonOut(['ok' => true, 'saved' => $saved, 'people' => $people]);
+}
+
 if ($action === 'save' || $action === 'save_all') {
     if (!canEdit()) {
         jsonOut(['ok' => false, 'error' => 'Niet ingelogd.'], 401);

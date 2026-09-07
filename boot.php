@@ -179,6 +179,14 @@ function syncPlayersFromScout(mysqli $db, array &$players, array $portal): int {
     return $changed;
 }
 
+function packageTypeIds(): array {
+    return [13, 14, 15];
+}
+
+function isPackageType(int $tid): bool {
+    return in_array($tid, packageTypeIds(), true);
+}
+
 function sizeOptions(int $tid): array {
     $youth = ['140', '152', '164', '176'];
     $adult = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
@@ -186,9 +194,49 @@ function sizeOptions(int $tid): array {
     return match ($tid) {
         1, 4 => array_merge($youth, $adult),
         3, 7, 10 => $socks,
-        9, 11, 12 => $adult,
+        9, 11, 12, 13, 14 => $adult,
+        15 => ['één maat'],
         default => array_values(array_unique(array_merge($youth, $adult, $socks))),
     };
+}
+
+function ensurePackageTypes(mysqli $db): void {
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    $rows = [
+        13 => ['field_jack', 'Field Jack', '454002', 'Regenjack pakket 14-2'],
+        14 => ['prime_padded_jacket', 'Prime Padded Jacket', '456004', 'Winterjas pakket 14-2'],
+        15 => ['pro_bag_prime', 'Pro Bag Prime', '484837', 'Sporttas pakket 14-2'],
+    ];
+    foreach ($rows as $id => $r) {
+        [$name, $display, $article, $desc] = $r;
+        $color = 'Zwart';
+        $brand = 'Stanno';
+        $found = null;
+        $sel = $db->prepare('SELECT id FROM clothing_types WHERE id=? LIMIT 1');
+        $sel->bind_param('i', $id);
+        $sel->execute();
+        $found = $sel->get_result()->fetch_assoc();
+        if (!$found) {
+            $sel = $db->prepare('SELECT id FROM clothing_types WHERE article_number=? OR name=? LIMIT 1');
+            $sel->bind_param('ss', $article, $name);
+            $sel->execute();
+            $found = $sel->get_result()->fetch_assoc();
+        }
+        if ($found) {
+            $fid = (int) $found['id'];
+            $upd = $db->prepare('UPDATE clothing_types SET name=?, display_name=?, article_number=?, description=?, color=?, brand=?, active=1, updated_at=NOW() WHERE id=?');
+            $upd->bind_param('ssssssi', $name, $display, $article, $desc, $color, $brand, $fid);
+            $upd->execute();
+            continue;
+        }
+        $ins = $db->prepare('INSERT INTO clothing_types (id, name, display_name, article_number, description, color, brand, active, created_at, updated_at) VALUES (?,?,?,?,?,?,?,1,NOW(),NOW())');
+        $ins->bind_param('issssss', $id, $name, $display, $article, $desc, $color, $brand);
+        $ins->execute();
+    }
 }
 
 function ensureParentTokenColumn(mysqli $db): void {
@@ -243,6 +291,9 @@ function shortTypeName(int $tid, array $types = []): string {
         10 => 'K-sokken',
         11 => 'Polo',
         12 => 'Zip',
+        13 => 'Regenjack',
+        14 => 'Winterjas',
+        15 => 'Tas',
         default => (string) ($types[$tid]['display_name'] ?? $tid),
     };
 }
@@ -300,7 +351,7 @@ function packageCatalog(): array {
             'id' => 'shirt',
             'name' => 'Trainingsshirt',
             'article' => '',
-            'size_key' => 'shirt',
+            'type_id' => 1,
             'rohda' => true,
             'initials' => true,
             'sponsor' => true,
@@ -311,7 +362,7 @@ function packageCatalog(): array {
             'id' => 'rain',
             'name' => 'Field Jack',
             'article' => '454002',
-            'size_key' => 'jacket',
+            'type_id' => 13,
             'rohda' => true,
             'initials' => true,
             'sponsor' => true,
@@ -322,7 +373,7 @@ function packageCatalog(): array {
             'id' => 'puffer',
             'name' => 'Prime Padded Jacket',
             'article' => '456004',
-            'size_key' => 'jacket',
+            'type_id' => 14,
             'rohda' => true,
             'initials' => true,
             'sponsor' => true,
@@ -333,7 +384,7 @@ function packageCatalog(): array {
             'id' => 'shorts',
             'name' => 'Broekje',
             'article' => '',
-            'size_key' => 'shorts',
+            'type_id' => 4,
             'rohda' => false,
             'initials' => true,
             'sponsor' => false,
@@ -344,7 +395,7 @@ function packageCatalog(): array {
             'id' => 'bag',
             'name' => 'Pro Bag Prime',
             'article' => '484837',
-            'size_key' => 'bag',
+            'type_id' => 15,
             'rohda' => true,
             'initials' => true,
             'sponsor' => true,
@@ -355,7 +406,7 @@ function packageCatalog(): array {
             'id' => 'socks',
             'name' => 'Sokken',
             'article' => '',
-            'size_key' => 'socks',
+            'type_id' => 3,
             'rohda' => false,
             'initials' => false,
             'sponsor' => false,
@@ -366,7 +417,7 @@ function packageCatalog(): array {
             'id' => 'grip',
             'name' => 'Grip sokken',
             'article' => '',
-            'size_key' => 'grip',
+            'type_id' => 7,
             'rohda' => false,
             'initials' => false,
             'sponsor' => false,
@@ -376,47 +427,52 @@ function packageCatalog(): array {
     ];
 }
 
+function suggestedJacketSize(array $p): string {
+    $shirt = kitSize($p, 1);
+    $body = $shirt !== '' ? $shirt : kitSize($p, 4);
+    return jacketSizeFromShirt($body);
+}
+
+function assignedSize(array $p, int $tid): string {
+    $it = itemFor($p, $tid);
+    if ($it === null) {
+        return '';
+    }
+    return trim((string) ($it['size'] ?? ''));
+}
+
 function buildPackageQuote(array $players): array {
     $catalog = packageCatalog();
     $products = [];
     $brand = ['rohda' => 0, 'initials' => 0, 'sponsor' => 0, 'name_back' => 0];
+    foreach ($catalog as $item) {
+        $products[$item['id']] = [
+            'name' => $item['name'],
+            'article' => (string) ($item['article'] ?? ''),
+            'place' => $item['place'],
+            'rohda' => $item['rohda'],
+            'initials' => $item['initials'],
+            'sponsor' => $item['sponsor'],
+            'name_back' => $item['name_back'],
+            'type_id' => (int) $item['type_id'],
+            'count' => 0,
+            'sizes' => [],
+        ];
+    }
     $people = [];
     foreach ($players as $p) {
-        $shirt = kitSize($p, 1);
-        $shorts = kitSize($p, 4);
-        $socks = kitSize($p, 3);
-        $grip = kitSize($p, 7);
-        $body = $shirt !== '' ? $shirt : $shorts;
-        $sizes = [
-            'shirt' => $shirt !== '' ? $shirt : ($shorts !== '' ? $shorts : 'onbekend'),
-            'shorts' => $shorts !== '' ? $shorts : ($shirt !== '' ? $shirt : 'onbekend'),
-            'socks' => $socks !== '' ? $socks : 'onbekend',
-            'grip' => $grip !== '' ? $grip : ($socks !== '' ? $socks : 'onbekend'),
-            'jacket' => jacketSizeFromShirt($body),
-            'bag' => 'één maat',
-        ];
         $ini = playerInitials($p);
-        $people[] = [
-            'name' => fullName($p),
-            'initials' => $ini,
-            'sizes' => $sizes,
-        ];
+        $sizes = [];
+        $hasAny = false;
         foreach ($catalog as $item) {
             $id = $item['id'];
-            $sz = $sizes[$item['size_key']];
-            if (!isset($products[$id])) {
-                $products[$id] = [
-                    'name' => $item['name'],
-                    'article' => (string) ($item['article'] ?? ''),
-                    'place' => $item['place'],
-                    'rohda' => $item['rohda'],
-                    'initials' => $item['initials'],
-                    'sponsor' => $item['sponsor'],
-                    'name_back' => $item['name_back'],
-                    'count' => 0,
-                    'sizes' => [],
-                ];
+            $tid = (int) $item['type_id'];
+            $sz = assignedSize($p, $tid);
+            $sizes[$id] = $sz;
+            if ($sz === '') {
+                continue;
             }
+            $hasAny = true;
             $products[$id]['count']++;
             if (!isset($products[$id]['sizes'][$sz])) {
                 $products[$id]['sizes'][$sz] = ['count' => 0, 'names' => []];
@@ -436,6 +492,12 @@ function buildPackageQuote(array $players): array {
                 $brand['name_back']++;
             }
         }
+        $people[] = [
+            'name' => fullName($p),
+            'initials' => $ini,
+            'sizes' => $sizes,
+            'has' => $hasAny,
+        ];
     }
     foreach ($products as &$prod) {
         uksort($prod['sizes'], static fn($a, $b) => strnatcasecmp((string) $a, (string) $b));
@@ -446,6 +508,7 @@ function buildPackageQuote(array $players): array {
         'brand' => $brand,
         'people' => $people,
         'n' => count($players),
+        'assigned' => count(array_filter($people, static fn($row) => !empty($row['has']))),
         'pieces' => array_sum(array_column($products, 'count')),
     ];
 }
@@ -790,7 +853,7 @@ function sanitizeSize(string $size): string {
     if (strlen($size) > 20) {
         $size = substr($size, 0, 20);
     }
-    if ($size !== '' && !preg_match('/^[A-Za-z0-9][A-Za-z0-9 +\-\/]*$/', $size)) {
+    if ($size !== '' && !preg_match('/^[\p{L}0-9][\p{L}0-9 +\-\/]*$/u', $size)) {
         return '';
     }
     return $size;
@@ -803,6 +866,55 @@ function loadTypes(mysqli $db): array {
         $types[(int) $row['id']] = $row;
     }
     return $types;
+}
+
+function currentItemSize(mysqli $db, string $who, int $personId, int $typeId): string {
+    if ($who === 'player') {
+        $st = $db->prepare('SELECT size FROM player_clothing WHERE player_id=? AND clothing_type_id=? ORDER BY id ASC LIMIT 1');
+    } elseif ($who === 'staff') {
+        $st = $db->prepare('SELECT size FROM staff_clothing WHERE staff_member_id=? AND clothing_type_id=? ORDER BY id ASC LIMIT 1');
+    } else {
+        return '';
+    }
+    $st->bind_param('ii', $personId, $typeId);
+    $st->execute();
+    $row = $st->get_result()->fetch_assoc();
+    return trim((string) ($row['size'] ?? ''));
+}
+
+function assignPackageToPerson(
+    mysqli $db,
+    array $types,
+    string $who,
+    int $personId,
+    string $mode,
+    bool $onlyMissing = true
+): array {
+    $shirt = currentItemSize($db, $who, $personId, 1);
+    $shorts = currentItemSize($db, $who, $personId, 4);
+    $jacket = jacketSizeFromShirt($shirt !== '' ? $shirt : $shorts);
+    $saved = 0;
+    $skipped = [];
+    $map = [
+        13 => $jacket,
+        14 => $jacket,
+        15 => 'één maat',
+    ];
+    foreach ($map as $tid => $size) {
+        if (!isset($types[$tid])) {
+            continue;
+        }
+        if ($size === '' || $size === 'onbekend') {
+            $skipped[] = shortTypeName($tid, $types);
+            continue;
+        }
+        if ($onlyMissing && currentItemSize($db, $who, $personId, $tid) !== '') {
+            continue;
+        }
+        upsertPersonItem($db, $types, $who, $personId, $tid, $size, $mode);
+        $saved++;
+    }
+    return ['saved' => $saved, 'skipped' => $skipped];
 }
 
 function upsertPersonItem(
@@ -929,6 +1041,7 @@ function sizeSelect(int $tid, string $current, string $who, int $id, bool $na = 
 
 ensureParentTokenColumn($mysqli);
 ensureParentSavedAtColumn($mysqli);
+ensurePackageTypes($mysqli);
 startTeamSession();
 $canEdit = canEdit();
 $csrf = csrfToken();

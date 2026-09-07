@@ -20,9 +20,10 @@ while ($row = $res->fetch_assoc()) {
 $FIELD_CORE = [1, 4, 3, 7];
 $KEEPER_CORE = [9, 4, 10];
 $EXTRA = [11, 12];
+$PACKAGE_CORE = packageTypeIds();
 $KEEPER_ONLY = [9, 10];
 $STAFF_CORE = [11, 12];
-$typeOrder = [1, 4, 3, 7, 11, 12, 9, 10];
+$typeOrder = array_values(array_unique(array_merge([1, 4, 3, 7, 11, 12], $PACKAGE_CORE, [9, 10])));
 
 $players = [];
 $res = $mysqli->query('SELECT * FROM players ORDER BY last_name, first_name');
@@ -315,7 +316,7 @@ if (isset($_GET['csv']) && $_GET['csv'] === 'offerte') {
     header('Content-Disposition: attachment; filename="kitroom-14-2-offerte-pakket.csv"');
     $out = fopen('php://output', 'w');
     fwrite($out, "\xEF\xBB\xBF");
-    fputcsv($out, ['Offerte pakket 14-2 · ' . $quote['n'] . ' spelers · ' . $quote['pieces'] . ' stuks'], ';');
+    fputcsv($out, ['Offerte pakket 14-2 · ' . $quote['n'] . ' spelers · ' . $quote['pieces'] . ' stuks (alleen toegewezen items)'], ';');
     fputcsv($out, [], ';');
     fputcsv($out, ['Bedrukking', 'Aantal', 'Toelichting'], ';');
     fputcsv($out, ['Rohda Raalte logo', $quote['brand']['rohda'], 'Clublogo per applicatie'], ';');
@@ -338,6 +339,19 @@ if (isset($_GET['csv']) && $_GET['csv'] === 'offerte') {
                 implode(', ', $row['names']),
             ], ';');
         }
+        if ($prod['count'] < 1) {
+            fputcsv($out, [
+                $prod['name'],
+                $prod['article'] ?? '',
+                '',
+                0,
+                0,
+                0,
+                0,
+                0,
+                'nog niet toegewezen',
+            ], ';');
+        }
     }
     fputcsv($out, [], ';');
     fputcsv($out, ['Speler', 'Initialen', 'Shirt', 'Broekje', 'Sokken', 'Grip', 'Field Jack 454002', 'Prime Padded 456004', 'Pro Bag Prime 484837'], ';');
@@ -346,13 +360,13 @@ if (isset($_GET['csv']) && $_GET['csv'] === 'offerte') {
         fputcsv($out, [
             $person['name'],
             $person['initials'],
-            $s['shirt'],
-            $s['shorts'],
-            $s['socks'],
-            $s['grip'],
-            $s['jacket'],
-            $s['jacket'],
-            $s['bag'],
+            $s['shirt'] !== '' ? $s['shirt'] : '—',
+            $s['shorts'] !== '' ? $s['shorts'] : '—',
+            $s['socks'] !== '' ? $s['socks'] : '—',
+            $s['grip'] !== '' ? $s['grip'] : '—',
+            $s['rain'] !== '' ? $s['rain'] : '—',
+            $s['puffer'] !== '' ? $s['puffer'] : '—',
+            $s['bag'] !== '' ? $s['bag'] : '—',
         ], ';');
     }
     fclose($out);
@@ -661,7 +675,7 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
 }
 .size-select:hover{border-color:var(--accent)}
 .assign{
-  display:grid;grid-template-columns:minmax(140px,1.4fr) minmax(110px,1fr) 110px auto auto;
+  display:grid;grid-template-columns:minmax(140px,1.4fr) minmax(110px,1fr) 110px auto auto auto;
   gap:8px;align-items:center;
 }
 .assign select,.addrow select{
@@ -804,7 +818,7 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
 
   <div class="section" id="offerte">
     <h3>Offerte · pakket 14-2</h3>
-    <p class="sub">Aantallen voor de leverancier: het kledingstuk zelf, het Rohda-logo, de initialen (zoals MvT) en het sponsorlogo als <b>1 groot blok</b> (Eckelboom, Triplet IT, R&amp;J, Salland). Field Jack <b>454002</b>, Prime Padded Jacket <b>456004</b>, Pro Bag Prime <b>484837</b>. Jackmaat volgt uit shirtmaat (164→S, 176→M). <?= (int) $quote['n'] ?> spelers · <?= (int) $quote['pieces'] ?> stuks.</p>
+    <p class="sub">Alleen items die je aan een speler hebt toegewezen. Shirt, broekje, sokken en grip komen uit de bestaande maten; Field Jack <b>454002</b>, Prime Padded Jacket <b>456004</b> en Pro Bag Prime <b>484837</b> tel je mee zodra ze op de speler staan. Jackmaat uit shirt (164→S, 176→M) via <a href="#toewijzen">Toewijzen</a>. <?= (int) $quote['n'] ?> spelers · <?= (int) $quote['pieces'] ?> stuks.</p>
     <img class="packshot" src="pakket-14-2.png" alt="Pakket 14-2: trainingsshirt, regenjack, winterjas, broekje, sporttas, sokken en grip sokken met Rohda-logo, initialen en sponsorblok">
     <div class="brandbits">
       <div class="stat accent"><b><?= (int) $quote['pieces'] ?></b><span>producten</span></div>
@@ -867,18 +881,31 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
         </thead>
         <tbody>
           <?php foreach ($quote['products'] as $prod): ?>
-            <?php foreach ($prod['sizes'] as $sz => $row): ?>
-            <tr>
-              <td class="name"><?= h($prod['name']) ?><div class="place"><?= h($prod['place']) ?></div></td>
-              <td><?= h((string) ($prod['article'] ?? '')) ?></td>
-              <td><?= h((string) $sz) ?></td>
-              <td><b><?= (int) $row['count'] ?></b></td>
-              <td><?= $prod['rohda'] ? (int) $row['count'] : '—' ?></td>
-              <td><?= $prod['initials'] ? (int) $row['count'] : '—' ?></td>
-              <td><?= $prod['sponsor'] ? (int) $row['count'] : '—' ?></td>
-              <td class="left"><?= h(implode(', ', $row['names'])) ?></td>
-            </tr>
-            <?php endforeach; ?>
+            <?php if ($prod['sizes']): ?>
+              <?php foreach ($prod['sizes'] as $sz => $row): ?>
+              <tr>
+                <td class="name"><?= h($prod['name']) ?><div class="place"><?= h($prod['place']) ?></div></td>
+                <td><?= h((string) ($prod['article'] ?? '')) ?></td>
+                <td><?= h((string) $sz) ?></td>
+                <td><b><?= (int) $row['count'] ?></b></td>
+                <td><?= $prod['rohda'] ? (int) $row['count'] : '—' ?></td>
+                <td><?= $prod['initials'] ? (int) $row['count'] : '—' ?></td>
+                <td><?= $prod['sponsor'] ? (int) $row['count'] : '—' ?></td>
+                <td class="left"><?= h(implode(', ', $row['names'])) ?></td>
+              </tr>
+              <?php endforeach; ?>
+            <?php else: ?>
+              <tr>
+                <td class="name"><?= h($prod['name']) ?><div class="place"><?= h($prod['place']) ?></div></td>
+                <td><?= h((string) ($prod['article'] ?? '')) ?></td>
+                <td>—</td>
+                <td><b>0</b></td>
+                <td>—</td>
+                <td>—</td>
+                <td>—</td>
+                <td class="left">nog niet toegewezen</td>
+              </tr>
+            <?php endif; ?>
           <?php endforeach; ?>
           <tr>
             <td class="name">Totaal stuks</td>
@@ -914,13 +941,13 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
           <tr>
             <td class="name"><?= h($person['name']) ?></td>
             <td><b><?= h($person['initials']) ?></b></td>
-            <td><?= h($s['shirt']) ?></td>
-            <td><?= h($s['shorts']) ?></td>
-            <td><?= h($s['socks']) ?></td>
-            <td><?= h($s['grip']) ?></td>
-            <td><?= h($s['jacket']) ?></td>
-            <td><?= h($s['jacket']) ?></td>
-            <td><?= h($s['bag']) ?></td>
+            <td><?= h($s['shirt'] !== '' ? $s['shirt'] : '—') ?></td>
+            <td><?= h($s['shorts'] !== '' ? $s['shorts'] : '—') ?></td>
+            <td><?= h($s['socks'] !== '' ? $s['socks'] : '—') ?></td>
+            <td><?= h($s['grip'] !== '' ? $s['grip'] : '—') ?></td>
+            <td><?= h($s['rain'] !== '' ? $s['rain'] : '—') ?></td>
+            <td><?= h($s['puffer'] !== '' ? $s['puffer'] : '—') ?></td>
+            <td><?= h($s['bag'] !== '' ? $s['bag'] : '—') ?></td>
           </tr>
           <?php endforeach; ?>
         </tbody>
@@ -1112,7 +1139,7 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
   <?php if ($canEdit): ?>
   <div class="section" id="toewijzen">
     <h3>Item toewijzen</h3>
-    <p class="sub">Zoals in de oude kledingadministratie: kies een speler, een item uit de catalogus en een maat. <b>Bestellen</b> zet het op de bestellijst, <b>In bezit</b> als het al binnen is. Polo en zip staan niet in de basisset; die voeg je hier toe.</p>
+    <p class="sub">Kies een speler, een item en een maat. <b>Bestellen</b> zet het op de bestellijst én op de offerte. Field Jack, Prime Padded Jacket en Pro Bag Prime staan in de catalogus; <b>Pakket</b> zet die drie in één keer (jackmaat uit shirt, tas één maat).</p>
     <div class="assign" id="assignForm">
       <select id="assignPerson">
         <option value="">Kies speler…</option>
@@ -1131,13 +1158,17 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
       <select id="assignSize" disabled><option value="">Maat</option></select>
       <button type="button" class="btn" id="assignPending">Bestellen</button>
       <button type="button" class="btn dark" id="assignActive">In bezit</button>
+      <button type="button" class="btn" id="assignPackage">Pakket</button>
+    </div>
+    <div class="actions" style="margin-top:10px">
+      <button type="button" class="btn dark" id="assignPackageAll">Pakket aan alle spelers</button>
     </div>
   </div>
   <?php endif; ?>
 
   <div class="section" id="spelers">
     <h3>Spelers</h3>
-    <p class="sub">Gegroepeerd op scoutingpositie (CAM, CDM, K, …). Wijziging in scout.app1x.online komt hier terug.<?= $canEdit ? ' Extra items (polo, zip, …) voeg je toe via <a href="#toewijzen">Toewijzen</a> of onderaan de kaart.' : '' ?></p>
+    <p class="sub">Gegroepeerd op scoutingpositie (CAM, CDM, K, …). Wijziging in scout.app1x.online komt hier terug.<?= $canEdit ? ' Field Jack, winterjas en tas voeg je toe via <a href="#toewijzen">Toewijzen</a>, <b>Pakket</b> of onderaan de kaart. De offerte telt alleen wat je toewijst.' : '' ?></p>
     <div class="filters" id="playerFilters">
       <button class="on" data-f="all">Iedereen</button>
       <?php if ($guestPlayers): ?>
@@ -1219,6 +1250,7 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
               <div class="actions">
                 <button type="button" class="btn dark save-one" data-who="player" data-id="<?= (int) $p['id'] ?>">Opslaan</button>
                 <button type="button" class="btn save-one" data-who="player" data-id="<?= (int) $p['id'] ?>" data-mode="active">In bezit</button>
+                <button type="button" class="btn assign-package" data-who="player" data-id="<?= (int) $p['id'] ?>">Pakket</button>
                 <?php if (isset($parentLinks[(int) $p['id']])): $pl = $parentLinks[(int) $p['id']]; ?>
                 <button type="button" class="btn parent-copy" data-url="<?= h($pl['url']) ?>">Link ouders</button>
                 <a class="btn" href="<?= h($pl['wa']) ?>" target="_blank" rel="noopener">WhatsApp</a>
@@ -1404,6 +1436,17 @@ const TEAM = {
   csrf: <?= json_encode($csrf) ?>,
   editing: <?= $canEdit ? 'true' : 'false' ?>,
   parentFills: <?= json_encode($parentFillJs, JSON_UNESCAPED_UNICODE) ?>,
+  packageTypes: <?= json_encode(packageTypeIds()) ?>,
+  suggest: <?= json_encode(array_reduce($active, static function ($acc, $p) {
+      $id = (int) $p['id'];
+      $jacket = suggestedJacketSize($p);
+      $acc[$id] = [
+          13 => $jacket !== 'onbekend' ? $jacket : '',
+          14 => $jacket !== 'onbekend' ? $jacket : '',
+          15 => 'één maat',
+      ];
+      return $acc;
+  }, []), JSON_UNESCAPED_UNICODE) ?>,
   types: <?= json_encode(array_values(array_map(static function ($t) use ($types) {
       $id = (int) $t['id'];
       return ['id' => $id, 'name' => shortTypeName($id, $types), 'sizes' => sizeOptions($id)];
@@ -1590,11 +1633,24 @@ function typeSizes(tid){
   const t=(TEAM.types||[]).find(x=>x.id===tid);
   return t && Array.isArray(t.sizes) ? t.sizes : [];
 }
-function fillSizeSelect(sel, tid, current){
+function fillSizeSelect(sel, tid, current, who, id){
   const sizes=typeSizes(tid);
   sel.innerHTML='<option value="">Maat</option>'+sizes.map(s=>'<option value="'+String(s).replace(/"/g,'')+'">'+String(s)+'</option>').join('');
   sel.disabled=sizes.length<1;
-  if(current && sizes.includes(current)) sel.value=current;
+  let pick=current||'';
+  if(!pick && who==='player' && id && TEAM.suggest && TEAM.suggest[id]){
+    pick=TEAM.suggest[id][tid]||'';
+  }
+  if(!pick && sizes.length===1) pick=sizes[0];
+  if(pick && sizes.includes(pick)) sel.value=pick;
+}
+function assignPersonParts(){
+  const person=(document.getElementById('assignPerson')?.value||'').split(':');
+  return {who: person[0]||'', id: +person[1]||0};
+}
+function refreshAssignSize(){
+  const {who,id}=assignPersonParts();
+  fillSizeSelect(document.getElementById('assignSize'), +document.getElementById('assignType')?.value, '', who, id);
 }
 async function addItem(who, id, tid, size, mode){
   if(!who || !id || !tid){ toast('Kies een speler en een item'); return; }
@@ -1604,19 +1660,37 @@ async function addItem(who, id, tid, size, mode){
   toast(mode==='active' ? 'In bezit gezet' : 'Item toegevoegd');
   location.reload();
 }
-document.getElementById('assignType')?.addEventListener('change', e=>{
-  fillSizeSelect(document.getElementById('assignSize'), +e.target.value);
-});
+async function addPackage(who, id, mode){
+  if(!who || !id){ toast('Kies een speler'); return; }
+  const out=await api({action:'add_package', csrf:TEAM.csrf, who, id, mode: mode||'pending'});
+  if(!out.ok){ toast(out.error||'Pakket toewijzen mislukt'); return; }
+  toast(out.saved ? ('Pakket toegevoegd ('+out.saved+')') : 'Niets nieuws toe te wijzen');
+  location.reload();
+}
+document.getElementById('assignType')?.addEventListener('change', refreshAssignSize);
+document.getElementById('assignPerson')?.addEventListener('change', refreshAssignSize);
 async function submitAssign(mode){
-  const person=(document.getElementById('assignPerson')?.value||'').split(':');
-  await addItem(person[0], +person[1], +document.getElementById('assignType')?.value, document.getElementById('assignSize')?.value, mode);
+  const {who,id}=assignPersonParts();
+  await addItem(who, id, +document.getElementById('assignType')?.value, document.getElementById('assignSize')?.value, mode);
 }
 document.getElementById('assignPending')?.addEventListener('click', ()=>submitAssign('pending'));
 document.getElementById('assignActive')?.addEventListener('click', ()=>submitAssign('active'));
+document.getElementById('assignPackage')?.addEventListener('click', ()=>{
+  const {who,id}=assignPersonParts();
+  addPackage(who, id, 'pending');
+});
+document.getElementById('assignPackageAll')?.addEventListener('click', async ()=>{
+  if(!confirm('Field Jack, Prime Padded Jacket en Pro Bag Prime op bestellen zetten voor alle spelers die ze nog niet hebben?')) return;
+  const out=await api({action:'add_package_all', csrf:TEAM.csrf, mode:'pending'});
+  if(!out.ok){ toast(out.error||'Mislukt'); return; }
+  toast((out.people||0)+' spelers · '+(out.saved||0)+' items');
+  location.reload();
+});
 document.querySelectorAll('.addrow .assign-type').forEach(sel=>{
   sel.addEventListener('change', ()=>{
-    const sizeSel=sel.parentElement.querySelector('.assign-size');
-    fillSizeSelect(sizeSel, +sel.value);
+    const row=sel.parentElement;
+    const sizeSel=row.querySelector('.assign-size');
+    fillSizeSelect(sizeSel, +sel.value, '', row.dataset.who, +row.dataset.id);
   });
 });
 document.querySelectorAll('.addrow .assign-add').forEach(btn=>{
@@ -1624,6 +1698,9 @@ document.querySelectorAll('.addrow .assign-add').forEach(btn=>{
     const row=btn.closest('.addrow');
     addItem(row.dataset.who, +row.dataset.id, +row.querySelector('.assign-type').value, row.querySelector('.assign-size').value, 'pending');
   });
+});
+document.querySelectorAll('.assign-package').forEach(btn=>{
+  btn.addEventListener('click', ()=>addPackage(btn.dataset.who, +btn.dataset.id, 'pending'));
 });
 </script>
 </body>

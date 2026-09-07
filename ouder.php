@@ -164,7 +164,7 @@ body{
   <?php else: ?>
     <p class="note">
       Vul de kledingmaten van <b><?= h($name) ?></b> in en druk op opslaan.
-      <?php if ($formSettings['note'] !== ''): ?><?= h($formSettings['note']) ?><?php else: ?>Shirt en broek in 14-2 zijn nu vooral <b>164</b> of <b>176</b>, sokken <b>36-40</b> of <b>41-44</b>.<?php endif; ?>
+      <?php if ($formSettings['note'] !== ''): ?><?= h($formSettings['note']) ?><?php else: ?>Kies 164 t/m XL voor shirt, broek en jacks; sokken 36-40 of 41-44.<?php endif; ?>
     </p>
     <?php if ($typeOrder === []): ?>
     <div class="section">

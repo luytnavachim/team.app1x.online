@@ -187,6 +187,51 @@ if ($action === 'add_item') {
     jsonOut(['ok' => true, 'saved' => 1]);
 }
 
+if ($action === 'save_type') {
+    if (!canEdit()) {
+        jsonOut(['ok' => false, 'error' => 'Niet ingelogd.'], 401);
+    }
+    $token = (string) ($body['csrf'] ?? '');
+    if ($token === '' || !hash_equals(csrfToken(), $token)) {
+        jsonOut(['ok' => false, 'error' => 'Sessie verlopen. Vernieuw de pagina.'], 403);
+    }
+    $id = (int) ($body['id'] ?? 0);
+    if ($id < 1) {
+        jsonOut(['ok' => false, 'error' => 'Onbekend item.'], 400);
+    }
+    $types = loadTypes($mysqli);
+    if (!isset($types[$id])) {
+        jsonOut(['ok' => false, 'error' => 'Onbekend item.'], 400);
+    }
+    $article = array_key_exists('article_number', $body)
+        ? substr(trim((string) $body['article_number']), 0, 50)
+        : (string) ($types[$id]['article_number'] ?? '');
+    $color = array_key_exists('color', $body)
+        ? substr(trim((string) $body['color']), 0, 255)
+        : (string) ($types[$id]['color'] ?? '');
+    $small = array_key_exists('price_small', $body)
+        ? parseMoney($body['price_small'])
+        : (isset($types[$id]['price_small']) && $types[$id]['price_small'] !== '' && $types[$id]['price_small'] !== null ? (float) $types[$id]['price_small'] : null);
+    $large = array_key_exists('price_large', $body)
+        ? parseMoney($body['price_large'])
+        : (isset($types[$id]['price_large']) && $types[$id]['price_large'] !== '' && $types[$id]['price_large'] !== null ? (float) $types[$id]['price_large'] : null);
+    $std = $large ?? $small;
+    $smallS = $small === null ? '' : number_format($small, 2, '.', '');
+    $largeS = $large === null ? '' : number_format($large, 2, '.', '');
+    $stdS = $std === null ? '' : number_format($std, 2, '.', '');
+    $upd = $mysqli->prepare("UPDATE clothing_types SET article_number=?, color=?, price_small=NULLIF(?, ''), price_large=NULLIF(?, ''), price=NULLIF(?, ''), updated_at=NOW() WHERE id=?");
+    $upd->bind_param('sssssi', $article, $color, $smallS, $largeS, $stdS, $id);
+    $upd->execute();
+    jsonOut([
+        'ok' => true,
+        'saved' => 1,
+        'price_small' => $small,
+        'price_large' => $large,
+        'article_number' => $article,
+        'color' => $color,
+    ]);
+}
+
 if ($action === 'add_package') {
     if (!canEdit()) {
         jsonOut(['ok' => false, 'error' => 'Niet ingelogd.'], 401);
@@ -208,7 +253,7 @@ if ($action === 'add_package') {
         jsonOut(['ok' => false, 'error' => $e->getMessage()], 400);
     }
     if ($out['saved'] < 1 && $out['skipped'] !== []) {
-        jsonOut(['ok' => false, 'error' => 'Geen shirtmaat, dus geen jackmaat. Vul eerst het shirt in.'], 400);
+        jsonOut(['ok' => false, 'error' => 'Geen shirtmaat. Vul eerst het shirt in.'], 400);
     }
     jsonOut(['ok' => true, 'saved' => $out['saved'], 'skipped' => $out['skipped']]);
 }

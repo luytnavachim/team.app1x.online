@@ -164,7 +164,7 @@ body{
   <?php else: ?>
     <p class="note">
       Vul de kledingmaten van <b><?= h($name) ?></b> in en druk op opslaan.
-      <?php if ($formSettings['note'] !== ''): ?><?= h($formSettings['note']) ?><?php else: ?>Kies 164 t/m XL voor shirt, broek en jacks; sokken 36-40 of 41-44.<?php endif; ?>
+      <?php if ($formSettings['note'] !== ''): ?><?= h($formSettings['note']) ?><?php else: ?>Kies 164 t/m XL voor shirt, broek en jacks; sokken 36-40 of 41-44. Kies <b>n.v.t.</b> als hij dit item al heeft of niet krijgt.<?php endif; ?>
     </p>
     <?php if ($typeOrder === []): ?>
     <div class="section">
@@ -186,7 +186,7 @@ body{
           ?>
           <div class="row <?= $cls ?>">
             <span><?= h($t['display_name']) ?><?= $pending ? ' · bestellen' : '' ?></span>
-            <?= sizeSelect($tid, (string) ($it['size'] ?? ''), 'player', (int) $player['id']) ?>
+            <?= sizeSelect($tid, (string) ($it['size'] ?? ''), 'player', (int) $player['id'], false, true) ?>
           </div>
           <?php endforeach; ?>
         </div>

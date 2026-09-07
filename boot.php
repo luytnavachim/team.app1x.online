@@ -175,12 +175,134 @@ function syncPlayersFromScout(mysqli $db, array &$players, array $portal): int {
     return $changed;
 }
 
+function kitSettingsPath(): string {
+    return __DIR__ . '/.data/kit-settings.json';
+}
+
+function defaultKitSettings(): array {
+    return [
+        'package' => [13, 14, 15],
+        'print' => [
+            'rohda' => null,
+            'initials' => null,
+            'sponsor' => null,
+            'name_back' => null,
+        ],
+    ];
+}
+
+function loadKitSettings(bool $reload = false): array {
+    static $cached = null;
+    if ($reload) {
+        $cached = null;
+    }
+    if ($cached !== null) {
+        return $cached;
+    }
+    $def = defaultKitSettings();
+    $file = kitSettingsPath();
+    if (!is_readable($file)) {
+        return $cached = $def;
+    }
+    $raw = json_decode((string) file_get_contents($file), true);
+    if (!is_array($raw)) {
+        return $cached = $def;
+    }
+    $package = [];
+    foreach (($raw['package'] ?? $def['package']) as $id) {
+        $id = (int) $id;
+        if ($id > 0) {
+            $package[$id] = $id;
+        }
+    }
+    $print = $def['print'];
+    foreach (array_keys($print) as $key) {
+        $print[$key] = parseMoney($raw['print'][$key] ?? null);
+    }
+    $cached = [
+        'package' => $package !== [] ? array_values($package) : $def['package'],
+        'print' => $print,
+    ];
+    return $cached;
+}
+
+function saveKitSettings(array $settings): void {
+    $dir = dirname(kitSettingsPath());
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0750, true);
+    }
+    $def = defaultKitSettings();
+    $package = [];
+    foreach (($settings['package'] ?? []) as $id) {
+        $id = (int) $id;
+        if ($id > 0) {
+            $package[$id] = $id;
+        }
+    }
+    $print = [];
+    foreach (array_keys($def['print']) as $key) {
+        $print[$key] = parseMoney($settings['print'][$key] ?? null);
+    }
+    $clean = [
+        'package' => $package !== [] ? array_values($package) : $def['package'],
+        'print' => $print,
+    ];
+    file_put_contents(kitSettingsPath(), json_encode($clean, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
+    loadKitSettings(true);
+}
+
 function packageTypeIds(): array {
-    return [13, 14, 15];
+    $ids = loadKitSettings()['package'] ?? [13, 14, 15];
+    $ids = array_values(array_filter(array_map('intval', is_array($ids) ? $ids : []), static fn($id) => $id > 0));
+    return $ids !== [] ? $ids : [13, 14, 15];
 }
 
 function isPackageType(int $tid): bool {
     return in_array($tid, packageTypeIds(), true);
+}
+
+function rememberTypes(?array $types = null): array {
+    static $cached = [];
+    if ($types !== null) {
+        $cached = $types;
+    }
+    return $cached;
+}
+
+function typeSizeKind(array $t): string {
+    $k = strtolower(trim((string) ($t['size_kind'] ?? '')));
+    if (in_array($k, ['body', 'socks', 'onesize'], true)) {
+        return $k;
+    }
+    $id = (int) ($t['id'] ?? 0);
+    return match ($id) {
+        3, 7, 10 => 'socks',
+        15 => 'onesize',
+        default => 'body',
+    };
+}
+
+function typeOrderGroup(array $t): string {
+    $g = strtolower(trim((string) ($t['order_group'] ?? '')));
+    if (in_array($g, ['match', 'package', 'extra'], true)) {
+        return $g;
+    }
+    $id = (int) ($t['id'] ?? 0);
+    if (isPackageType($id) || in_array($id, [13, 14, 15], true)) {
+        return 'package';
+    }
+    if (in_array($id, [1, 3, 4, 7, 9, 10], true)) {
+        return 'match';
+    }
+    return 'extra';
+}
+
+function sizeOptionsForKind(string $kind): array {
+    return match ($kind) {
+        'socks' => sockSizes(),
+        'onesize' => ['één maat'],
+        default => bodySizes(),
+    };
 }
 
 function bodySizes(): array {
@@ -192,11 +314,24 @@ function sockSizes(): array {
 }
 
 function sizeOptions(int $tid): array {
+    $types = rememberTypes();
+    if (isset($types[$tid])) {
+        return sizeOptionsForKind(typeSizeKind($types[$tid]));
+    }
     return match ($tid) {
         3, 7, 10 => sockSizes(),
         15 => ['één maat'],
         default => bodySizes(),
     };
+}
+
+function skipSizeToken(): string {
+    return '__skip__';
+}
+
+function isSkipSize(string $size): bool {
+    $size = trim($size);
+    return $size === '' || $size === skipSizeToken();
 }
 
 function isYouthPriceSize(string $size): bool {
@@ -222,6 +357,54 @@ function parseMoney(mixed $v): ?float {
 
 function typePrints(array $t, string $flag): bool {
     return (int) ($t[$flag] ?? 0) === 1;
+}
+
+function ensureTypeMetaColumns(mysqli $db): void {
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    $added = false;
+    $cols = [
+        'size_kind' => "VARCHAR(20) NOT NULL DEFAULT 'body'",
+        'order_group' => "VARCHAR(20) NOT NULL DEFAULT 'extra'",
+    ];
+    foreach ($cols as $name => $ddl) {
+        $r = $db->query("SHOW COLUMNS FROM clothing_types LIKE '{$name}'");
+        if ($r && $r->num_rows > 0) {
+            continue;
+        }
+        $db->query("ALTER TABLE clothing_types ADD COLUMN {$name} {$ddl}");
+        $added = true;
+    }
+    $needSeed = $added;
+    if (!$needSeed) {
+        $r = $db->query("SELECT COUNT(*) AS n FROM clothing_types WHERE size_kind='socks'");
+        $row = $r ? $r->fetch_assoc() : null;
+        $needSeed = (int) ($row['n'] ?? 0) === 0;
+    }
+    if (!$needSeed) {
+        return;
+    }
+    $rows = [
+        1 => ['body', 'match'],
+        3 => ['socks', 'match'],
+        4 => ['body', 'match'],
+        7 => ['socks', 'match'],
+        9 => ['body', 'match'],
+        10 => ['socks', 'match'],
+        11 => ['body', 'extra'],
+        12 => ['body', 'extra'],
+        13 => ['body', 'package'],
+        14 => ['body', 'package'],
+        15 => ['onesize', 'package'],
+    ];
+    $st = $db->prepare('UPDATE clothing_types SET size_kind=?, order_group=? WHERE id=?');
+    foreach ($rows as $id => $r) {
+        $st->bind_param('ssi', $r[0], $r[1], $id);
+        $st->execute();
+    }
 }
 
 function ensureTypePrintColumns(mysqli $db): void {
@@ -291,6 +474,7 @@ function ensurePackageTypes(mysqli $db): void {
     }
     $done = true;
     ensureTypePrintColumns($db);
+    ensureTypeMetaColumns($db);
     $rows = [
         13 => ['field_jack', 'Field Jack', '454002', 'Regenjack pakket 14-2', 35.50, 37.50],
         14 => ['prime_padded_jacket', 'Prime Padded Jacket', '456004', 'Winterjas pakket 14-2', 89.99, 94.99],
@@ -362,12 +546,12 @@ function parentFormPath(): string {
 
 function parentTypeChoices(string $kind): array {
     return $kind === 'keeper'
-        ? [9, 4, 13, 14, 10, 11, 12]
-        : [1, 4, 13, 14, 3, 7, 11, 12];
+        ? [9, 4, 13, 14, 15, 10, 11, 12]
+        : [1, 4, 13, 14, 15, 3, 7, 11, 12];
 }
 
 function allParentTypeIds(): array {
-    return [1, 4, 3, 7, 9, 10, 11, 12, 13, 14];
+    return [1, 4, 3, 7, 9, 10, 11, 12, 13, 14, 15];
 }
 
 function shortTypeName(int $tid, array $types = []): string {
@@ -809,7 +993,23 @@ function loadTypes(mysqli $db): array {
     while ($row = $res->fetch_assoc()) {
         $types[(int) $row['id']] = $row;
     }
-    return $types;
+    return rememberTypes($types);
+}
+
+function slugTypeName(string $display): string {
+    $s = normName($display);
+    return $s !== '' ? substr($s, 0, 48) : 'item';
+}
+
+function parseItemInput(mixed $v): array {
+    if (is_array($v)) {
+        $size = (string) ($v['size'] ?? '');
+        $want = array_key_exists('want', $v) ? (bool) $v['want'] : !isSkipSize($size);
+        $remove = !empty($v['remove']);
+        return ['want' => $want, 'remove' => $remove, 'size' => $size];
+    }
+    $size = (string) $v;
+    return ['want' => !isSkipSize($size), 'remove' => false, 'size' => $size];
 }
 
 function currentItemSize(mysqli $db, string $who, int $personId, int $typeId): string {
@@ -836,18 +1036,25 @@ function assignPackageToPerson(
 ): array {
     $shirt = currentItemSize($db, $who, $personId, 1);
     $shorts = currentItemSize($db, $who, $personId, 4);
+    $socks = currentItemSize($db, $who, $personId, 3);
+    if ($socks === '') {
+        $socks = currentItemSize($db, $who, $personId, 10);
+    }
     $body = $shirt !== '' ? $shirt : $shorts;
-    $jacket = in_array($body, sizeOptions(13), true) ? $body : '';
     $saved = 0;
     $skipped = [];
-    $map = [
-        13 => $jacket,
-        14 => $jacket,
-        15 => 'één maat',
-    ];
-    foreach ($map as $tid => $size) {
+    foreach (packageTypeIds() as $tid) {
         if (!isset($types[$tid])) {
             continue;
+        }
+        $kind = typeSizeKind($types[$tid]);
+        $opts = sizeOptionsForKind($kind);
+        if ($kind === 'onesize') {
+            $size = $opts[0] ?? 'één maat';
+        } elseif ($kind === 'socks') {
+            $size = in_array($socks, $opts, true) ? $socks : '';
+        } else {
+            $size = in_array($body, $opts, true) ? $body : '';
         }
         if ($size === '' || $size === 'onbekend') {
             $skipped[] = shortTypeName($tid, $types);
@@ -860,6 +1067,63 @@ function assignPackageToPerson(
         $saved++;
     }
     return ['saved' => $saved, 'skipped' => $skipped];
+}
+
+function personItemRow(mysqli $db, string $who, int $personId, int $typeId): ?array {
+    if ($who === 'player') {
+        $st = $db->prepare('SELECT id, size, status FROM player_clothing WHERE player_id=? AND clothing_type_id=? ORDER BY id ASC LIMIT 1');
+    } elseif ($who === 'staff') {
+        $st = $db->prepare('SELECT id, size, status FROM staff_clothing WHERE staff_member_id=? AND clothing_type_id=? ORDER BY id ASC LIMIT 1');
+    } else {
+        return null;
+    }
+    $st->bind_param('ii', $personId, $typeId);
+    $st->execute();
+    $row = $st->get_result()->fetch_assoc();
+    return $row ?: null;
+}
+
+function removePersonItem(mysqli $db, string $who, int $personId, int $typeId): void {
+    if ($who === 'player') {
+        $del = $db->prepare('DELETE FROM player_clothing WHERE player_id=? AND clothing_type_id=?');
+    } elseif ($who === 'staff') {
+        $del = $db->prepare('DELETE FROM staff_clothing WHERE staff_member_id=? AND clothing_type_id=?');
+    } else {
+        throw new RuntimeException('Ongeldig type');
+    }
+    $del->bind_param('ii', $personId, $typeId);
+    $del->execute();
+}
+
+function applyPersonItemChoice(
+    mysqli $db,
+    array $types,
+    string $who,
+    int $personId,
+    int $typeId,
+    mixed $input,
+    string $mode
+): bool {
+    $parsed = parseItemInput($input);
+    if ($parsed['remove']) {
+        $existing = personItemRow($db, $who, $personId, $typeId);
+        removePersonItem($db, $who, $personId, $typeId);
+        return $existing !== null;
+    }
+    if (!$parsed['want'] || $parsed['size'] === skipSizeToken()) {
+        $existing = personItemRow($db, $who, $personId, $typeId);
+        if ($existing && itemStatus($existing) === 'pending') {
+            removePersonItem($db, $who, $personId, $typeId);
+            return true;
+        }
+        return false;
+    }
+    $size = sanitizeSize($parsed['size']);
+    if ($size === '') {
+        return false;
+    }
+    upsertPersonItem($db, $types, $who, $personId, $typeId, $size, $mode);
+    return true;
 }
 
 function upsertPersonItem(
@@ -893,10 +1157,7 @@ function upsertPersonItem(
     }
 
     $size = sanitizeSize($size);
-    if ($size === '') {
-        $del = $db->prepare("DELETE FROM {$table} WHERE {$fk}=? AND clothing_type_id=?");
-        $del->bind_param('ii', $personId, $typeId);
-        $del->execute();
+    if ($size === '' || $size === skipSizeToken()) {
         return;
     }
 
@@ -965,12 +1226,12 @@ function moneyInput(int $tid, string $field, ?float $value, string $extra = ''):
     return '<input class="money" inputmode="decimal" data-tid="'.$tid.'" data-field="'.h($field).'" value="'.h($val).'" placeholder="—"'.$extra.'>';
 }
 
-function sizeSelect(int $tid, string $current, string $who, int $id, bool $na = false): string {
+function sizeSelect(int $tid, string $current, string $who, int $id, bool $na = false, bool $allowSkip = false): string {
     if ($na) {
         return '<span class="muted">n.v.t.</span>';
     }
     $opts = sizeOptions($tid);
-    if ($current !== '' && !in_array($current, $opts, true)) {
+    if ($current !== '' && $current !== skipSizeToken() && !in_array($current, $opts, true)) {
         array_unshift($opts, $current);
     }
     $copy = '';
@@ -983,6 +1244,9 @@ function sizeSelect(int $tid, string $current, string $who, int $id, bool $na = 
     }
     $html = '<select class="size-select" data-who="'.h($who).'" data-id="'.$id.'" data-tid="'.$tid.'"'.$copy.'>';
     $html .= '<option value="">—</option>';
+    if ($allowSkip) {
+        $html .= '<option value="'.h(skipSizeToken()).'">n.v.t.</option>';
+    }
     foreach ($opts as $o) {
         $sel = $o === $current ? ' selected' : '';
         $html .= '<option value="'.h($o).'"'.$sel.'>'.h($o).'</option>';

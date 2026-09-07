@@ -88,11 +88,17 @@ if ($action === 'parent_save') {
     try {
         foreach ($allowed as $tid => $_) {
             if (!array_key_exists((string) $tid, $items) && !array_key_exists($tid, $items)) {
-                throw new RuntimeException('Vul alle maten in.');
+                throw new RuntimeException('Vul alle maten in of kies n.v.t.');
             }
-            $size = (string) ($items[$tid] ?? $items[(string) $tid] ?? '');
+            $raw = $items[$tid] ?? $items[(string) $tid] ?? '';
+            $parsed = parseItemInput($raw);
+            $size = (string) $parsed['size'];
+            if ($size === skipSizeToken()) {
+                applyPersonItemChoice($mysqli, $types, 'player', (int) $player['id'], (int) $tid, ['want' => false, 'size' => skipSizeToken()], 'pending');
+                continue;
+            }
             if (sanitizeSize($size) === '') {
-                throw new RuntimeException('Vul alle maten in.');
+                throw new RuntimeException('Vul alle maten in of kies n.v.t.');
             }
             upsertPersonItem($mysqli, $types, 'player', (int) $player['id'], (int) $tid, $size, 'pending');
             $saved++;
@@ -209,6 +215,9 @@ if ($action === 'save_type') {
     $color = array_key_exists('color', $body)
         ? substr(trim((string) $body['color']), 0, 255)
         : (string) ($types[$id]['color'] ?? '');
+    $brand = array_key_exists('brand', $body)
+        ? substr(trim((string) $body['brand']), 0, 80)
+        : (string) ($types[$id]['brand'] ?? '');
     $small = array_key_exists('price_small', $body)
         ? parseMoney($body['price_small'])
         : (isset($types[$id]['price_small']) && $types[$id]['price_small'] !== '' && $types[$id]['price_small'] !== null ? (float) $types[$id]['price_small'] : null);
@@ -219,8 +228,27 @@ if ($action === 'save_type') {
     $smallS = $small === null ? '' : number_format($small, 2, '.', '');
     $largeS = $large === null ? '' : number_format($large, 2, '.', '');
     $stdS = $std === null ? '' : number_format($std, 2, '.', '');
-    $upd = $mysqli->prepare("UPDATE clothing_types SET article_number=?, color=?, price_small=NULLIF(?, ''), price_large=NULLIF(?, ''), price=NULLIF(?, ''), updated_at=NOW() WHERE id=?");
-    $upd->bind_param('sssssi', $article, $color, $smallS, $largeS, $stdS, $id);
+    $sizeKind = array_key_exists('size_kind', $body)
+        ? strtolower(trim((string) $body['size_kind']))
+        : (string) ($types[$id]['size_kind'] ?? 'body');
+    if (!in_array($sizeKind, ['body', 'socks', 'onesize'], true)) {
+        $sizeKind = 'body';
+    }
+    $orderGroup = array_key_exists('order_group', $body)
+        ? strtolower(trim((string) $body['order_group']))
+        : (string) ($types[$id]['order_group'] ?? 'extra');
+    if (!in_array($orderGroup, ['match', 'package', 'extra'], true)) {
+        $orderGroup = 'extra';
+    }
+    $printRohda = array_key_exists('print_rohda', $body) ? ((int) $body['print_rohda'] ? 1 : 0) : (int) ($types[$id]['print_rohda'] ?? 0);
+    $printIni = array_key_exists('print_initials', $body) ? ((int) $body['print_initials'] ? 1 : 0) : (int) ($types[$id]['print_initials'] ?? 0);
+    $printSp = array_key_exists('print_sponsor', $body) ? ((int) $body['print_sponsor'] ? 1 : 0) : (int) ($types[$id]['print_sponsor'] ?? 0);
+    $printName = array_key_exists('print_name_back', $body) ? ((int) $body['print_name_back'] ? 1 : 0) : (int) ($types[$id]['print_name_back'] ?? 0);
+    $printPlace = array_key_exists('print_place', $body)
+        ? substr(trim((string) $body['print_place']), 0, 255)
+        : (string) ($types[$id]['print_place'] ?? '');
+    $upd = $mysqli->prepare("UPDATE clothing_types SET article_number=?, color=?, brand=?, price_small=NULLIF(?, ''), price_large=NULLIF(?, ''), price=NULLIF(?, ''), size_kind=?, order_group=?, print_rohda=?, print_initials=?, print_sponsor=?, print_name_back=?, print_place=?, updated_at=NOW() WHERE id=?");
+    $upd->bind_param('ssssssssiiiisi', $article, $color, $brand, $smallS, $largeS, $stdS, $sizeKind, $orderGroup, $printRohda, $printIni, $printSp, $printName, $printPlace, $id);
     $upd->execute();
     jsonOut([
         'ok' => true,
@@ -316,8 +344,9 @@ if ($action === 'save' || $action === 'save_all') {
                 throw new RuntimeException('Ongeldige rij');
             }
             foreach ($items as $tid => $size) {
-                upsertPersonItem($mysqli, $types, $who, $id, (int) $tid, (string) $size, $mode);
-                $saved++;
+                if (applyPersonItemChoice($mysqli, $types, $who, $id, (int) $tid, $size, $mode)) {
+                    $saved++;
+                }
             }
         }
         $mysqli->commit();
@@ -326,6 +355,106 @@ if ($action === 'save' || $action === 'save_all') {
         jsonOut(['ok' => false, 'error' => $e->getMessage()], 400);
     }
     jsonOut(['ok' => true, 'saved' => $saved]);
+}
+
+if ($action === 'remove_item') {
+    if (!canEdit()) {
+        jsonOut(['ok' => false, 'error' => 'Niet ingelogd.'], 401);
+    }
+    $token = (string) ($body['csrf'] ?? '');
+    if ($token === '' || !hash_equals(csrfToken(), $token)) {
+        jsonOut(['ok' => false, 'error' => 'Sessie verlopen. Vernieuw de pagina.'], 403);
+    }
+    $who = (string) ($body['who'] ?? '');
+    $id = (int) ($body['id'] ?? 0);
+    $tid = (int) ($body['tid'] ?? 0);
+    if ($id < 1 || $tid < 1 || !in_array($who, ['player', 'staff'], true)) {
+        jsonOut(['ok' => false, 'error' => 'Kies een item om te verwijderen.'], 400);
+    }
+    removePersonItem($mysqli, $who, $id, $tid);
+    jsonOut(['ok' => true, 'saved' => 1]);
+}
+
+if ($action === 'add_type') {
+    if (!canEdit()) {
+        jsonOut(['ok' => false, 'error' => 'Niet ingelogd.'], 401);
+    }
+    $token = (string) ($body['csrf'] ?? '');
+    if ($token === '' || !hash_equals(csrfToken(), $token)) {
+        jsonOut(['ok' => false, 'error' => 'Sessie verlopen. Vernieuw de pagina.'], 403);
+    }
+    $display = substr(trim((string) ($body['display_name'] ?? '')), 0, 255);
+    if ($display === '') {
+        jsonOut(['ok' => false, 'error' => 'Vul een naam in.'], 400);
+    }
+    $name = slugTypeName($display);
+    $article = substr(trim((string) ($body['article_number'] ?? '')), 0, 50);
+    $color = substr(trim((string) ($body['color'] ?? '')), 0, 255);
+    $brand = substr(trim((string) ($body['brand'] ?? 'Stanno')), 0, 80);
+    if ($brand === '') {
+        $brand = 'Stanno';
+    }
+    $small = parseMoney($body['price_small'] ?? null);
+    $large = parseMoney($body['price_large'] ?? null) ?? $small;
+    $std = $large ?? $small;
+    $smallS = $small === null ? '' : number_format($small, 2, '.', '');
+    $largeS = $large === null ? '' : number_format($large, 2, '.', '');
+    $stdS = $std === null ? '' : number_format($std, 2, '.', '');
+    $sizeKind = strtolower(trim((string) ($body['size_kind'] ?? 'body')));
+    if (!in_array($sizeKind, ['body', 'socks', 'onesize'], true)) {
+        $sizeKind = 'body';
+    }
+    $orderGroup = strtolower(trim((string) ($body['order_group'] ?? 'extra')));
+    if (!in_array($orderGroup, ['match', 'package', 'extra'], true)) {
+        $orderGroup = 'extra';
+    }
+    $printRohda = !empty($body['print_rohda']) ? 1 : 0;
+    $printIni = !empty($body['print_initials']) ? 1 : 0;
+    $printSp = !empty($body['print_sponsor']) ? 1 : 0;
+    $printName = !empty($body['print_name_back']) ? 1 : 0;
+    $printPlace = substr(trim((string) ($body['print_place'] ?? '')), 0, 255);
+    $chk = $mysqli->prepare('SELECT id FROM clothing_types WHERE name=? LIMIT 1');
+    $base = $name;
+    for ($i = 0; $i < 8; $i++) {
+        $try = $i === 0 ? $base : $base . $i;
+        $chk->bind_param('s', $try);
+        $chk->execute();
+        if (!$chk->get_result()->fetch_row()) {
+            $name = $try;
+            break;
+        }
+    }
+    $ins = $mysqli->prepare('INSERT INTO clothing_types (name, display_name, article_number, color, brand, price_small, price_large, price, size_kind, order_group, print_rohda, print_initials, print_sponsor, print_name_back, print_place, active, created_at, updated_at) VALUES (?,?,?,?,?,NULLIF(?,\'\'),NULLIF(?,\'\'),NULLIF(?,\'\'),?,?,?,?,?,?,?,1,NOW(),NOW())');
+    $ins->bind_param('ssssssssssiiiis', $name, $display, $article, $color, $brand, $smallS, $largeS, $stdS, $sizeKind, $orderGroup, $printRohda, $printIni, $printSp, $printName, $printPlace);
+    if (!$ins->execute()) {
+        jsonOut(['ok' => false, 'error' => 'Kon artikel niet toevoegen.'], 400);
+    }
+    $newId = (int) $mysqli->insert_id;
+    if ($orderGroup === 'package' && $newId > 0) {
+        $kit = loadKitSettings();
+        $kit['package'][] = $newId;
+        saveKitSettings($kit);
+    }
+    jsonOut(['ok' => true, 'id' => $newId]);
+}
+
+if ($action === 'save_kit') {
+    if (!canEdit()) {
+        jsonOut(['ok' => false, 'error' => 'Niet ingelogd.'], 401);
+    }
+    $token = (string) ($body['csrf'] ?? '');
+    if ($token === '' || !hash_equals(csrfToken(), $token)) {
+        jsonOut(['ok' => false, 'error' => 'Sessie verlopen. Vernieuw de pagina.'], 403);
+    }
+    $kit = loadKitSettings();
+    if (isset($body['package']) && is_array($body['package'])) {
+        $kit['package'] = $body['package'];
+    }
+    if (isset($body['print']) && is_array($body['print'])) {
+        $kit['print'] = array_merge($kit['print'], $body['print']);
+    }
+    saveKitSettings($kit);
+    jsonOut(['ok' => true, 'settings' => loadKitSettings()]);
 }
 
 jsonOut(['ok' => false, 'error' => 'Onbekende actie.'], 400);

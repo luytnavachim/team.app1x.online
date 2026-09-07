@@ -11,19 +11,59 @@ $posLabel = [
 ];
 $posOrder = ['goalkeeper', 'defender', 'midfielder', 'attacker'];
 
-$types = [];
-$res = $mysqli->query('SELECT * FROM clothing_types ORDER BY id');
-while ($row = $res->fetch_assoc()) {
-    $types[(int) $row['id']] = $row;
-}
+$types = loadTypes($mysqli);
 
 $FIELD_CORE = [1, 4, 3, 7];
 $KEEPER_CORE = [9, 4, 10];
-$EXTRA = [11, 12];
 $PACKAGE_CORE = packageTypeIds();
 $KEEPER_ONLY = [9, 10];
 $STAFF_CORE = [11, 12];
-$typeOrder = array_values(array_unique(array_merge([1, 4, 3, 7, 11, 12], $PACKAGE_CORE, [9, 10])));
+$kitSettings = loadKitSettings();
+$printPrices = $kitSettings['print'];
+
+$bestelFilter = (string) ($_GET['bestel'] ?? 'pakket');
+if (!in_array($bestelFilter, ['pakket', 'wedstrijd', 'overig', 'alles'], true)) {
+    $bestelFilter = 'pakket';
+}
+
+function cardTypeIds(array $p, array $types, array $packageIds, array $keeperOnly): array {
+    $isKeeper = ($p['position'] ?? '') === 'goalkeeper';
+    $ids = $isKeeper ? [9, 4, 10] : [1, 4, 3, 7];
+    foreach ($packageIds as $tid) {
+        $ids[] = (int) $tid;
+    }
+    foreach (array_keys($p['items'] ?? []) as $tid) {
+        $ids[] = (int) $tid;
+    }
+    $out = [];
+    foreach ($ids as $tid) {
+        if ($tid < 1 || !isset($types[$tid]) || isset($out[$tid])) {
+            continue;
+        }
+        if (!$isKeeper && in_array($tid, $keeperOnly, true) && empty($p['items'][$tid])) {
+            continue;
+        }
+        $out[$tid] = $tid;
+    }
+    return array_values($out);
+}
+
+function gapGroupOf(array $t): string {
+    return typeOrderGroup($t);
+}
+
+function gapMatchesFilter(array $t, string $filter): bool {
+    if ($filter === 'alles') {
+        return true;
+    }
+    $g = gapGroupOf($t);
+    return match ($filter) {
+        'pakket' => $g === 'package',
+        'wedstrijd' => $g === 'match',
+        'overig' => $g === 'extra',
+        default => true,
+    };
+}
 
 $players = [];
 $res = $mysqli->query('SELECT * FROM players ORDER BY last_name, first_name');
@@ -57,10 +97,6 @@ while ($row = $res->fetch_assoc()) {
     $staff[$sid]['items'][(int) $row['clothing_type_id']][] = $row;
 }
 
-function requiredIds(array $p, array $FIELD_CORE, array $KEEPER_CORE): array {
-    return ($p['position'] ?? '') === 'goalkeeper' ? $KEEPER_CORE : $FIELD_CORE;
-}
-
 function parentChecksHtml(string $scope, array $choices, array $selected, int $playerId = 0, array $defaultIds = []): string {
     $html = '<div class="checks" data-parent-scope="'.h($scope).'" data-id="'.$playerId.'" data-default="'.h(implode(',', $defaultIds)).'">';
     foreach ($choices as $tid) {
@@ -89,33 +125,22 @@ foreach ($active as &$p) {
             $p['position'] = $line;
         }
     }
-    $need = requiredIds($p, $FIELD_CORE, $KEEPER_CORE);
-    $p['need'] = $need;
+    $p['need'] = ($p['position'] ?? '') === 'goalkeeper' ? $KEEPER_CORE : $FIELD_CORE;
+    $p['card_types'] = cardTypeIds($p, $types, $PACKAGE_CORE, $KEEPER_ONLY);
     $p['missing'] = [];
     $p['to_order'] = [];
-    $p['extra_order'] = [];
-    foreach ($need as $tid) {
-        $it = itemFor($p, $tid);
-        if (isIssued($it)) {
-            continue;
-        }
-        if (isPendingItem($it)) {
-            $p['to_order'][] = $tid;
-        } else {
-            $p['missing'][] = $tid;
-        }
-    }
+    $p['owned'] = [];
     foreach ($p['items'] as $tid => $list) {
         $tid = (int) $tid;
-        if (in_array($tid, $need, true)) {
-            continue;
-        }
-        if (isPendingItem(itemFor($p, $tid))) {
-            $p['extra_order'][] = $tid;
+        $it = itemFor($p, $tid);
+        if (isPendingItem($it)) {
+            $p['to_order'][] = $tid;
+        } elseif (isIssued($it)) {
+            $p['owned'][] = $tid;
         }
     }
-    $p['miss'] = count($p['missing']) + count($p['to_order']);
-    $p['complete'] = $p['miss'] === 0;
+    $p['miss'] = count($p['to_order']);
+    $p['complete'] = $p['miss'] === 0 && $p['owned'] !== [];
 }
 unset($p);
 
@@ -194,6 +219,19 @@ foreach ($staff as $s) {
         $addGap($s, (int) $tid, fullName($s) . ' (staf)');
     }
 }
+$allGaps = $gaps;
+$filterCounts = ['pakket' => 0, 'wedstrijd' => 0, 'overig' => 0, 'alles' => count($allGaps)];
+foreach ($allGaps as $g) {
+    $grp = gapGroupOf($g['type']);
+    if ($grp === 'package') {
+        $filterCounts['pakket']++;
+    } elseif ($grp === 'match') {
+        $filterCounts['wedstrijd']++;
+    } else {
+        $filterCounts['overig']++;
+    }
+}
+$gaps = array_values(array_filter($allGaps, static fn($g) => gapMatchesFilter($g['type'], $bestelFilter)));
 
 $orderGroups = [];
 $orderBrand = ['rohda' => 0, 'initials' => 0, 'sponsor' => 0, 'name_back' => 0];
@@ -245,40 +283,90 @@ foreach ($orderGroups as $g) {
     }
     $orderCost += $g['price'] * $g['count'];
 }
+$printCost = 0.0;
+$printLines = [
+    'rohda' => 'Rohda-logo',
+    'initials' => 'Initialen',
+    'sponsor' => 'Sponsorblok',
+    'name_back' => 'Naam op rug',
+];
+foreach ($printLines as $key => $_) {
+    $unit = $printPrices[$key] ?? null;
+    if ($unit === null) {
+        continue;
+    }
+    $printCost += $unit * (int) $orderBrand[$key];
+}
+$orderTotal = $orderCost + $printCost;
+$csvKind = (string) ($_GET['csv'] ?? '');
+$filterLabel = match ($bestelFilter) {
+    'pakket' => 'pakket',
+    'wedstrijd' => 'wedstrijdset',
+    'overig' => 'overig',
+    default => 'alles',
+};
 
-if (isset($_GET['csv']) && $_GET['csv'] === 'bestel') {
+if ($csvKind === 'bestel' || $csvKind === 'regels') {
     header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename="kitroom-14-2-bestellijst.csv"');
+    $fname = $csvKind === 'regels' ? 'kitroom-14-2-stanno.csv' : 'kitroom-14-2-bestellijst.csv';
+    header('Content-Disposition: attachment; filename="'.$fname.'"');
     $out = fopen('php://output', 'w');
     fwrite($out, "\xEF\xBB\xBF");
-    fputcsv($out, ['Bestellijst 14-2 · ' . $orderPieces . ' stuks · ' . number_format($orderCost, 2, ',', '.')], ';');
-    fputcsv($out, [], ';');
-    fputcsv($out, ['Bedrukking', 'Aantal', 'Toelichting'], ';');
-    fputcsv($out, ['Rohda Raalte logo', $orderBrand['rohda'], 'Clublogo per applicatie'], ';');
-    fputcsv($out, ['Initialen', $orderBrand['initials'], 'Zoals MvT, per item met naam'], ';');
-    fputcsv($out, ['Sponsorlogo', $orderBrand['sponsor'], '1 groot blok (Eckelboom / Triplet / R&J / Salland)'], ';');
-    fputcsv($out, ['Naam op rug', $orderBrand['name_back'], 'Alleen shirt (voornaam)'], ';');
-    fputcsv($out, [], ';');
-    fputcsv($out, ['Type', 'Maat', 'Artikel', 'Kleur', 'Aantal', 'Rohda', 'Initialen', 'Sponsorblok', 'Naam rug', 'Richtprijs/stuk', 'Subtotaal', 'Voor'], ';');
-    foreach ($orderGroups as $g) {
-        $sub = $g['price'] !== null ? number_format($g['price'] * $g['count'], 2, ',', '.') : '';
-        fputcsv($out, [
-            $g['type'],
-            $g['size'],
-            $g['article'],
-            $g['color'],
-            $g['count'],
-            $g['rohda'] ? $g['count'] : 0,
-            $g['initials'] ? $g['count'] : 0,
-            $g['sponsor'] ? $g['count'] : 0,
-            $g['name_back'] ? $g['count'] : 0,
-            $g['price'] !== null ? number_format($g['price'], 2, ',', '.') : '',
-            $sub,
-            implode(', ', $g['names']),
-        ], ';');
+    if ($csvKind === 'regels') {
+        fputcsv($out, ['Stanno-regels 14-2 · ' . $filterLabel . ' · ' . $orderPieces . ' stuks'], ';');
+        fputcsv($out, ['Speler', 'Initialen', 'Type', 'Artikel', 'Kleur', 'Maat', 'Rohda', 'Initialen', 'Sponsorblok', 'Naam rug', 'Richtprijs'], ';');
+        foreach ($gaps as $g) {
+            $t = $g['type'];
+            fputcsv($out, [
+                $g['who'],
+                $g['ini'],
+                $t['display_name'] ?? '',
+                $t['article_number'] ?? '',
+                $t['color'] ?? '',
+                $g['size'] !== '' ? $g['size'] : 'maat onbekend',
+                typePrints($t, 'print_rohda') ? 'ja' : '',
+                typePrints($t, 'print_initials') ? $g['ini'] : '',
+                typePrints($t, 'print_sponsor') ? 'ja' : '',
+                typePrints($t, 'print_name_back') ? 'ja' : '',
+                $g['price'] !== null ? number_format($g['price'], 2, ',', '.') : '',
+            ], ';');
+        }
+    } else {
+        fputcsv($out, ['Bestellijst 14-2 · ' . $filterLabel . ' · ' . $orderPieces . ' stuks · ' . number_format($orderTotal, 2, ',', '.')], ';');
+        fputcsv($out, [], ';');
+        fputcsv($out, ['Bedrukking', 'Aantal', 'Stuk', 'Subtotaal', 'Toelichting'], ';');
+        foreach ($printLines as $key => $label) {
+            $unit = $printPrices[$key] ?? null;
+            $cnt = (int) $orderBrand[$key];
+            $sub = $unit !== null ? number_format($unit * $cnt, 2, ',', '.') : '';
+            fputcsv($out, [$label, $cnt, $unit !== null ? number_format($unit, 2, ',', '.') : '', $sub, $key === 'sponsor' ? '1 groot blok' : ''], ';');
+        }
+        fputcsv($out, [], ';');
+        fputcsv($out, ['Type', 'Maat', 'Artikel', 'Kleur', 'Aantal', 'Rohda', 'Initialen', 'Sponsorblok', 'Naam rug', 'Richtprijs/stuk', 'Subtotaal', 'Voor'], ';');
+        foreach ($orderGroups as $g) {
+            $sub = $g['price'] !== null ? number_format($g['price'] * $g['count'], 2, ',', '.') : '';
+            fputcsv($out, [
+                $g['type'],
+                $g['size'],
+                $g['article'],
+                $g['color'],
+                $g['count'],
+                $g['rohda'] ? $g['count'] : 0,
+                $g['initials'] ? $g['count'] : 0,
+                $g['sponsor'] ? $g['count'] : 0,
+                $g['name_back'] ? $g['count'] : 0,
+                $g['price'] !== null ? number_format($g['price'], 2, ',', '.') : '',
+                $sub,
+                implode(', ', $g['names']),
+            ], ';');
+        }
+        fputcsv($out, [], ';');
+        fputcsv($out, ['Totaal stuks', $orderPieces, '', '', '', $orderBrand['rohda'], $orderBrand['initials'], $orderBrand['sponsor'], $orderBrand['name_back'], '', number_format($orderCost, 2, ',', '.')], ';');
+        if ($printCost > 0) {
+            fputcsv($out, ['Bedrukking', '', '', '', '', '', '', '', '', '', number_format($printCost, 2, ',', '.')], ';');
+            fputcsv($out, ['Totaal inclusief print', '', '', '', '', '', '', '', '', '', number_format($orderTotal, 2, ',', '.')], ';');
+        }
     }
-    fputcsv($out, [], ';');
-    fputcsv($out, ['Totaal stuks', $orderPieces, '', '', '', $orderBrand['rohda'], $orderBrand['initials'], $orderBrand['sponsor'], $orderBrand['name_back'], '', number_format($orderCost, 2, ',', '.')], ';');
     fclose($out);
     exit;
 }
@@ -493,7 +581,19 @@ button.btn{font-family:inherit;cursor:pointer}
 .row.na{background:var(--nabg);color:var(--na)}
 .row.extra{background:var(--nabg);color:var(--muted)}
 .row>span:last-child,.row>select{flex:0 0 auto;white-space:nowrap}
-.row>span:first-child{min-width:0}
+.row>span:first-child,.row .want{min-width:0}
+.row .want{display:inline-flex;align-items:center;gap:7px;font-weight:700}
+.row .want input{margin:0;accent-color:var(--accent)}
+.row .del{
+  border:0;background:transparent;color:var(--miss);font:inherit;
+  font-size:11px;font-weight:800;cursor:pointer;padding:0 2px;white-space:nowrap;
+}
+.kit-row.off{opacity:.55}
+.add-type{
+  display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:12px;align-items:end;
+}
+.add-type label{display:grid;gap:4px;font-size:11px;font-weight:700;color:var(--dim)}
+@media(max-width:760px){.add-type{grid-template-columns:1fr 1fr}}
 
 /* ---------- tables ---------- */
 .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface2)}
@@ -516,13 +616,14 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
 
 /* ---------- filters ---------- */
 .filters{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:12px}
-.filters button{
+.filters button,.filters a{
   border:1px solid var(--line);background:var(--surface2);color:var(--ink);
   border-radius:999px;padding:8px 13px;font-weight:700;font-size:12.5px;cursor:pointer;
   font-family:inherit;transition:background .15s,border-color .15s,color .15s;
+  text-decoration:none;
 }
-.filters button:hover{border-color:var(--line2)}
-.filters button.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:800}
+.filters button:hover,.filters a:hover{border-color:var(--line2)}
+.filters button.on,.filters a.on{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:800}
 .hidden{display:none !important}
 
 /* ---------- bars ---------- */
@@ -667,7 +768,8 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
     <a href="#ouders">Ouders<?php if ($parentFilled): ?> <span class="count" id="ouderNavCount"><?= count($parentFilled) ?></span><?php endif; ?></a>
     <a href="#staf">Staf</a>
     <a href="#catalogus">Catalogus</a>
-    <a href="?csv=bestel">CSV</a>
+    <a href="?csv=bestel&bestel=<?= h($bestelFilter) ?>">CSV</a>
+    <a href="?csv=regels&bestel=<?= h($bestelFilter) ?>">CSV per speler</a>
     <?php if ($canEdit): ?>
       <button type="button" class="btn" id="saveAllBtn">Alles opslaan</button>
       <button type="button" class="btn" id="logoutBtn">Klaar</button>
@@ -678,7 +780,7 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
   </div>
 
   <?php if ($canEdit): ?>
-  <div class="note editbar">Bewerkmodus. Kies per speler de items en maten (164 t/m XL). Dat wordt de bestellijst. Prijzen pas je aan in de catalogus of op de bestellijst. <b>In bezit</b> als het binnen is.</div>
+  <div class="note editbar">Bewerkmodus. Vink per speler wat hij krijgt en kies de maat. <b>Opslaan</b> met een lege maat wist niets. <b>Verwijderen</b> haalt een item weg. De bestellijst toont standaard het <b>pakket</b>, niet de hele wedstrijdset. Prijzen staan in de catalogus.</div>
   <?php else: ?>
   <div class="note">Kleding per speler, bestellijst en catalogus voor 14-2. <b>Maten invullen</b> met pincode. Daar regel je ook de ouderlinks.</div>
   <?php endif; ?>
@@ -691,8 +793,8 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
 
   <div class="stats">
     <div class="stat"><b><?= count($active) ?></b><span>spelers</span></div>
-    <div class="stat accent"><b><?= (int) $orderPieces ?></b><span>te bestellen</span></div>
-    <div class="stat"><b><?= euro($orderCost) ?></b><span>richtprijs</span></div>
+    <div class="stat accent"><b><?= (int) $orderPieces ?></b><span>te bestellen (<?= h($filterLabel) ?>)</span></div>
+    <div class="stat"><b><?= euro($orderTotal) ?></b><span>richtprijs<?= $printCost > 0 ? ' incl. print' : '' ?></span></div>
     <div class="stat"><b><?= (int) $orderBrand['rohda'] ?></b><span>Rohda-logo</span></div>
     <div class="stat accent">
       <b><?= count($parentFilled) ?>/<?= count($active) ?></b><span>ouders ingevuld</span>
@@ -702,7 +804,13 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
 
   <div class="section" id="bestel">
     <h3>Bestellijst</h3>
-    <p class="sub">Alleen wat je per speler hebt toegewezen en nog moet bestellen. Bedrukking volgens het voorbeeld: Rohda-logo, initialen (MvT) en het sponsorblok als <b>1 groot blok</b>. <?= (int) $orderPieces ?> stuks · <?= euro($orderCost) ?>.</p>
+    <p class="sub">Kies welke ronde je nu bij Stanno neerlegt. Standaard het <b>pakket</b> (jacks en tas), niet de wedstrijdset. Bedrukking volgens het voorbeeld: Rohda-logo, initialen (MvT) en het sponsorblok als <b>1 groot blok</b>. <?= (int) $orderPieces ?> stuks · <?= euro($orderTotal) ?>.</p>
+    <div class="filters">
+      <a class="<?= $bestelFilter === 'pakket' ? 'on' : '' ?>" href="?bestel=pakket#bestel">Pakket <span class="count"><?= (int) $filterCounts['pakket'] ?></span></a>
+      <a class="<?= $bestelFilter === 'wedstrijd' ? 'on' : '' ?>" href="?bestel=wedstrijd#bestel">Wedstrijd <span class="count wait"><?= (int) $filterCounts['wedstrijd'] ?></span></a>
+      <a class="<?= $bestelFilter === 'overig' ? 'on' : '' ?>" href="?bestel=overig#bestel">Overig <span class="count"><?= (int) $filterCounts['overig'] ?></span></a>
+      <a class="<?= $bestelFilter === 'alles' ? 'on' : '' ?>" href="?bestel=alles#bestel">Alles <span class="count"><?= (int) $filterCounts['alles'] ?></span></a>
+    </div>
     <img class="packshot" src="pakket-14-2.png" alt="Pakket 14-2: shirt, Field Jack, Prime Padded Jacket, broekje, Pro Bag Prime, sokken en grip met Rohda, initialen en sponsorblok">
     <div class="brandbits">
       <div class="stat accent"><b><?= (int) $orderPieces ?></b><span>stuks</span></div>
@@ -711,15 +819,31 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
       <div class="stat"><b><?= (int) $orderBrand['sponsor'] ?></b><span>sponsorlogo (1 blok)</span></div>
       <div class="stat"><b><?= (int) $orderBrand['name_back'] ?></b><span>naam op rug</span></div>
     </div>
+    <?php if ($canEdit): ?>
+    <div class="parent-defaults" id="printPrices" style="margin-top:12px">
+      <h4>Printprijs per applicatie</h4>
+      <p class="hint">Leeg = alleen tellen, niet meerekenen. Wordt opgeteld bij de richtprijs van deze lijst.</p>
+      <div class="add-type" style="margin-top:8px">
+        <?php foreach ($printLines as $key => $label):
+          $val = $printPrices[$key] ?? null;
+        ?>
+        <label><?= h($label) ?>
+          <input class="money print-price" data-print="<?= h($key) ?>" inputmode="decimal" value="<?= $val === null ? '' : h(number_format($val, 2, ',', '')) ?>" placeholder="—">
+        </label>
+        <?php endforeach; ?>
+      </div>
+    </div>
+    <?php endif; ?>
     <div class="actions">
-      <a class="btn dark" href="?csv=bestel">Download CSV</a>
+      <a class="btn dark" href="?csv=bestel&bestel=<?= h($bestelFilter) ?>">CSV overzicht</a>
+      <a class="btn" href="?csv=regels&bestel=<?= h($bestelFilter) ?>">CSV per speler</a>
       <a class="btn" href="javascript:window.print()">Print</a>
       <?php if ($canEdit): ?>
       <button type="button" class="btn" id="assignPackageAll">Pakket aan alle spelers</button>
       <?php endif; ?>
     </div>
     <?php if (!$orderGroups): ?>
-      <p class="sub">Nog niets op de bestellijst. Kies per speler een maat bij de items die hij krijgt.</p>
+      <p class="sub">Nog niets op deze lijst. Zet items op bestellen bij de spelers, of kies een andere ronde hierboven.</p>
     <?php else: ?>
     <div class="tablewrap" style="margin-top:10px">
       <table>
@@ -770,6 +894,22 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
             <td><b><?= euro($orderCost) ?></b></td>
             <td class="left"></td>
           </tr>
+          <?php if ($printCost > 0): ?>
+          <tr>
+            <td class="name">Bedrukking</td>
+            <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+            <td><b><?= euro($printCost) ?></b></td>
+            <td class="left"></td>
+          </tr>
+          <tr>
+            <td class="name">Totaal incl. print</td>
+            <td></td><td></td>
+            <td><b><?= (int) $orderPieces ?></b></td>
+            <td></td><td></td><td></td><td></td>
+            <td><b><?= euro($orderTotal) ?></b></td>
+            <td class="left"></td>
+          </tr>
+          <?php endif; ?>
         </tbody>
       </table>
     </div>
@@ -798,7 +938,7 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
     <p class="sub">Kies eerst wat ouders te zien krijgen. Daarna kopieer je de link of stuur je hem via WhatsApp. Een nieuwe link maakt de oude ongeldig.</p>
     <div class="parent-defaults" id="parentDefaults">
       <h4>Wat ouders invullen</h4>
-      <p class="hint">Dit is de standaard. Per speler kun je hieronder afwijken. Regenjack en winterjas staan aan; polo en zip uit, tenzij je ze aanzet.</p>
+      <p class="hint">Dit is de standaard. Per speler kun je hieronder afwijken. Regenjack en winterjas staan aan; tas, polo en zip uit, tenzij je ze aanzet. Ouders mogen <b>n.v.t.</b> kiezen als iemand iets al heeft.</p>
       <div class="line">Veldspelers</div>
       <?= parentChecksHtml('field', parentTypeChoices('field'), $parentForm['field']) ?>
       <div class="line">Keepers</div>
@@ -850,7 +990,7 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
 
   <div class="section" id="spelers">
     <h3>Spelers</h3>
-    <p class="sub">Kies per speler welke items hij krijgt. Maat 164 t/m XL (sokken apart). Leeg = krijgt het niet. <?= $canEdit ? '<b>Pakket</b> zet Field Jack, winterjas en tas in één keer (zelfde maat als shirt).' : '' ?></p>
+    <p class="sub">Vink wat hij krijgt en kies de maat (164 t/m XL). Leeg opslaan wist niets; <b>Verwijderen</b> haalt het van de lijst. <?= $canEdit ? '<b>Pakket</b> zet de aangevinkte pakket-items in één keer (zelfde maat als shirt).' : '' ?></p>
     <div class="filters" id="playerFilters">
       <button class="on" data-f="all">Iedereen</button>
       <?php if ($guestPlayers): ?>
@@ -862,10 +1002,9 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
       <button data-f="attacker">Aanval</button>
     </div>
     <div class="legend">
-      <span><i class="dot" style="background:var(--green)"></i>Geregeld</span>
-      <span><i class="dot" style="background:var(--miss)"></i>Ontbreekt</span>
-      <span><i class="dot" style="background:var(--warn)"></i>Besteld</span>
-      <span><i class="dot" style="background:var(--na)"></i>N.v.t. / extra</span>
+      <span><i class="dot" style="background:var(--green)"></i>In bezit</span>
+      <span><i class="dot" style="background:var(--warn)"></i>Te bestellen</span>
+      <span><i class="dot" style="background:var(--na)"></i>Niet toegewezen</span>
     </div>
     <div id="playerCards">
       <?php foreach ($byLine as $pos => $group): if (!$group) continue; ?>
@@ -882,12 +1021,12 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
           if ($p['voet']) {
               $meta[] = $voetLabel((string) $p['voet']);
           }
-          $meta[] = $p['complete'] ? 'set ontvangen' : ($p['to_order'] ? 'nieuwe set bestellen' : $p['miss'].' open');
+          $meta[] = $p['to_order'] ? count($p['to_order']).' te bestellen' : ($p['owned'] ? 'niets te bestellen' : 'nog niets toegewezen');
           if (!empty($p['parent_saved_at'])) {
               $meta[] = 'ouder ingevuld';
           }
         ?>
-        <article class="card<?= $isMoos ? ' moos' : '' ?><?= $p['complete'] ? '' : ' gap' ?>"
+        <article class="card<?= $isMoos ? ' moos' : '' ?><?= $p['to_order'] ? ' gap' : '' ?>"
                  data-pos="<?= h($p['position'] ?? '') ?>">
           <div class="who">
             <b><?= h(fullName($p)) ?></b>
@@ -896,28 +1035,30 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
           <div class="meta"><?= h(implode(' · ', array_filter($meta))) ?></div>
           <div class="kit">
             <?php
-              $cardTypes = $typeOrder;
-              foreach (array_keys($p['items']) as $extraTid) {
-                  $extraTid = (int) $extraTid;
-                  if ($extraTid > 0 && !in_array($extraTid, $cardTypes, true)) {
-                      $cardTypes[] = $extraTid;
-                  }
-              }
+              $cardTypes = $p['card_types'] ?? [];
             ?>
             <?php foreach ($cardTypes as $tid):
               if (!isset($types[$tid])) continue;
               $t = $types[$tid];
               $it = itemFor($p, $tid);
-              $isReq = in_array($tid, $p['need'], true);
-              $isKeeperOnly = in_array($tid, $KEEPER_ONLY, true) && ($p['position'] ?? '') !== 'goalkeeper';
               $pending = isPendingItem($it);
-              $cls = $it ? ($pending ? 'wait' : ($isReq ? 'ok' : 'extra')) : ($isKeeperOnly ? 'na' : ($isReq ? 'no' : 'extra'));
-              $val = $it ? $it['size'] : ($isKeeperOnly ? 'n.v.t.' : ($isReq ? 'ontbreekt' : '—'));
+              $owned = isIssued($it);
+              $cls = $it ? ($pending ? 'wait' : 'ok') : 'extra';
+              $val = $it ? (string) $it['size'] : '—';
+              $tag = $pending ? ' · bestellen' : ($owned ? ' · in bezit' : '');
             ?>
-            <div class="row <?= $cls ?>">
-              <span><?= h(shortTypeName($tid, $types)) ?><?= $pending ? ' · bestellen' : '' ?></span>
-              <?php if ($canEdit && !$isKeeperOnly): ?>
+            <div class="row <?= $cls ?> kit-row<?= $it ? '' : ' off' ?>" data-who="player" data-id="<?= (int) $p['id'] ?>" data-tid="<?= $tid ?>">
+              <label class="want">
+                <?php if ($canEdit): ?>
+                <input type="checkbox" class="want-check"<?= $it ? ' checked' : '' ?>>
+                <?php endif; ?>
+                <?= h(shortTypeName($tid, $types)) ?><?= $tag ?>
+              </label>
+              <?php if ($canEdit): ?>
                 <?= sizeSelect($tid, (string) ($it['size'] ?? ''), 'player', (int) $p['id']) ?>
+                <?php if ($it): ?>
+                <button type="button" class="del item-del" data-who="player" data-id="<?= (int) $p['id'] ?>" data-tid="<?= $tid ?>">Verwijderen</button>
+                <?php endif; ?>
               <?php else: ?>
                 <span><?= h($val) ?></span>
               <?php endif; ?>
@@ -968,14 +1109,23 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
               if (!isset($types[$tid])) continue;
               $it = itemFor($s, $tid);
               $pending = isPendingItem($it);
-              $cls = isIssued($it) ? 'ok' : ($pending ? 'wait' : 'no');
+              $owned = isIssued($it);
+              $cls = $owned ? 'ok' : ($pending ? 'wait' : 'extra');
           ?>
-            <div class="row <?= $cls ?>">
-              <span><?= h(shortTypeName($tid, $types)) ?><?= $pending ? ' · bestellen' : '' ?></span>
+            <div class="row <?= $cls ?> kit-row<?= $it ? '' : ' off' ?>" data-who="staff" data-id="<?= (int) $s['id'] ?>" data-tid="<?= $tid ?>">
+              <label class="want">
+                <?php if ($canEdit): ?>
+                <input type="checkbox" class="want-check"<?= $it ? ' checked' : '' ?>>
+                <?php endif; ?>
+                <?= h(shortTypeName($tid, $types)) ?><?= $pending ? ' · bestellen' : ($owned ? ' · in bezit' : '') ?>
+              </label>
               <?php if ($canEdit): ?>
                 <?= sizeSelect($tid, (string) ($it['size'] ?? ''), 'staff', (int) $s['id']) ?>
+                <?php if ($it): ?>
+                <button type="button" class="del item-del" data-who="staff" data-id="<?= (int) $s['id'] ?>" data-tid="<?= $tid ?>">Verwijderen</button>
+                <?php endif; ?>
               <?php else: ?>
-                <span><?= h($it['size'] ?? 'ontbreekt') ?></span>
+                <span><?= h($it['size'] ?? '—') ?></span>
               <?php endif; ?>
             </div>
           <?php endforeach; ?>
@@ -998,7 +1148,21 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
 
   <div class="section" id="catalogus">
     <h3>Catalogus · Stanno</h3>
-    <p class="sub">Artikelnummers en richtprijzen (Stanno). 164/176 en XS gebruiken de kleine prijs, S t/m XL de grote.<?= $canEdit ? ' Prijzen en artikel kun je hier aanpassen.' : '' ?></p>
+    <p class="sub">Artikelnummers en richtprijzen. 164/176 en XS gebruiken de kleine prijs, S t/m XL de grote.<?= $canEdit ? ' Voeg hier een artikel toe en vink welke items bij <b>Pakket</b> horen.' : '' ?></p>
+    <?php if ($canEdit): ?>
+    <div class="parent-defaults" id="packageDefaults">
+      <h4>Pakket-sjabloon</h4>
+      <p class="hint">Deze items zet <b>Pakket</b> in één keer op bestellen. Jacks nemen de shirtmaat over.</p>
+      <div class="checks" id="packageChecks">
+        <?php foreach ($types as $t):
+          $tid = (int) $t['id'];
+          $on = in_array($tid, $PACKAGE_CORE, true) ? ' checked' : '';
+        ?>
+        <label><input type="checkbox" value="<?= $tid ?>"<?= $on ?>> <?= h(shortTypeName($tid, $types)) ?></label>
+        <?php endforeach; ?>
+      </div>
+    </div>
+    <?php endif; ?>
     <div class="tablewrap">
       <table>
         <thead>
@@ -1036,6 +1200,44 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
         </tbody>
       </table>
     </div>
+    <?php if ($canEdit): ?>
+    <div class="parent-defaults" style="margin-top:14px">
+      <h4>Artikel toevoegen</h4>
+      <p class="hint">Nieuwe jas, tas of trainingsshirt zonder code te wijzigen.</p>
+      <div class="add-type" id="addTypeForm">
+        <label>Naam <input class="cat-input" id="newDisplay" placeholder="Trainingsshirt"></label>
+        <label>Artikel <input class="cat-input" id="newArticle" placeholder="410014"></label>
+        <label>Kleur <input class="cat-input" id="newColor" placeholder="Zwart"></label>
+        <label>Merk <input class="cat-input" id="newBrand" value="Stanno"></label>
+        <label>164 / JR <input class="cat-input" id="newSmall" inputmode="decimal" placeholder="35,50"></label>
+        <label>S–XL / SR <input class="cat-input" id="newLarge" inputmode="decimal" placeholder="37,50"></label>
+        <label>Maten
+          <select class="cat-input" id="newKind">
+            <option value="body">164–XL</option>
+            <option value="socks">Sokken</option>
+            <option value="onesize">Eén maat</option>
+          </select>
+        </label>
+        <label>Ronde
+          <select class="cat-input" id="newGroup">
+            <option value="extra">Overig</option>
+            <option value="package">Pakket</option>
+            <option value="match">Wedstrijd</option>
+          </select>
+        </label>
+        <label>Bedrukking <input class="cat-input" id="newPlace" placeholder="Rohda borst · initialen"></label>
+      </div>
+      <div class="checks" id="newPrints">
+        <label><input type="checkbox" value="print_rohda"> Rohda</label>
+        <label><input type="checkbox" value="print_initials"> Initialen</label>
+        <label><input type="checkbox" value="print_sponsor"> Sponsorblok</label>
+        <label><input type="checkbox" value="print_name_back"> Naam rug</label>
+      </div>
+      <div class="actions">
+        <button type="button" class="btn dark" id="addTypeBtn">Artikel toevoegen</button>
+      </div>
+    </div>
+    <?php endif; ?>
   </div>
 </div>
 <div id="pinModal" class="modal hidden">
@@ -1078,14 +1280,18 @@ const TEAM = {
   editing: <?= $canEdit ? 'true' : 'false' ?>,
   parentFills: <?= json_encode($parentFillJs, JSON_UNESCAPED_UNICODE) ?>,
   packageTypes: <?= json_encode(packageTypeIds()) ?>,
-  suggest: <?= json_encode(array_reduce($active, static function ($acc, $p) {
+  suggest: <?= json_encode(array_reduce($active, static function ($acc, $p) use ($types) {
       $id = (int) $p['id'];
       $jacket = suggestedJacketSize($p);
-      $acc[$id] = [
-          13 => $jacket !== 'onbekend' ? $jacket : '',
-          14 => $jacket !== 'onbekend' ? $jacket : '',
-          15 => 'één maat',
-      ];
+      $acc[$id] = [];
+      foreach (packageTypeIds() as $tid) {
+          $kind = isset($types[$tid]) ? typeSizeKind($types[$tid]) : 'body';
+          if ($kind === 'onesize') {
+              $acc[$id][$tid] = 'één maat';
+          } else {
+              $acc[$id][$tid] = $jacket !== 'onbekend' ? $jacket : '';
+          }
+      }
       return $acc;
   }, []), JSON_UNESCAPED_UNICODE) ?>,
   types: <?= json_encode(array_values(array_map(static function ($t) use ($types) {
@@ -1165,17 +1371,39 @@ document.getElementById('logoutBtn')?.addEventListener('click', async ()=>{
   location.reload();
 });
 document.addEventListener('change', e=>{
+  const box=e.target.closest?.('.want-check');
+  if(box){
+    const row=box.closest('.kit-row');
+    row?.classList.toggle('off', !box.checked);
+    if(box.checked){
+      const sel=row?.querySelector('.size-select');
+      if(sel && !sel.value){
+        const tid=+row.dataset.tid, who=row.dataset.who, id=+row.dataset.id;
+        const sizes=typeSizes(tid);
+        let pick='';
+        if(who==='player' && TEAM.suggest && TEAM.suggest[id]) pick=TEAM.suggest[id][tid]||'';
+        if(!pick && sizes.length===1) pick=sizes[0];
+        if(pick && sizes.includes(pick)) sel.value=pick;
+      }
+    }
+  }
   const sel=e.target.closest?.('.size-select');
   if(!sel) return;
   const tid=sel.dataset.tid, who=sel.dataset.who, id=sel.dataset.id;
   document.querySelectorAll(`.size-select[data-who="${who}"][data-id="${id}"][data-copy-from="${tid}"]`).forEach(t=>{
     if(!t.value) t.value=sel.value;
+    const row=t.closest('.kit-row');
+    const want=row?.querySelector('.want-check');
+    if(want && !want.checked && sel.value){ want.checked=true; row.classList.remove('off'); }
   });
 });
 function itemsFor(who, id, root){
   const items={};
-  (root||document).querySelectorAll(`.size-select[data-who="${who}"][data-id="${id}"]`).forEach(s=>{
-    items[s.dataset.tid]=s.value;
+  (root||document).querySelectorAll(`.kit-row[data-who="${who}"][data-id="${id}"]`).forEach(row=>{
+    const tid=row.dataset.tid;
+    const want=!!row.querySelector('.want-check')?.checked;
+    const size=row.querySelector('.size-select')?.value||'';
+    items[tid]={want, size};
   });
   return items;
 }
@@ -1190,10 +1418,13 @@ document.querySelectorAll('.save-one').forEach(btn=>{
 });
 document.getElementById('saveAllBtn')?.addEventListener('click', async ()=>{
   const map=new Map();
-  document.querySelectorAll('article.card .size-select').forEach(s=>{
-    const key=s.dataset.who+':'+s.dataset.id;
-    if(!map.has(key)) map.set(key,{who:s.dataset.who,id:+s.dataset.id,items:{}});
-    map.get(key).items[s.dataset.tid]=s.value;
+  document.querySelectorAll('article.card .kit-row').forEach(row=>{
+    const key=row.dataset.who+':'+row.dataset.id;
+    if(!map.has(key)) map.set(key,{who:row.dataset.who,id:+row.dataset.id,items:{}});
+    map.get(key).items[row.dataset.tid]={
+      want: !!row.querySelector('.want-check')?.checked,
+      size: row.querySelector('.size-select')?.value||''
+    };
   });
   const out=await api({action:'save_all', csrf:TEAM.csrf, mode:'pending', rows:[...map.values()]});
   if(!out.ok){ toast(out.error||'Opslaan mislukt'); return; }
@@ -1321,7 +1552,7 @@ document.getElementById('assignPackage')?.addEventListener('click', ()=>{
   addPackage(who, id, 'pending');
 });
 document.getElementById('assignPackageAll')?.addEventListener('click', async ()=>{
-  if(!confirm('Field Jack, Prime Padded Jacket en Pro Bag Prime op bestellen zetten voor alle spelers die ze nog niet hebben?')) return;
+  if(!confirm('Het huidige pakket op bestellen zetten voor alle spelers die die items nog niet hebben?')) return;
   const out=await api({action:'add_package_all', csrf:TEAM.csrf, mode:'pending'});
   if(!out.ok){ toast(out.error||'Mislukt'); return; }
   toast((out.people||0)+' spelers · '+(out.saved||0)+' items');
@@ -1343,6 +1574,52 @@ document.querySelectorAll('.addrow .assign-add').forEach(btn=>{
 document.querySelectorAll('.assign-package').forEach(btn=>{
   btn.addEventListener('click', ()=>addPackage(btn.dataset.who, +btn.dataset.id, 'pending'));
 });
+document.querySelectorAll('.item-del').forEach(btn=>{
+  btn.addEventListener('click', async ()=>{
+    if(!confirm('Dit item van de speler halen? Staat het in bezit, dan verdwijnt die regel ook.')) return;
+    const out=await api({action:'remove_item', csrf:TEAM.csrf, who:btn.dataset.who, id:+btn.dataset.id, tid:+btn.dataset.tid});
+    if(!out.ok){ toast(out.error||'Verwijderen mislukt'); return; }
+    toast('Verwijderd');
+    location.reload();
+  });
+});
+async function saveKit(payload){
+  const out=await api(Object.assign({action:'save_kit', csrf:TEAM.csrf}, payload));
+  if(!out.ok){ toast(out.error||'Niet opgeslagen'); return; }
+  toast('Opgeslagen');
+  location.reload();
+}
+document.querySelectorAll('.print-price').forEach(el=>{
+  el.addEventListener('change', ()=>{
+    const print={};
+    document.querySelectorAll('.print-price').forEach(i=>{ print[i.dataset.print]=i.value; });
+    saveKit({print});
+  });
+});
+document.getElementById('packageChecks')?.addEventListener('change', ()=>{
+  const pkg=checkedTypes(document.getElementById('packageChecks'));
+  if(pkg.length<1){ toast('Kies minstens één pakket-item'); return; }
+  saveKit({package: pkg});
+});
+document.getElementById('addTypeBtn')?.addEventListener('click', async ()=>{
+  const prints={};
+  document.querySelectorAll('#newPrints input').forEach(i=>{ prints[i.value]=i.checked?1:0; });
+  const out=await api(Object.assign({
+    action:'add_type', csrf:TEAM.csrf,
+    display_name: document.getElementById('newDisplay')?.value||'',
+    article_number: document.getElementById('newArticle')?.value||'',
+    color: document.getElementById('newColor')?.value||'',
+    brand: document.getElementById('newBrand')?.value||'Stanno',
+    price_small: document.getElementById('newSmall')?.value||'',
+    price_large: document.getElementById('newLarge')?.value||'',
+    size_kind: document.getElementById('newKind')?.value||'body',
+    order_group: document.getElementById('newGroup')?.value||'extra',
+    print_place: document.getElementById('newPlace')?.value||''
+  }, prints));
+  if(!out.ok){ toast(out.error||'Toevoegen mislukt'); return; }
+  toast('Artikel toegevoegd');
+  location.reload();
+});
 async function saveTypeField(el){
   const id=+el.dataset.tid, field=el.dataset.field;
   if(!id || !field) return;
@@ -1353,7 +1630,7 @@ async function saveTypeField(el){
   toast('Opgeslagen');
   location.reload();
 }
-document.querySelectorAll('.money, .cat-input').forEach(el=>{
+document.querySelectorAll('.money:not(.print-price), .cat-input[data-tid]').forEach(el=>{
   el.addEventListener('change', ()=>saveTypeField(el));
 });
 </script>

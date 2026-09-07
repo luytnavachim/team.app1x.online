@@ -677,8 +677,10 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
         --warn:#a16207;--warnbg:#fef3c7;--na:#71717a;--nabg:#fafafa}
   html{color-scheme:light}
   body{background:#fff;color:#111}
-  .navwrap,.filters,.actions,.note,.toast,.modal,.theme-switch,#parentAlert,.assign,.addrow,.money,.cat-input{display:none !important}
-  .section,.featured,.card{break-inside:avoid;border:1px solid #d4d4d8}
+  .navwrap,.filters,.actions,.note,.toast,.modal,.theme-switch,#parentAlert,.assign,.addrow,.money,.cat-input,#printPrices,.parent-defaults{display:none !important}
+  .featured,.card{break-inside:avoid;border:1px solid #d4d4d8}
+  .section{border:1px solid #d4d4d8}
+  #bestel{break-inside:auto}
   .featured{background:#fff;color:#111}
   .featured p,.pill{color:#333}
   .wrap{max-width:none;padding:0}

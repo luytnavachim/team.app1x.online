@@ -308,6 +308,55 @@ foreach ($active as $p) {
     }
 }
 
+$quote = buildPackageQuote($active);
+
+if (isset($_GET['csv']) && $_GET['csv'] === 'offerte') {
+    header('Content-Type: text/csv; charset=utf-8');
+    header('Content-Disposition: attachment; filename="kitroom-14-2-offerte-pakket.csv"');
+    $out = fopen('php://output', 'w');
+    fwrite($out, "\xEF\xBB\xBF");
+    fputcsv($out, ['Offerte pakket 14-2 · ' . $quote['n'] . ' spelers · ' . $quote['pieces'] . ' stuks'], ';');
+    fputcsv($out, [], ';');
+    fputcsv($out, ['Bedrukking', 'Aantal', 'Toelichting'], ';');
+    fputcsv($out, ['Rohda Raalte logo', $quote['brand']['rohda'], 'Clublogo per applicatie'], ';');
+    fputcsv($out, ['Initialen', $quote['brand']['initials'], 'Zoals MvT, per item met naam'], ';');
+    fputcsv($out, ['Sponsorlogo', $quote['brand']['sponsor'], '1 groot blok (Eckelboom / Triplet / R&J / Salland)'], ';');
+    fputcsv($out, ['Naam op rug', $quote['brand']['name_back'], 'Alleen trainingsshirt'], ';');
+    fputcsv($out, [], ';');
+    fputcsv($out, ['Product', 'Maat', 'Aantal', 'Rohda', 'Initialen', 'Sponsorblok', 'Naam rug', 'Voor'], ';');
+    foreach ($quote['products'] as $prod) {
+        foreach ($prod['sizes'] as $sz => $row) {
+            fputcsv($out, [
+                $prod['name'],
+                $sz,
+                $row['count'],
+                $prod['rohda'] ? $row['count'] : 0,
+                $prod['initials'] ? $row['count'] : 0,
+                $prod['sponsor'] ? $row['count'] : 0,
+                $prod['name_back'] ? $row['count'] : 0,
+                implode(', ', $row['names']),
+            ], ';');
+        }
+    }
+    fputcsv($out, [], ';');
+    fputcsv($out, ['Speler', 'Initialen', 'Shirt', 'Broekje', 'Sokken', 'Grip', 'Jack / jas', 'Tas'], ';');
+    foreach ($quote['people'] as $person) {
+        $s = $person['sizes'];
+        fputcsv($out, [
+            $person['name'],
+            $person['initials'],
+            $s['shirt'],
+            $s['shorts'],
+            $s['socks'],
+            $s['grip'],
+            $s['jacket'],
+            $s['bag'],
+        ], ';');
+    }
+    fclose($out);
+    exit;
+}
+
 if (isset($_GET['csv']) && $_GET['csv'] === 'bestel') {
     header('Content-Type: text/csv; charset=utf-8');
     header('Content-Disposition: attachment; filename="kitroom-14-2-bestellijst.csv"');
@@ -646,6 +695,13 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
   box-shadow:0 8px 26px rgba(0,0,0,.4);
 }
 .toast.show{opacity:1}
+.packshot{
+  width:100%;border-radius:var(--r);border:1px solid var(--line);
+  display:block;margin:0 0 14px;background:#0a0c0e;
+}
+.brandbits{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 0 14px}
+@media(max-width:760px){.brandbits{grid-template-columns:repeat(2,1fr)}}
+.place{font-size:11px;color:var(--dim);font-weight:600;margin:2px 0 0}
 
 @media(max-width:520px){
   .wrap{padding:14px 12px 64px}
@@ -694,6 +750,7 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
 
   <div class="navwrap">
   <nav class="nav">
+    <a href="#offerte">Offerte</a>
     <a href="#bestel">Bestellijst</a>
     <a href="#opmeten">Opmeten</a>
     <a href="#ouders">Ouderlinks<?php if ($parentFilled): ?> <span class="count" id="ouderNavCount"><?= count($parentFilled) ?></span><?php endif; ?></a>
@@ -705,6 +762,7 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
     <a href="#matrix">Matrix</a>
     <a href="#staf">Staf</a>
     <a href="#catalogus">Catalogus</a>
+    <a href="?csv=offerte">Offerte CSV</a>
     <a href="?csv=bestel">CSV</a>
     <?php if ($canEdit): ?>
       <a class="dark" href="#opmeten">Invullen</a>
@@ -739,6 +797,127 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
     <div class="stat accent">
       <b><?= count($parentFilled) ?>/<?= count($active) ?></b><span>ouders ingevuld</span>
       <div class="progress"><i style="width:<?= count($active) ? round(100 * count($parentFilled) / count($active)) : 0 ?>%"></i></div>
+    </div>
+  </div>
+
+  <div class="section" id="offerte">
+    <h3>Offerte · pakket 14-2</h3>
+    <p class="sub">Aantallen voor de leverancier: het kledingstuk zelf, het Rohda-logo, de initialen (zoals MvT) en het sponsorlogo als <b>1 groot blok</b> (Eckelboom, Triplet IT, R&amp;J, Salland). Jackmaat volgt uit shirtmaat (164→S, 176→M). <?= (int) $quote['n'] ?> spelers · <?= (int) $quote['pieces'] ?> stuks.</p>
+    <img class="packshot" src="pakket-14-2.png" alt="Pakket 14-2: trainingsshirt, regenjack, winterjas, broekje, sporttas, sokken en grip sokken met Rohda-logo, initialen en sponsorblok">
+    <div class="brandbits">
+      <div class="stat accent"><b><?= (int) $quote['pieces'] ?></b><span>producten</span></div>
+      <div class="stat"><b><?= (int) $quote['brand']['rohda'] ?></b><span>Rohda Raalte logo</span></div>
+      <div class="stat"><b><?= (int) $quote['brand']['initials'] ?></b><span>initialen</span></div>
+      <div class="stat"><b><?= (int) $quote['brand']['sponsor'] ?></b><span>sponsorlogo (1 blok)</span></div>
+    </div>
+    <div class="actions">
+      <a class="btn dark" href="?csv=offerte">Download offerte CSV</a>
+      <a class="btn" href="javascript:window.print()">Print</a>
+    </div>
+    <div class="line">Bedrukking</div>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="name">Applicatie</th>
+            <th>Aantal</th>
+            <th class="name">Toelichting</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="name">Rohda Raalte logo</td>
+            <td><b><?= (int) $quote['brand']['rohda'] ?></b></td>
+            <td class="left">Clublogo op shirt, beide jassen en tas</td>
+          </tr>
+          <tr>
+            <td class="name">Initialen</td>
+            <td><b><?= (int) $quote['brand']['initials'] ?></b></td>
+            <td class="left">Per speler, zoals MvT · shirt, jassen, broekje, tas</td>
+          </tr>
+          <tr>
+            <td class="name">Sponsorlogo</td>
+            <td><b><?= (int) $quote['brand']['sponsor'] ?></b></td>
+            <td class="left">1 groot blok, niet 4 losse logo’s · shirt, jassen, tas</td>
+          </tr>
+          <tr>
+            <td class="name">Naam op rug</td>
+            <td><b><?= (int) $quote['brand']['name_back'] ?></b></td>
+            <td class="left">Alleen trainingsshirt (voornaam, zoals Moos)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="line">Producten per maat</div>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="name">Product</th>
+            <th>Maat</th>
+            <th>Aantal</th>
+            <th>Rohda</th>
+            <th>Initialen</th>
+            <th>Sponsor</th>
+            <th class="name">Voor</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($quote['products'] as $prod): ?>
+            <?php foreach ($prod['sizes'] as $sz => $row): ?>
+            <tr>
+              <td class="name"><?= h($prod['name']) ?><div class="place"><?= h($prod['place']) ?></div></td>
+              <td><?= h((string) $sz) ?></td>
+              <td><b><?= (int) $row['count'] ?></b></td>
+              <td><?= $prod['rohda'] ? (int) $row['count'] : '—' ?></td>
+              <td><?= $prod['initials'] ? (int) $row['count'] : '—' ?></td>
+              <td><?= $prod['sponsor'] ? (int) $row['count'] : '—' ?></td>
+              <td class="left"><?= h(implode(', ', $row['names'])) ?></td>
+            </tr>
+            <?php endforeach; ?>
+          <?php endforeach; ?>
+          <tr>
+            <td class="name">Totaal stuks</td>
+            <td></td>
+            <td><b><?= (int) $quote['pieces'] ?></b></td>
+            <td><b><?= (int) $quote['brand']['rohda'] ?></b></td>
+            <td><b><?= (int) $quote['brand']['initials'] ?></b></td>
+            <td><b><?= (int) $quote['brand']['sponsor'] ?></b></td>
+            <td class="left"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="line">Per speler</div>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="name">Speler</th>
+            <th>Initialen</th>
+            <th>Shirt</th>
+            <th>Broekje</th>
+            <th>Sokken</th>
+            <th>Grip</th>
+            <th>Jack / jas</th>
+            <th>Tas</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($quote['people'] as $person): $s = $person['sizes']; ?>
+          <tr>
+            <td class="name"><?= h($person['name']) ?></td>
+            <td><b><?= h($person['initials']) ?></b></td>
+            <td><?= h($s['shirt']) ?></td>
+            <td><?= h($s['shorts']) ?></td>
+            <td><?= h($s['socks']) ?></td>
+            <td><?= h($s['grip']) ?></td>
+            <td><?= h($s['jacket']) ?></td>
+            <td><?= h($s['bag']) ?></td>
+          </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
     </div>
   </div>
 

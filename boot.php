@@ -256,6 +256,192 @@ function typeOptionsHtml(array $types, string $placeholder = 'Type'): string {
     return $html;
 }
 
+function playerInitials(array $p): string {
+    $first = trim((string) ($p['first_name'] ?? ''));
+    $last = trim((string) ($p['last_name'] ?? ''));
+    $out = '';
+    if ($first !== '') {
+        $out .= mb_strtoupper(mb_substr($first, 0, 1, 'UTF-8'), 'UTF-8');
+    }
+    $particles = ['van', 'de', 'der', 'den', 'het', 'ten', 'ter', 'te', 'op', 'aan', 'tot', "'t"];
+    foreach (preg_split('/\s+/', $last) ?: [] as $part) {
+        if ($part === '') {
+            continue;
+        }
+        $low = mb_strtolower($part, 'UTF-8');
+        $ch = mb_substr($part, 0, 1, 'UTF-8');
+        $out .= in_array($low, $particles, true)
+            ? mb_strtolower($ch, 'UTF-8')
+            : mb_strtoupper($ch, 'UTF-8');
+    }
+    return $out;
+}
+
+function jacketSizeFromShirt(string $size): string {
+    $size = strtoupper(trim($size));
+    if ($size === '') {
+        return 'onbekend';
+    }
+    return match ($size) {
+        '140', '152', 'XXS', 'XXXS' => 'XS',
+        '164' => 'S',
+        '176' => 'M',
+        default => $size,
+    };
+}
+
+function kitSize(array $p, int $tid): string {
+    return trim((string) (itemFor($p, $tid)['size'] ?? ''));
+}
+
+function packageCatalog(): array {
+    return [
+        [
+            'id' => 'shirt',
+            'name' => 'Trainingsshirt',
+            'size_key' => 'shirt',
+            'rohda' => true,
+            'initials' => true,
+            'sponsor' => true,
+            'name_back' => true,
+            'place' => 'Rohda borst · sponsorblok middenvoor · initialen onder · naam op rug',
+        ],
+        [
+            'id' => 'rain',
+            'name' => 'Regenjack',
+            'size_key' => 'jacket',
+            'rohda' => true,
+            'initials' => true,
+            'sponsor' => true,
+            'name_back' => false,
+            'place' => 'Rohda borst · initialen onder logo · sponsorblok op rug',
+        ],
+        [
+            'id' => 'puffer',
+            'name' => 'Winterjas',
+            'size_key' => 'jacket',
+            'rohda' => true,
+            'initials' => true,
+            'sponsor' => true,
+            'name_back' => false,
+            'place' => 'Rohda borst · initialen onder logo · sponsorblok op rug',
+        ],
+        [
+            'id' => 'shorts',
+            'name' => 'Broekje',
+            'size_key' => 'shorts',
+            'rohda' => false,
+            'initials' => true,
+            'sponsor' => false,
+            'name_back' => false,
+            'place' => 'Alleen initialen op het broekje',
+        ],
+        [
+            'id' => 'bag',
+            'name' => 'Sporttas',
+            'size_key' => 'bag',
+            'rohda' => true,
+            'initials' => true,
+            'sponsor' => true,
+            'name_back' => false,
+            'place' => 'Rohda · sponsorblok · initialen op de tas',
+        ],
+        [
+            'id' => 'socks',
+            'name' => 'Sokken',
+            'size_key' => 'socks',
+            'rohda' => false,
+            'initials' => false,
+            'sponsor' => false,
+            'name_back' => false,
+            'place' => 'Geen bedrukking',
+        ],
+        [
+            'id' => 'grip',
+            'name' => 'Grip sokken',
+            'size_key' => 'grip',
+            'rohda' => false,
+            'initials' => false,
+            'sponsor' => false,
+            'name_back' => false,
+            'place' => 'Geen bedrukking',
+        ],
+    ];
+}
+
+function buildPackageQuote(array $players): array {
+    $catalog = packageCatalog();
+    $products = [];
+    $brand = ['rohda' => 0, 'initials' => 0, 'sponsor' => 0, 'name_back' => 0];
+    $people = [];
+    foreach ($players as $p) {
+        $shirt = kitSize($p, 1);
+        $shorts = kitSize($p, 4);
+        $socks = kitSize($p, 3);
+        $grip = kitSize($p, 7);
+        $body = $shirt !== '' ? $shirt : $shorts;
+        $sizes = [
+            'shirt' => $shirt !== '' ? $shirt : ($shorts !== '' ? $shorts : 'onbekend'),
+            'shorts' => $shorts !== '' ? $shorts : ($shirt !== '' ? $shirt : 'onbekend'),
+            'socks' => $socks !== '' ? $socks : 'onbekend',
+            'grip' => $grip !== '' ? $grip : ($socks !== '' ? $socks : 'onbekend'),
+            'jacket' => jacketSizeFromShirt($body),
+            'bag' => 'één maat',
+        ];
+        $ini = playerInitials($p);
+        $people[] = [
+            'name' => fullName($p),
+            'initials' => $ini,
+            'sizes' => $sizes,
+        ];
+        foreach ($catalog as $item) {
+            $id = $item['id'];
+            $sz = $sizes[$item['size_key']];
+            if (!isset($products[$id])) {
+                $products[$id] = [
+                    'name' => $item['name'],
+                    'place' => $item['place'],
+                    'rohda' => $item['rohda'],
+                    'initials' => $item['initials'],
+                    'sponsor' => $item['sponsor'],
+                    'name_back' => $item['name_back'],
+                    'count' => 0,
+                    'sizes' => [],
+                ];
+            }
+            $products[$id]['count']++;
+            if (!isset($products[$id]['sizes'][$sz])) {
+                $products[$id]['sizes'][$sz] = ['count' => 0, 'names' => []];
+            }
+            $products[$id]['sizes'][$sz]['count']++;
+            $products[$id]['sizes'][$sz]['names'][] = fullName($p) . ' · ' . $ini;
+            if ($item['rohda']) {
+                $brand['rohda']++;
+            }
+            if ($item['initials']) {
+                $brand['initials']++;
+            }
+            if ($item['sponsor']) {
+                $brand['sponsor']++;
+            }
+            if ($item['name_back']) {
+                $brand['name_back']++;
+            }
+        }
+    }
+    foreach ($products as &$prod) {
+        uksort($prod['sizes'], static fn($a, $b) => strnatcasecmp((string) $a, (string) $b));
+    }
+    unset($prod);
+    return [
+        'products' => $products,
+        'brand' => $brand,
+        'people' => $people,
+        'n' => count($players),
+        'pieces' => array_sum(array_column($products, 'count')),
+    ];
+}
+
 function normalizeParentTypeIds(array $ids, array $allowed): array {
     $out = [];
     foreach ($ids as $id) {

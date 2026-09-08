@@ -908,7 +908,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     <h3>Bestelling voor de drukker</h3>
     <p class="sub">Overzicht uit alle spelers: aantallen per product/maat + wat er bedrukt moet worden. <?= (int) $orderPieces ?> stuks<?= $orderTotal > 0 ? ' · ' . euro($orderTotal) : '' ?>.</p>
     <p class="shop-rule"><b>Rohda Raalte logo</b> + <b>bedrijfslogo</b>: jassen, shirt, tas · <b>Initialen</b>: jassen, shirt, broekje, tas · <b>Nummer achterop</b>: shirt</p>
-    <img class="packshot" src="pakket14-2.png" width="1126" height="1098" alt="Pakket 14-2: shirt, jassen, broekje, tas en sokken">
+    <img class="packshot" src="pakket-14-2.png" width="1023" height="1022" alt="Pakket 14-2: shirt, jassen, broekje, tas en sokken">
 
     <div class="actions">
       <a class="btn dark" href="?csv=bestel">CSV voor de drukker</a>

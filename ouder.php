@@ -91,7 +91,7 @@ body{
     radial-gradient(700px 380px at 8% -6%,var(--glow-b),transparent 60%);
   background-attachment:fixed;
 }
-.wrap{max-width:560px;margin:auto;padding:18px 14px 80px}
+.wrap{max-width:520px;margin:auto;padding:20px 16px 88px}
 .top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}
 .club b{display:block;font-size:19px;font-weight:800;letter-spacing:-.3px}
 .club small{display:block;color:var(--muted);font-size:12px;font-weight:600}
@@ -103,36 +103,36 @@ body{
 .theme-switch button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
 .note{
   background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);
-  border-radius:var(--r);padding:12px 14px;font-size:13.5px;color:var(--muted);
-  font-weight:500;margin-bottom:16px;
+  border-radius:var(--r);padding:13px 14px;font-size:13.5px;color:var(--muted);
+  font-weight:500;margin-bottom:16px;line-height:1.5;
 }
 .note b{color:var(--ink)}
-.section{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px}
-.section h2{margin:0 0 4px;font-size:22px;font-weight:800;letter-spacing:-.4px}
+.section{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 16px}
+.section h2{margin:0 0 4px;font-size:clamp(20px,5vw,24px);font-weight:800;letter-spacing:-.4px}
 .section .sub{margin:0 0 16px;font-size:13px;color:var(--muted);font-weight:500}
 .kit{display:grid;gap:8px}
 .row{
-  display:flex;justify-content:space-between;gap:10px;align-items:center;
-  font-size:14px;font-weight:600;padding:11px 12px;border-radius:12px;
-  background:var(--nabg);color:var(--muted);
+  display:flex;justify-content:space-between;gap:12px;align-items:center;
+  font-size:14px;font-weight:600;padding:12px 13px;border-radius:12px;
+  background:var(--nabg);color:var(--muted);min-width:0;
 }
 .row.ok{background:var(--greenbg);color:var(--green)}
 .row.no{background:var(--missbg);color:var(--miss)}
 .row.wait{background:var(--warnbg);color:var(--warn)}
 .row.extra{background:var(--nabg);color:var(--muted)}
-.row>span:first-child{min-width:0}
+.row>span:first-child{min-width:0;line-height:1.3}
 .size-select{
-  max-width:140px;border:1px solid var(--line2);border-radius:10px;padding:8px 10px;
+  flex:0 0 auto;min-width:7.5rem;max-width:11rem;border:1px solid var(--line2);border-radius:10px;padding:9px 11px;
   font-weight:700;font-size:15px;background:var(--raise);color:var(--ink);
   font-family:inherit;cursor:pointer;
 }
 .btn{
   border:1px solid var(--line);background:var(--surface2);border-radius:999px;
-  padding:12px 16px;font-weight:800;font-size:14px;color:var(--ink);
-  font-family:inherit;cursor:pointer;
+  padding:13px 18px;font-weight:800;font-size:14px;color:var(--ink);
+  font-family:inherit;cursor:pointer;width:100%;
 }
 .btn.dark{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
-.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:16px}
+.actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:18px}
 .toast{
   position:fixed;bottom:18px;left:50%;transform:translateX(-50%);
   background:var(--accent);color:var(--on-accent);padding:11px 18px;border-radius:999px;
@@ -141,6 +141,10 @@ body{
 .toast.show{opacity:1}
 .line{margin:16px 0 8px;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--dim)}
 .err{color:var(--miss);font-size:13px;font-weight:700;min-height:18px;margin:8px 0 0}
+@media(max-width:420px){
+  .row{flex-wrap:wrap}
+  .size-select{width:100%;max-width:none}
+}
 </style>
 </head>
 <body>

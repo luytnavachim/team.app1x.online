@@ -1744,13 +1744,50 @@ function sendXlsxDownload(string $filename, array $rows): void {
     exit;
 }
 
-function orderListRows(array $shopByType, int $orderPieces): array {
+function kitSizeRank(string $size): array {
+    $order = ['140', '152', '164', 'S', 'M', 'L', 'XL', 'XXL', '31-35', '36-40', '41-44', '45-47', 'één maat', 'maat onbekend', 'onbekend'];
+    $i = array_search($size, $order, true);
+    return [$i === false ? 999 : $i, $size];
+}
+
+function itemPrintMarks(array $g): array {
+    $t = $g['type'] ?? [];
+    $ini = trim((string) ($g['ini'] ?? ''));
+    $jersey = trim((string) ($g['jersey'] ?? ''));
+    $rohda = typePrints($t, 'print_rohda');
+    $sponsor = typePrints($t, 'print_sponsor');
+    $wantIni = typePrints($t, 'print_initials');
+    $wantNum = typePrints($t, 'print_name_back');
+    $bits = [];
+    if ($wantIni) {
+        $bits[] = $ini !== '' ? $ini : 'initialen ontbreken';
+    }
+    if ($wantNum) {
+        $bits[] = $jersey !== '' ? '#' . $jersey : 'nummer ontbreekt';
+    }
+    if ($rohda) {
+        $bits[] = 'Rohda logo';
+    }
+    if ($sponsor) {
+        $bits[] = 'Bedrijfslogo';
+    }
+    return [
+        'any' => $wantIni || $wantNum || $rohda || $sponsor,
+        'ini' => $wantIni ? ($ini !== '' ? $ini : 'ontbreekt') : '',
+        'num' => $wantNum ? ($jersey !== '' ? '#' . $jersey : 'ontbreekt') : '',
+        'rohda' => $rohda ? 'ja' : '',
+        'sponsor' => $sponsor ? 'ja' : '',
+        'on' => implode(' · ', $bits),
+    ];
+}
+
+function orderListRows(array $shopByType, int $orderPieces, array $gaps = []): array {
     $rows = [];
     $rows[] = ['Bestelling Rohda Raalte 14-2 · ' . date('d-m-Y')];
-    $rows[] = ['Lijst voor bestellen + bedrukken. Per product: maten/aantallen en bedrukking.'];
+    $rows[] = ['Winkel: aantallen per maat. Drukker: per maat de initialen/nummers, en per stuk precies wat erop moet.'];
     $rows[] = ['Rohda Raalte logo + bedrijfslogo: jassen, shirt, keeperstenue, tas. Initialen: jassen, shirt, broekje, keeperstenue, tas. Nummer achterop: shirt, keeperstenue.'];
     $rows[] = [];
-    $rows[] = ['BESTELLEN'];
+    $rows[] = ['BESTELLEN · AANTALLEN PER MAAT'];
     $rows[] = ['Product', 'Artikelnummer', 'Merk', 'Kleur', 'Maat', 'Aantal'];
     foreach ($shopByType as $shop) {
         $art = trim((string) ($shop['article'] ?? ''));
@@ -1764,37 +1801,102 @@ function orderListRows(array $shopByType, int $orderPieces): array {
     }
     $rows[] = ['Alle producten · totaal', '', '', '', '', $orderPieces];
     $rows[] = [];
-    $rows[] = ['BEDRUKKEN · PER PRODUCT'];
-    $rows[] = ['Product', 'Artikelnummer', 'Stuks', 'Rohda logo', 'Initialen', 'Initialen letters', 'Bedrijfslogo', 'Nummer achterop'];
+    $rows[] = ['BEDRUKKEN · PER MAAT'];
+    $rows[] = ['Product', 'Artikelnummer', 'Maat', 'Aantal', 'Initialen op deze maat', 'Nummers op deze maat', 'Rohda logo', 'Bedrijfslogo'];
     foreach ($shopByType as $shop) {
-        $rows[] = [
-            $shop['label'],
-            trim((string) ($shop['article'] ?? '')),
-            (int) $shop['count'],
-            !empty($shop['rohda']) ? (int) $shop['rohda'] : '',
-            !empty($shop['initials']) ? (int) $shop['initials'] : '',
-            !empty($shop['letters']) ? implode(', ', $shop['letters']) : '',
-            !empty($shop['sponsor']) ? (int) $shop['sponsor'] : '',
-            !empty($shop['name_back']) ? (int) $shop['name_back'] : '',
-        ];
-    }
-    $letterRows = [];
-    foreach ($shopByType as $shop) {
-        if (empty($shop['letters'])) {
+        $hasPrint = !empty($shop['rohda']) || !empty($shop['initials']) || !empty($shop['sponsor']) || !empty($shop['name_back']);
+        if (!$hasPrint) {
             continue;
         }
-        $letterRows[] = [$shop['label'], implode(', ', $shop['letters'])];
-    }
-    if ($letterRows) {
-        $rows[] = [];
-        $rows[] = ['INITIALEN · PER PRODUCT'];
-        $rows[] = ['Product', 'Initialen (max. 3 letters)'];
-        foreach ($letterRows as $letterRow) {
-            $rows[] = $letterRow;
+        $art = trim((string) ($shop['article'] ?? ''));
+        foreach ($shop['sizes'] as $sz => $cnt) {
+            $line = $shop['size_lines'][$sz] ?? ['letters' => [], 'numbers' => []];
+            $rows[] = [
+                $shop['label'],
+                $art,
+                $sz,
+                (int) $cnt,
+                !empty($line['letters']) ? implode(', ', $line['letters']) : '',
+                !empty($line['numbers']) ? implode(', ', array_map(static fn($n) => '#' . $n, $line['numbers'])) : '',
+                !empty($shop['rohda']) ? 'ja' : '',
+                !empty($shop['sponsor']) ? 'ja' : '',
+            ];
         }
     }
+
+    $printGaps = [];
+    foreach ($gaps as $g) {
+        $marks = itemPrintMarks($g);
+        if (!$marks['any']) {
+            continue;
+        }
+        $g['marks'] = $marks;
+        $printGaps[] = $g;
+    }
+    usort($printGaps, static function (array $a, array $b): int {
+        $sa = (string) (($a['size'] ?? '') !== '' ? $a['size'] : 'maat onbekend');
+        $sb = (string) (($b['size'] ?? '') !== '' ? $b['size'] : 'maat onbekend');
+        return [(int) $a['tid'], kitSizeRank($sa), mb_strtolower((string) $a['who'], 'UTF-8')]
+            <=> [(int) $b['tid'], kitSizeRank($sb), mb_strtolower((string) $b['who'], 'UTF-8')];
+    });
+
+    $rows[] = [];
+    $rows[] = ['BEDRUKKEN · PER STUK'];
+    $rows[] = ['Product', 'Artikelnummer', 'Maat', 'Speler', 'Initialen', 'Nummer', 'Rohda logo', 'Bedrijfslogo', 'Op dit stuk'];
+    foreach ($printGaps as $g) {
+        $tid = (int) $g['tid'];
+        $shop = $shopByType[$tid] ?? [];
+        $size = (string) (($g['size'] ?? '') !== '' ? $g['size'] : 'maat onbekend');
+        $m = $g['marks'];
+        $rows[] = [
+            $shop['label'] ?? shortTypeName($tid),
+            trim((string) ($shop['article'] ?? ($g['type']['article_number'] ?? ''))),
+            $size,
+            (string) $g['who'],
+            $m['ini'],
+            $m['num'],
+            $m['rohda'],
+            $m['sponsor'],
+            $m['on'],
+        ];
+    }
+
+    $byWho = [];
+    foreach ($printGaps as $g) {
+        $who = (string) $g['who'];
+        $byWho[$who][] = $g;
+    }
+    uksort($byWho, 'strcasecmp');
+    $rows[] = [];
+    $rows[] = ['CONTROLE · PER SPELER'];
+    $rows[] = ['Speler', 'Initialen', 'Nummer', 'Product', 'Maat', 'Op dit stuk'];
+    foreach ($byWho as $who => $items) {
+        usort($items, static function (array $a, array $b): int {
+            $sa = (string) (($a['size'] ?? '') !== '' ? $a['size'] : 'maat onbekend');
+            $sb = (string) (($b['size'] ?? '') !== '' ? $b['size'] : 'maat onbekend');
+            return [(int) $a['tid'], kitSizeRank($sa)] <=> [(int) $b['tid'], kitSizeRank($sb)];
+        });
+        foreach ($items as $g) {
+            $tid = (int) $g['tid'];
+            $shop = $shopByType[$tid] ?? [];
+            $size = (string) (($g['size'] ?? '') !== '' ? $g['size'] : 'maat onbekend');
+            $m = $g['marks'];
+            $ini = (string) ($g['ini'] ?? '');
+            $jersey = trim((string) ($g['jersey'] ?? ''));
+            $rows[] = [
+                $who,
+                $ini,
+                $jersey !== '' ? '#' . $jersey : '',
+                $shop['label'] ?? shortTypeName($tid),
+                $size,
+                $m['on'],
+            ];
+        }
+    }
+
     return $rows;
 }
+
 
 ensureParentTokenColumn($mysqli);
 ensureParentSavedAtColumn($mysqli);

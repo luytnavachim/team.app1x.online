@@ -329,6 +329,7 @@ foreach ($orderGroups as $g) {
             'name_back' => 0,
             'numbers' => [],
             'letters' => [],
+            'size_lines' => [],
             'cost' => 0.0,
         ];
     }
@@ -356,21 +357,33 @@ foreach ($gaps as $g) {
     if (!isset($shopByType[$tid])) {
         continue;
     }
+    $sz = (string) (($g['size'] ?? '') !== '' ? $g['size'] : 'maat onbekend');
+    if (!isset($shopByType[$tid]['size_lines'][$sz])) {
+        $shopByType[$tid]['size_lines'][$sz] = ['letters' => [], 'numbers' => []];
+    }
     if (typePrints($g['type'], 'print_name_back') && ($g['jersey'] ?? '') !== '') {
         $shopByType[$tid]['numbers'][] = (string) $g['jersey'];
+        $shopByType[$tid]['size_lines'][$sz]['numbers'][] = (string) $g['jersey'];
     }
     if (typePrints($g['type'], 'print_initials') && ($g['ini'] ?? '') !== '') {
         $shopByType[$tid]['letters'][] = (string) $g['ini'];
+        $shopByType[$tid]['size_lines'][$sz]['letters'][] = (string) $g['ini'];
     }
 }
 foreach ($shopByType as &$shopRow) {
     uksort($shopRow['sizes'], static fn($a, $b) => $sizeRank((string) $a) <=> $sizeRank((string) $b));
+    uksort($shopRow['size_lines'], static fn($a, $b) => $sizeRank((string) $a) <=> $sizeRank((string) $b));
     $nums = array_values(array_unique($shopRow['numbers']));
     usort($nums, static fn($a, $b) => ((int) $a) <=> ((int) $b));
     $shopRow['numbers'] = $nums;
     $letters = $shopRow['letters'] ?? [];
     usort($letters, static fn($a, $b) => strcasecmp($a, $b));
     $shopRow['letters'] = $letters;
+    foreach ($shopRow['size_lines'] as &$line) {
+        usort($line['letters'], static fn($a, $b) => strcasecmp($a, $b));
+        usort($line['numbers'], static fn($a, $b) => ((int) $a) <=> ((int) $b));
+    }
+    unset($line);
 }
 unset($shopRow);
 uksort($shopByType, static function ($a, $b) use ($types) {
@@ -386,7 +399,7 @@ $csvKind = (string) ($_GET['csv'] ?? $_GET['xls'] ?? '');
 if ($csvKind === 'bestel' || $csvKind === 'regels') {
     sendXlsxDownload(
         'kitroom-14-2-bestelling-' . date('d-m-Y') . '.xlsx',
-        orderListRows($shopByType, (int) $orderPieces)
+        orderListRows($shopByType, (int) $orderPieces, $gaps)
     );
 }
 
@@ -1166,12 +1179,20 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
           <?php if ($shop['name_back']): ?><i>Nummer achterop <b><?= (int) $shop['name_back'] ?></b></i><?php endif; ?>
         </div>
         <?php endif; ?>
-        <?php if (!empty($shop['letters'])): ?>
-        <div class="shop-nums">Initialen: <b><?= h(implode(', ', $shop['letters'])) ?></b></div>
-        <?php endif; ?>
-        <?php if (!empty($shop['numbers'])): ?>
-        <div class="shop-nums">Nummers: <b><?= h(implode(', ', array_map(static fn($n) => '#'.$n, $shop['numbers']))) ?></b></div>
-        <?php endif; ?>
+        <?php foreach (($shop['size_lines'] ?? []) as $sz => $line):
+          if (empty($line['letters']) && empty($line['numbers'])) {
+              continue;
+          }
+          $bits = [];
+          if (!empty($line['letters'])) {
+              $bits[] = implode(', ', $line['letters']);
+          }
+          if (!empty($line['numbers'])) {
+              $bits[] = implode(', ', array_map(static fn($n) => '#'.$n, $line['numbers']));
+          }
+        ?>
+        <div class="shop-nums"><?= h((string) $sz) ?>: <b><?= h(implode(' · ', $bits)) ?></b></div>
+        <?php endforeach; ?>
       </div>
       <?php endforeach; ?>
     </div>

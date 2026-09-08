@@ -356,10 +356,14 @@ if ($action === 'add_package_all') {
     $types = loadTypes($mysqli);
     $saved = 0;
     $people = 0;
-    $res = $mysqli->query("SELECT id FROM players WHERE status='active' AND IFNULL(is_guest,0)=0 ORDER BY last_name, first_name");
+    $res = $mysqli->query("SELECT * FROM players WHERE status='active' AND IFNULL(is_guest,0)=0 ORDER BY last_name, first_name");
+    $portal = loadScoutPortal();
     $mysqli->begin_transaction();
     try {
         while ($row = $res->fetch_assoc()) {
+            if (!playerOnScoutTeam14($row, $portal)) {
+                continue;
+            }
             $out = assignPackageToPerson($mysqli, $types, 'player', (int) $row['id'], $mode, true);
             if ($out['saved'] > 0) {
                 $people++;

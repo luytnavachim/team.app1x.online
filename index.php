@@ -15,9 +15,9 @@ $types = loadTypes($mysqli);
 cleanupMismatchedPlayerKit($mysqli);
 
 $FIELD_CORE = [1, 4, 3, 7];
-$KEEPER_CORE = [9, 4, 10];
+$KEEPER_CORE = keeperCoreTypeIds($types);
 $PACKAGE_CORE = packageTypeIds();
-$KEEPER_ONLY = [9, 10];
+$KEEPER_ONLY = keeperOnlyTypeIds($types);
 $STAFF_CORE = [11, 12];
 $kitSettings = loadKitSettings();
 $printPrices = $kitSettings['print'];
@@ -29,24 +29,13 @@ foreach ($catalogPrint as $key => $unit) {
 }
 
 function cardTypeIds(array $p, array $types, array $packageIds, array $keeperOnly): array {
-    $isKeeper = ($p['position'] ?? '') === 'goalkeeper';
-    $ids = $isKeeper ? [9, 4, 10] : [1, 4, 3, 7];
-    foreach ($packageIds as $tid) {
-        $ids[] = (int) $tid;
-    }
+    $out = [];
     foreach (array_keys($p['items'] ?? []) as $tid) {
         $tid = (int) $tid;
-        if (!typeAllowedForPlayer($p, $tid)) {
-            continue;
-        }
-        $ids[] = $tid;
-    }
-    $out = [];
-    foreach ($ids as $tid) {
         if ($tid < 1 || !isset($types[$tid]) || isset($out[$tid])) {
             continue;
         }
-        if (!$isKeeper && in_array($tid, $keeperOnly, true) && empty($p['items'][$tid])) {
+        if (!itemFor($p, $tid)) {
             continue;
         }
         if (!typeAllowedForPlayer($p, $tid)) {
@@ -105,8 +94,9 @@ function parentChecksHtml(string $scope, array $choices, array $selected, int $p
 
 $portal = loadScoutPortal();
 syncPlayersFromScout($mysqli, $players, $portal);
+archivePlayersNotOnScoutTeam14($mysqli, $players, $portal);
 
-$active = array_values(array_filter($players, fn($p) => ($p['status'] ?? '') === 'active' && !(int) $p['is_guest']));
+$active = array_values(array_filter($players, static fn($p) => ($p['status'] ?? '') === 'active' && !(int) $p['is_guest'] && playerOnScoutTeam14($p, $portal)));
 
 foreach ($active as &$p) {
     $info = findScoutForPlayer($p, $portal);
@@ -151,7 +141,7 @@ usort($active, static function ($a, $b) use ($posOrder) {
     return strcasecmp(fullName($a), fullName($b));
 });
 
-$guestPlayers = array_values(array_filter($players, fn($p) => (int) ($p['is_guest'] ?? 0) === 1 && ($p['status'] ?? '') === 'active'));
+$guestPlayers = [];
 foreach ($guestPlayers as &$p) {
     $p['scout_pos'] = '';
     $p['scout_type'] = '';
@@ -215,7 +205,7 @@ $gaps = [];
 $addGap = static function (array $person, int $tid, string $whoLabel) use (&$gaps, $types): void {
     $t = $types[$tid] ?? null;
     $it = itemFor($person, $tid);
-    if (!$t || isPrintCatalogType($t) || !isPendingItem($it)) {
+    if (!$t || !typeIsActive($t) || isPrintCatalogType($t) || !isPendingItem($it)) {
         return;
     }
     $sz = trim((string) ($it['size'] ?? ''));
@@ -376,71 +366,21 @@ foreach ($shopByType as &$shopRow) {
     $shopRow['numbers'] = $nums;
 }
 unset($shopRow);
-uksort($shopByType, static fn($a, $b) => $a <=> $b);
+uksort($shopByType, static function ($a, $b) use ($types) {
+    $rank = static function (int $tid) use ($types): int {
+        $g = typeOrderGroup($types[$tid] ?? []);
+        return ['match' => 0, 'package' => 1, 'extra' => 2][$g] ?? 3;
+    };
+    return [$rank((int) $a), (int) $a] <=> [$rank((int) $b), (int) $b];
+});
 
-$csvKind = (string) ($_GET['csv'] ?? '');
+$csvKind = (string) ($_GET['csv'] ?? $_GET['xls'] ?? '');
 
 if ($csvKind === 'bestel' || $csvKind === 'regels') {
-    header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename="kitroom-14-2-bestelling-drukker.csv"');
-    $out = fopen('php://output', 'w');
-    fwrite($out, "\xEF\xBB\xBF");
-    fputcsv($out, ['Bestelling Rohda Raalte 14-2 · ' . date('d-m-Y')], ';');
-    fputcsv($out, ['Lijst voor bestellen + bedrukken. Per product: maten/aantallen en bedrukking.'], ';');
-    fputcsv($out, ['Rohda Raalte logo + bedrijfslogo: jassen, shirt, tas. Initialen: jassen, shirt, broekje, tas. Nummer achterop: shirt.'], ';');
-    fputcsv($out, [], ';');
-
-    fputcsv($out, ['BESTELLEN'], ';');
-    fputcsv($out, ['Product', 'Artikelnummer', 'Merk', 'Kleur', 'Maat', 'Aantal'], ';');
-    foreach ($shopByType as $shop) {
-        $art = trim((string) ($shop['article'] ?? ''));
-        $brand = trim((string) ($shop['brand'] ?? ''));
-        if ($brand === '') {
-            $brand = 'Stanno';
-        }
-        foreach ($shop['sizes'] as $sz => $cnt) {
-            fputcsv($out, [$shop['label'], $art, $brand, $shop['color'], $sz, $cnt], ';');
-        }
-        fputcsv($out, [$shop['label'] . ' · totaal', $art, '', '', '', $shop['count']], ';');
-        fputcsv($out, [], ';');
-    }
-    fputcsv($out, ['Alle producten · totaal', '', '', '', '', $orderPieces], ';');
-    fputcsv($out, [], ';');
-
-    fputcsv($out, ['BEDRUKKEN · TOTALEN'], ';');
-    fputcsv($out, ['Soort', 'Aantal', 'Stukprijs', 'Subtotaal'], ';');
-    foreach ($printRows as $row) {
-        fputcsv($out, [
-            $row['label'],
-            $row['count'],
-            $row['unit'] !== null ? number_format($row['unit'], 2, ',', '') : '',
-            $row['sum'] !== null ? number_format($row['sum'], 2, ',', '') : '',
-        ], ';');
-    }
-    fputcsv($out, [], ';');
-    fputcsv($out, ['RICHTPRIJS'], ';');
-    fputcsv($out, ['Kleding', number_format($orderCost, 2, ',', '')], ';');
-    fputcsv($out, ['Bedrukking', number_format($printCost, 2, ',', '')], ';');
-    fputcsv($out, ['Totaal', number_format($orderTotal, 2, ',', '')], ';');
-    fputcsv($out, [], ';');
-
-    fputcsv($out, ['BEDRUKKEN · PER PRODUCT'], ';');
-    fputcsv($out, ['Product', 'Artikelnummer', 'Stuks', 'Rohda logo', 'Initialen', 'Bedrijfslogo', 'Nummer achterop', 'Nummers'], ';');
-    foreach ($shopByType as $shop) {
-        $numStr = $shop['numbers'] ? implode(', ', array_map(static fn($n) => '#' . $n, $shop['numbers'])) : '';
-        fputcsv($out, [
-            $shop['label'],
-            trim((string) ($shop['article'] ?? '')),
-            $shop['count'],
-            $shop['rohda'] ?: '',
-            $shop['initials'] ?: '',
-            $shop['sponsor'] ?: '',
-            $shop['name_back'] ?: '',
-            $numStr,
-        ], ';');
-    }
-    fclose($out);
-    exit;
+    sendXlsxDownload(
+        'kitroom-14-2-bestelling-' . date('d-m-Y') . '.xlsx',
+        orderListRows($shopByType, (int) $orderPieces)
+    );
 }
 
 $byLine = [];
@@ -1033,6 +973,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               if (!isset($types[$tid])) continue;
               $t = $types[$tid];
               $it = itemFor($p, $tid);
+              if (!$it) continue;
               $pending = isPendingItem($it);
               $owned = isIssued($it);
               $cls = $it ? ($pending ? 'wait' : 'ok') : 'extra';
@@ -1143,14 +1084,14 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   <div class="section" id="bestel">
     <h3>Bestelling</h3>
     <p class="sub"><?= (int) $orderPieces ?> stuks<?= $orderTotal > 0 ? ' · ' . euro($orderTotal) . ' kleding + bedrukking' : '' ?> · artikelnummers, maten en print.</p>
-    <p class="shop-rule"><b>Logo + bedrijfslogo:</b> jassen, shirt, tas · <b>Initialen:</b> jassen, shirt, broekje, tas · <b>Nummer:</b> shirt</p>
+    <p class="shop-rule"><b>Logo + bedrijfslogo:</b> jassen, shirt, keeperstenue, tas · <b>Initialen:</b> jassen, shirt, broekje, keeperstenue, tas · <b>Nummer:</b> shirt, keeperstenue</p>
     <details class="packfold">
       <summary>Toon pakketfoto</summary>
       <img class="packshot" src="pakket-14-2.png" width="1023" height="1022" alt="Pakket 14-2: shirt, jassen, broekje, tas en sokken">
     </details>
 
     <div class="actions">
-      <a class="btn dark" href="?csv=bestel">CSV voor de drukker</a>
+      <a class="btn dark" href="?csv=bestel">Excel-bestellijst</a>
       <a class="btn" href="javascript:window.print()">Print</a>
       <?php if ($canEdit): ?>
       <button type="button" class="btn" id="assignPackageAll">Pakket aan alle spelers</button>
@@ -1295,10 +1236,10 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         <?php if ($canEdit): ?><div class="meta"><a href="#cms-s-<?= (int) $s['id'] ?>">Wijzigen</a></div><?php endif; ?>
         <div class="kit">
           <?php
-            $staffTypes = $STAFF_CORE;
+            $staffTypes = [];
             foreach (array_keys($s['items']) as $extraTid) {
                 $extraTid = (int) $extraTid;
-                if ($extraTid > 0 && !in_array($extraTid, $staffTypes, true)) {
+                if ($extraTid > 0 && isset($types[$extraTid])) {
                     $staffTypes[] = $extraTid;
                 }
             }
@@ -1306,6 +1247,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
           <?php foreach ($staffTypes as $tid):
               if (!isset($types[$tid])) continue;
               $it = itemFor($s, $tid);
+              if (!$it) continue;
               $pending = isPendingItem($it);
               $owned = isIssued($it);
               $cls = $owned ? 'ok' : ($pending ? 'wait' : 'extra');
@@ -1465,7 +1407,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   </div>
 
   <?php if ($canEdit):
-    $cmsPlayers = array_values($players);
+    $cmsPlayers = array_values(array_filter($players, static fn($p) => playerOnScoutTeam14($p, $portal)));
     usort($cmsPlayers, static fn($a, $b) => strcasecmp(fullName($a), fullName($b)));
     $inactiveTypes = array_values(array_filter($types, static fn($t) => is_array($t) && !typeIsActive($t)));
     $posSelect = static function (string $current) use ($posLabel): string {
@@ -1479,7 +1421,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   ?>
   <div class="section" id="beheer">
     <h3>Beheer</h3>
-    <p class="sub">CMS: spelers, staf, seizoen en verwijderde artikelen. Kledingmaten blijven per kaart staan. Archiveren verwijdert niemand definitief.</p>
+    <p class="sub">CMS: seizoen, staf, catalogus. Spelers zijn alleen de huidige 14-2 selectie uit de scout-app.</p>
 
     <div class="parent-defaults">
       <h4>Seizoen</h4>
@@ -1493,7 +1435,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
     <h4 class="line">Spelers</h4>
     <div class="parent-defaults">
-      <p class="hint">Nieuwe speler. Gast telt niet mee in de ouderlinks-standaard.</p>
+      <p class="hint">Alleen namen uit de scout-app 14-2. Wie daar niet in staat, verdwijnt uit dit overzicht.</p>
       <div class="cms-grid" id="newPlayerForm">
         <label>Voornaam <input class="cat-input" id="npFirst" placeholder="Voornaam"></label>
         <label>Achternaam <input class="cat-input" id="npLast" placeholder="Achternaam"></label>

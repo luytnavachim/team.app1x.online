@@ -111,7 +111,7 @@ function loadScoutPortal(): array {
 
 function findScoutForPlayer(array $p, array $portal): ?array {
     $sid = (int) ($p['scout_id'] ?? 0);
-    if ($sid > 0 && isset($portal['byId'][$sid])) {
+    if ($sid > 0 && isset($portal['byId'][$sid]) && trim((string) ($portal['byId'][$sid]['huidig'] ?? '')) === '14-2') {
         return $portal['byId'][$sid];
     }
     $key = playerKey($p);
@@ -130,6 +130,31 @@ function findScoutForPlayer(array $p, array $portal): ?array {
         }
     }
     return count($cands) === 1 ? $cands[0] : null;
+}
+
+function playerOnScoutTeam14(array $p, array $portal): bool {
+    return findScoutForPlayer($p, $portal) !== null;
+}
+
+function archivePlayersNotOnScoutTeam14(mysqli $db, array &$players, array $portal): int {
+    $changed = 0;
+    $status = 'inactive';
+    $upd = $db->prepare('UPDATE players SET status=?, updated_at=NOW() WHERE id=? AND status=\'active\'');
+    foreach ($players as $id => &$p) {
+        if (($p['status'] ?? '') !== 'active' || (int) ($p['is_guest'] ?? 0) === 1) {
+            continue;
+        }
+        if (playerOnScoutTeam14($p, $portal)) {
+            continue;
+        }
+        $id = (int) $id;
+        $upd->bind_param('si', $status, $id);
+        $upd->execute();
+        $p['status'] = 'inactive';
+        $changed++;
+    }
+    unset($p);
+    return $changed;
 }
 
 function ensureScoutIdColumn(mysqli $db): void {
@@ -268,8 +293,68 @@ function packageTypeIds(): array {
     return $ids !== [] ? $ids : [13, 14, 15];
 }
 
-function keeperOnlyTypeIds(): array {
-    return [9, 10]; // keepershirt, keepersokken
+function isKeeperKitType(array $t): bool {
+    $hay = strtolower(trim(
+        (string) ($t['display_name'] ?? '') . ' ' .
+        (string) ($t['name'] ?? '') . ' ' .
+        (string) ($t['description'] ?? '')
+    ));
+    if ($hay === '' || !preg_match('/keeper|goalkeeper|keepershirt|keepersok|keeperstenue|keepertenue|\bk-shirt\b|\bk-sok/u', $hay)) {
+        return false;
+    }
+    if (trim((string) ($t['article_number'] ?? '')) === '' && (
+        typePrints($t, 'print_rohda') || typePrints($t, 'print_initials')
+        || typePrints($t, 'print_sponsor') || typePrints($t, 'print_name_back')
+    )) {
+        return false;
+    }
+    return true;
+}
+
+function keeperKitTypeHasSet(array $t): bool {
+    $hay = strtolower((string) ($t['display_name'] ?? '') . ' ' . (string) ($t['name'] ?? ''));
+    return str_contains($hay, 'set') || str_contains($hay, 'tenue') || str_contains($hay, 'stenue');
+}
+
+function keeperOnlyTypeIds(?array $types = null): array {
+    $types = $types ?? rememberTypes();
+    $ids = [9 => 9, 10 => 10];
+    foreach ($types as $tid => $t) {
+        if (!is_array($t) || !isKeeperKitType($t)) {
+            continue;
+        }
+        $id = (int) ($t['id'] ?? $tid);
+        if ($id > 0) {
+            $ids[$id] = $id;
+        }
+    }
+    return array_values($ids);
+}
+
+function keeperCoreTypeIds(?array $types = null): array {
+    $types = $types ?? rememberTypes();
+    $ids = [];
+    $hasSet = false;
+    foreach ($types as $tid => $t) {
+        if (!is_array($t) || !typeIsActive($t) || !isKeeperKitType($t)) {
+            continue;
+        }
+        $id = (int) ($t['id'] ?? $tid);
+        if ($id < 1) {
+            continue;
+        }
+        $ids[$id] = $id;
+        if (keeperKitTypeHasSet($t)) {
+            $hasSet = true;
+        }
+    }
+    if ($ids === []) {
+        return [9, 4, 10];
+    }
+    if (!$hasSet) {
+        $ids[4] = 4;
+    }
+    return array_values($ids);
 }
 
 function fieldOnlyTypeIds(): array {
@@ -290,10 +375,12 @@ function typeAllowedForPlayer(array $player, int $tid): bool {
 
 /** Ruimt verkeerde shirt/sok-types op (bv. keeper met gewoon shirt). */
 function cleanupMismatchedPlayerKit(mysqli $db): int {
+    $field = implode(',', array_map('intval', fieldOnlyTypeIds())) ?: '1,3,7';
+    $keeper = implode(',', array_map('intval', keeperOnlyTypeIds())) ?: '9,10';
     $sql = "DELETE pc FROM player_clothing pc
             INNER JOIN players p ON p.id = pc.player_id
-            WHERE (p.position = 'goalkeeper' AND pc.clothing_type_id IN (1,3,7))
-               OR ((p.position IS NULL OR p.position <> 'goalkeeper') AND pc.clothing_type_id IN (9,10))";
+            WHERE (p.position = 'goalkeeper' AND pc.clothing_type_id IN ({$field}))
+               OR ((p.position IS NULL OR p.position <> 'goalkeeper') AND pc.clothing_type_id IN ({$keeper}))";
     if (!$db->query($sql)) {
         return 0;
     }
@@ -588,13 +675,18 @@ function parentFormPath(): string {
 }
 
 function parentTypeChoices(string $kind): array {
-    return $kind === 'keeper'
-        ? [9, 4, 13, 14, 15, 10, 11, 12]
-        : [1, 4, 13, 14, 15, 3, 7, 11, 12];
+    if ($kind === 'keeper') {
+        return array_values(array_unique(array_merge(keeperCoreTypeIds(), [13, 14, 15, 11, 12, 10, 4])));
+    }
+    return [1, 4, 13, 14, 15, 3, 7, 11, 12];
 }
 
 function allParentTypeIds(): array {
-    return [1, 4, 3, 7, 9, 10, 11, 12, 13, 14, 15];
+    return array_values(array_unique(array_merge(
+        parentTypeChoices('field'),
+        parentTypeChoices('keeper'),
+        [9, 10, 19]
+    )));
 }
 
 function shortTypeName(int $tid, array $types = []): string {
@@ -605,6 +697,7 @@ function shortTypeName(int $tid, array $types = []): string {
         7 => 'Grip',
         9 => 'K-shirt',
         10 => 'K-sokken',
+        19 => 'Keeperstenue',
         11 => 'Polo',
         12 => 'Zip',
         13 => 'Regenjack',
@@ -700,9 +793,29 @@ function kitSize(array $p, int $tid): string {
     return trim((string) (itemFor($p, $tid)['size'] ?? ''));
 }
 
+function playerBodyKitSize(array $p): string {
+    foreach ([1, 9, 4] as $tid) {
+        $s = kitSize($p, $tid);
+        if ($s !== '') {
+            return $s;
+        }
+    }
+    $types = rememberTypes();
+    foreach (keeperOnlyTypeIds($types) as $tid) {
+        $t = $types[$tid] ?? null;
+        if (!$t || typeSizeKind($t) === 'socks') {
+            continue;
+        }
+        $s = kitSize($p, $tid);
+        if ($s !== '') {
+            return $s;
+        }
+    }
+    return '';
+}
+
 function suggestedJacketSize(array $p): string {
-    $shirt = kitSize($p, 1);
-    $body = $shirt !== '' ? $shirt : kitSize($p, 4);
+    $body = playerBodyKitSize($p);
     $opts = sizeOptions(13);
     return in_array($body, $opts, true) ? $body : '';
 }
@@ -730,7 +843,7 @@ function defaultParentFormSettings(): array {
     return [
         'note' => '',
         'field' => [1, 4, 13, 14, 3, 7],
-        'keeper' => [9, 4, 13, 14, 10],
+        'keeper' => array_values(array_unique(array_merge(keeperCoreTypeIds(), [13, 14]))),
         'players' => [],
         'v' => 2,
     ];
@@ -744,6 +857,37 @@ function withParentJacketTypes(array $ids, array $allowed): array {
         }
     }
     return $ids;
+}
+
+function replaceRetiredKeeperParentTypes(array $ids): array {
+    $types = rememberTypes();
+    $out = [];
+    $hadRetired = false;
+    foreach ($ids as $id) {
+        $id = (int) $id;
+        $t = $types[$id] ?? null;
+        if ($id === 9 || ($t && isKeeperKitType($t) && !typeIsActive($t))) {
+            $hadRetired = true;
+            continue;
+        }
+        if ($id > 0) {
+            $out[$id] = $id;
+        }
+    }
+    foreach (keeperCoreTypeIds($types) as $kid) {
+        $t = $types[$kid] ?? null;
+        if ($t && isKeeperKitType($t) && typeIsActive($t)) {
+            $out[$kid] = $kid;
+        }
+    }
+    foreach ($out as $id) {
+        $t = $types[$id] ?? null;
+        if ($t && isKeeperKitType($t) && keeperKitTypeHasSet($t)) {
+            unset($out[4]);
+            break;
+        }
+    }
+    return array_values($out);
 }
 
 function loadParentFormSettings(bool $reload = false): array {
@@ -766,7 +910,10 @@ function loadParentFormSettings(bool $reload = false): array {
     $settings = $def;
     $settings['note'] = mb_substr(trim((string) ($raw['note'] ?? '')), 0, 280);
     $field = normalizeParentTypeIds($raw['field'] ?? $def['field'], parentTypeChoices('field'));
-    $keeper = normalizeParentTypeIds($raw['keeper'] ?? $def['keeper'], parentTypeChoices('keeper'));
+    $keeper = normalizeParentTypeIds(
+        replaceRetiredKeeperParentTypes($raw['keeper'] ?? $def['keeper']),
+        parentTypeChoices('keeper')
+    );
     $version = (int) ($raw['v'] ?? 1);
     if ($version < 2) {
         $field = withParentJacketTypes($field, parentTypeChoices('field'));
@@ -1131,12 +1278,30 @@ function assignPackageToPerson(
 ): array {
     $shirt = currentItemSize($db, $who, $personId, 1);
     if ($shirt === '' && $who === 'player') {
-        $shirt = currentItemSize($db, $who, $personId, 9); // keeper: maat van keepershirt
+        foreach (array_values(array_unique(array_merge([9], keeperOnlyTypeIds($types)))) as $kid) {
+            $t = $types[$kid] ?? null;
+            if ($t && typeSizeKind($t) === 'socks') {
+                continue;
+            }
+            $shirt = currentItemSize($db, $who, $personId, (int) $kid);
+            if ($shirt !== '') {
+                break;
+            }
+        }
     }
     $shorts = currentItemSize($db, $who, $personId, 4);
     $socks = currentItemSize($db, $who, $personId, 3);
     if ($socks === '') {
-        $socks = currentItemSize($db, $who, $personId, 10);
+        foreach (array_values(array_unique(array_merge([10], keeperOnlyTypeIds($types)))) as $kid) {
+            $t = $types[$kid] ?? null;
+            if (!$t || typeSizeKind($t) !== 'socks') {
+                continue;
+            }
+            $socks = currentItemSize($db, $who, $personId, (int) $kid);
+            if ($socks !== '') {
+                break;
+            }
+        }
     }
     $body = $shirt !== '' ? $shirt : $shorts;
     $saved = 0;
@@ -1482,6 +1647,129 @@ function setPlayerJerseyNumber(mysqli $db, int $playerId, mixed $raw, bool $allo
     $upd->bind_param('si', $num, $playerId);
     $upd->execute();
     return $num;
+}
+
+function xlsxColumnName(int $index): string {
+    $name = '';
+    $n = $index + 1;
+    while ($n > 0) {
+        $n--;
+        $name = chr(65 + ($n % 26)) . $name;
+        $n = intdiv($n, 26);
+    }
+    return $name;
+}
+
+function xlsxSheetXml(array $rows): string {
+    $xml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        . '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>';
+    $r = 1;
+    foreach ($rows as $row) {
+        $xml .= '<row r="' . $r . '">';
+        $c = 0;
+        foreach ($row as $val) {
+            if ($val === null || $val === '') {
+                $c++;
+                continue;
+            }
+            $ref = xlsxColumnName($c) . $r;
+            if (is_int($val) || is_float($val) || (is_string($val) && preg_match('/^-?\d+$/', $val))) {
+                $xml .= '<c r="' . $ref . '"><v>' . $val . '</v></c>';
+            } else {
+                $xml .= '<c r="' . $ref . '" t="inlineStr"><is><t xml:space="preserve">'
+                    . htmlspecialchars((string) $val, ENT_XML1 | ENT_QUOTES, 'UTF-8')
+                    . '</t></is></c>';
+            }
+            $c++;
+        }
+        $xml .= '</row>';
+        $r++;
+    }
+    $xml .= '</sheetData></worksheet>';
+    return $xml;
+}
+
+function sendXlsxDownload(string $filename, array $rows): void {
+    $tmp = tempnam(sys_get_temp_dir(), 'krx');
+    $zip = new ZipArchive();
+    if ($zip->open($tmp, ZipArchive::OVERWRITE) !== true) {
+        throw new RuntimeException('Kon Excel-bestand niet maken.');
+    }
+    $zip->addFromString(
+        '[Content_Types].xml',
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        . '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+        . '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+        . '<Default Extension="xml" ContentType="application/xml"/>'
+        . '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+        . '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'
+        . '</Types>'
+    );
+    $zip->addFromString(
+        '_rels/.rels',
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        . '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+        . '</Relationships>'
+    );
+    $zip->addFromString(
+        'xl/workbook.xml',
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        . '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        . '<sheets><sheet name="Bestelling" sheetId="1" r:id="rId1"/></sheets></workbook>'
+    );
+    $zip->addFromString(
+        'xl/_rels/workbook.xml.rels',
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        . '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        . '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'
+        . '</Relationships>'
+    );
+    $zip->addFromString('xl/worksheets/sheet1.xml', xlsxSheetXml($rows));
+    $zip->close();
+    header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Cache-Control: no-store');
+    header('Content-Length: ' . (string) filesize($tmp));
+    readfile($tmp);
+    @unlink($tmp);
+    exit;
+}
+
+function orderListRows(array $shopByType, int $orderPieces): array {
+    $rows = [];
+    $rows[] = ['Bestelling Rohda Raalte 14-2 · ' . date('d-m-Y')];
+    $rows[] = ['Lijst voor bestellen + bedrukken. Per product: maten/aantallen en bedrukking.'];
+    $rows[] = ['Rohda Raalte logo + bedrijfslogo: jassen, shirt, keeperstenue, tas. Initialen: jassen, shirt, broekje, keeperstenue, tas. Nummer achterop: shirt, keeperstenue.'];
+    $rows[] = [];
+    $rows[] = ['BESTELLEN'];
+    $rows[] = ['Product', 'Artikelnummer', 'Merk', 'Kleur', 'Maat', 'Aantal'];
+    foreach ($shopByType as $shop) {
+        $art = trim((string) ($shop['article'] ?? ''));
+        $brand = trim((string) ($shop['brand'] ?? ''));
+        if ($brand === '') {
+            $brand = 'Stanno';
+        }
+        foreach ($shop['sizes'] as $sz => $cnt) {
+            $rows[] = [$shop['label'], $art, $brand, $shop['color'], $sz, (int) $cnt];
+        }
+    }
+    $rows[] = ['Alle producten · totaal', '', '', '', '', $orderPieces];
+    $rows[] = [];
+    $rows[] = ['BEDRUKKEN · PER PRODUCT'];
+    $rows[] = ['Product', 'Artikelnummer', 'Stuks', 'Rohda logo', 'Initialen', 'Bedrijfslogo', 'Nummer achterop'];
+    foreach ($shopByType as $shop) {
+        $rows[] = [
+            $shop['label'],
+            trim((string) ($shop['article'] ?? '')),
+            (int) $shop['count'],
+            !empty($shop['rohda']) ? (int) $shop['rohda'] : '',
+            !empty($shop['initials']) ? (int) $shop['initials'] : '',
+            !empty($shop['sponsor']) ? (int) $shop['sponsor'] : '',
+            !empty($shop['name_back']) ? (int) $shop['name_back'] : '',
+        ];
+    }
+    return $rows;
 }
 
 ensureParentTokenColumn($mysqli);

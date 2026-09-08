@@ -306,7 +306,7 @@ $orderTotal = $orderCost + $printCost;
 
 // Overzicht voor de drukker: per product maten + bedrukking-aantallen
 $sizeRank = static function (string $size): array {
-    $order = ['140', '152', '164', '176', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '31-35', '36-40', '41-44', '45-47', 'één maat', 'maat onbekend', 'onbekend'];
+    $order = ['140', '152', '164', 'S', 'M', 'L', 'XL', 'XXL', '31-35', '36-40', '41-44', '45-47', 'één maat', 'maat onbekend', 'onbekend'];
     $i = array_search($size, $order, true);
     return [$i === false ? 999 : $i, $size];
 };
@@ -1379,7 +1379,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         <label>S–XL / SR <input class="cat-input" id="newLarge" inputmode="decimal" placeholder="37,50"></label>
         <label>Maten
           <select class="cat-input" id="newKind">
-            <option value="body">164–XL</option>
+            <option value="body">164–XXL</option>
             <option value="socks">Sokken</option>
             <option value="onesize">Eén maat</option>
           </select>

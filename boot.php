@@ -436,7 +436,7 @@ function sizeOptionsForKind(string $kind): array {
 }
 
 function bodySizes(): array {
-    return ['164', '176', 'XS', 'S', 'M', 'L', 'XL', 'XXL'];
+    return ['164', 'S', 'M', 'L', 'XL', 'XXL'];
 }
 
 function sockSizes(): array {

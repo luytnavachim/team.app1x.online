@@ -173,7 +173,7 @@ body{
     </div>
   <?php else: ?>
     <p class="note">
-      Vul bij <b><?= h($name) ?></b> <b>elk item</b> in, of hij het nu wel of niet krijgt. Krijgt hij het: kies de maat. Krijgt hij het niet: kies <b>n.v.t.</b> Shirt, broek en jacks: 164 t/m XL. Sokken: 36-40 of 41-44. Kies ook een <b>rugnummer</b> en druk op opslaan. Een nummer dat al door een andere speler is gekozen, kun je niet meer kiezen.
+      Vul bij <b><?= h($name) ?></b> <b>elk item</b> in, of hij het nu wel of niet krijgt. Krijgt hij het: kies de maat. Krijgt hij het niet: kies <b>n.v.t.</b> Shirt, broek en jacks: 164, S, M, L, XL of XXL. Sokken: 36-40 of 41-44. Kies ook een <b>rugnummer</b> en druk op opslaan. Een nummer dat al door een andere speler is gekozen, kun je niet meer kiezen.
       <?php if ($formSettings['note'] !== ''): ?> <?= h($formSettings['note']) ?><?php endif; ?>
     </p>
     <div class="packshot-wrap">

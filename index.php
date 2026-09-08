@@ -182,6 +182,7 @@ $addGap = static function (array $person, int $tid, string $whoLabel) use (&$gap
         'who' => $whoLabel,
         'first' => trim((string) ($person['first_name'] ?? '')),
         'ini' => playerInitials($person),
+        'jersey' => trim((string) ($person['jersey_number'] ?? '')),
         'tid' => $tid,
         'type' => $t,
         'size' => $sz,
@@ -251,10 +252,10 @@ foreach ($orderGroups as $g) {
 }
 $printCost = 0.0;
 $printLines = [
-    'rohda' => 'Rohda-logo',
+    'rohda' => 'Rohda Raalte logo',
     'initials' => 'Initialen',
-    'sponsor' => 'Sponsorblok',
-    'name_back' => 'Naam op rug',
+    'sponsor' => 'Bedrijfslogo',
+    'name_back' => 'Nummer achterop',
 ];
 foreach ($printLines as $key => $_) {
     $unit = $printPrices[$key] ?? null;
@@ -264,34 +265,116 @@ foreach ($printLines as $key => $_) {
     $printCost += $unit * (int) $orderBrand[$key];
 }
 $orderTotal = $orderCost + $printCost;
+
+// Overzicht voor de drukker: per product maten + bedrukking-aantallen
+$sizeRank = static function (string $size): array {
+    $order = ['140', '152', '164', '176', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '31-35', '36-40', '41-44', '45-47', 'één maat', 'maat onbekend', 'onbekend'];
+    $i = array_search($size, $order, true);
+    return [$i === false ? 999 : $i, $size];
+};
+$shopByType = [];
+foreach ($orderGroups as $g) {
+    $tid = (int) $g['tid'];
+    if (!isset($shopByType[$tid])) {
+        $shopByType[$tid] = [
+            'tid' => $tid,
+            'label' => shortTypeName($tid, $types),
+            'article' => (string) $g['article'],
+            'color' => (string) $g['color'],
+            'place' => (string) $g['place'],
+            'sizes' => [],
+            'count' => 0,
+            'rohda' => 0,
+            'initials' => 0,
+            'sponsor' => 0,
+            'name_back' => 0,
+            'numbers' => [],
+            'cost' => 0.0,
+        ];
+    }
+    $sz = (string) $g['size'];
+    $shopByType[$tid]['sizes'][$sz] = ($shopByType[$tid]['sizes'][$sz] ?? 0) + (int) $g['count'];
+    $shopByType[$tid]['count'] += (int) $g['count'];
+    if ($g['rohda']) {
+        $shopByType[$tid]['rohda'] += (int) $g['count'];
+    }
+    if ($g['initials']) {
+        $shopByType[$tid]['initials'] += (int) $g['count'];
+    }
+    if ($g['sponsor']) {
+        $shopByType[$tid]['sponsor'] += (int) $g['count'];
+    }
+    if ($g['name_back']) {
+        $shopByType[$tid]['name_back'] += (int) $g['count'];
+    }
+    if ($g['price'] !== null) {
+        $shopByType[$tid]['cost'] += $g['price'] * $g['count'];
+    }
+}
+foreach ($gaps as $g) {
+    $tid = (int) $g['tid'];
+    if (!isset($shopByType[$tid])) {
+        continue;
+    }
+    if (typePrints($g['type'], 'print_name_back') && ($g['jersey'] ?? '') !== '') {
+        $shopByType[$tid]['numbers'][] = (string) $g['jersey'];
+    }
+}
+foreach ($shopByType as &$shopRow) {
+    uksort($shopRow['sizes'], static fn($a, $b) => $sizeRank((string) $a) <=> $sizeRank((string) $b));
+    $nums = array_values(array_unique($shopRow['numbers']));
+    usort($nums, static fn($a, $b) => ((int) $a) <=> ((int) $b));
+    $shopRow['numbers'] = $nums;
+}
+unset($shopRow);
+uksort($shopByType, static fn($a, $b) => $a <=> $b);
+
 $csvKind = (string) ($_GET['csv'] ?? '');
 
 if ($csvKind === 'bestel' || $csvKind === 'regels') {
     header('Content-Type: text/csv; charset=utf-8');
-    header('Content-Disposition: attachment; filename="kitroom-14-2-winkel.csv"');
+    header('Content-Disposition: attachment; filename="kitroom-14-2-bestelling-drukker.csv"');
     $out = fopen('php://output', 'w');
     fwrite($out, "\xEF\xBB\xBF");
-    fputcsv($out, ['Bestelling 14-2 · winkel · ' . $orderPieces . ' stuks · ' . date('d-m-Y')], ';');
-    fputcsv($out, ['Rohda Raalte logo, initialen en sponsorblok (1 groot blok) volgens voorbeeld. Naam op rug = voornaam, alleen bij shirts.'], ';');
+    fputcsv($out, ['Bestelling Rohda Raalte 14-2 · ' . date('d-m-Y')], ';');
+    fputcsv($out, ['Lijst voor bestellen + bedrukken. Per product: maten/aantallen en bedrukking.'], ';');
+    fputcsv($out, ['Rohda Raalte logo + bedrijfslogo: jassen, shirt, tas. Initialen: jassen, shirt, broekje, tas. Nummer achterop: shirt.'], ';');
     fputcsv($out, [], ';');
-    fputcsv($out, ['AANSCHAFFEN'], ';');
-    fputcsv($out, ['Type', 'Artikel', 'Kleur', 'Maat', 'Aantal', 'Rohda', 'Initialen', 'Sponsorblok', 'Naam rug', 'Bedrukking', 'Voor'], ';');
-    foreach ($orderGroups as $g) {
+
+    fputcsv($out, ['BESTELLEN'], ';');
+    fputcsv($out, ['Product', 'Kleur', 'Maat', 'Aantal'], ';');
+    foreach ($shopByType as $shop) {
+        foreach ($shop['sizes'] as $sz => $cnt) {
+            fputcsv($out, [$shop['label'], $shop['color'], $sz, $cnt], ';');
+        }
+        fputcsv($out, [$shop['label'] . ' · totaal', '', '', $shop['count']], ';');
+        fputcsv($out, [], ';');
+    }
+    fputcsv($out, ['Alle producten · totaal', '', '', $orderPieces], ';');
+    fputcsv($out, [], ';');
+
+    fputcsv($out, ['BEDRUKKEN · TOTALEN'], ';');
+    fputcsv($out, ['Soort', 'Aantal'], ';');
+    fputcsv($out, ['Rohda Raalte logo', $orderBrand['rohda']], ';');
+    fputcsv($out, ['Initialen', $orderBrand['initials']], ';');
+    fputcsv($out, ['Bedrijfslogo', $orderBrand['sponsor']], ';');
+    fputcsv($out, ['Nummer achterop', $orderBrand['name_back']], ';');
+    fputcsv($out, [], ';');
+
+    fputcsv($out, ['BEDRUKKEN · PER PRODUCT'], ';');
+    fputcsv($out, ['Product', 'Stuks', 'Rohda logo', 'Initialen', 'Bedrijfslogo', 'Nummer achterop', 'Nummers'], ';');
+    foreach ($shopByType as $shop) {
+        $numStr = $shop['numbers'] ? implode(', ', array_map(static fn($n) => '#' . $n, $shop['numbers'])) : '';
         fputcsv($out, [
-            $g['type'],
-            $g['article'],
-            $g['color'],
-            $g['size'],
-            $g['count'],
-            $g['rohda'] ? $g['count'] : '',
-            $g['initials'] ? $g['count'] : '',
-            $g['sponsor'] ? $g['count'] : '',
-            $g['name_back'] ? $g['count'] : '',
-            $g['place'],
-            implode(', ', $g['names']),
+            $shop['label'],
+            $shop['count'],
+            $shop['rohda'] ?: '',
+            $shop['initials'] ?: '',
+            $shop['sponsor'] ?: '',
+            $shop['name_back'] ?: '',
+            $numStr,
         ], ';');
     }
-    fputcsv($out, ['Totaal', '', '', '', $orderPieces, $orderBrand['rohda'] ?: '', $orderBrand['initials'] ?: '', $orderBrand['sponsor'] ?: '', $orderBrand['name_back'] ?: '', '', ''], ';');
     fclose($out);
     exit;
 }
@@ -639,6 +722,49 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
 }
 .brandbits{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 0 14px}
 @media(max-width:760px){.brandbits{grid-template-columns:repeat(2,1fr)}}
+.shop-grid{display:grid;gap:12px;margin:14px 0 18px}
+.shop-card{
+  border:1px solid var(--line);border-radius:16px;background:var(--surface2);
+  padding:14px 16px;box-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 8px 22px -12px rgba(0,0,0,.35);
+}
+.shop-card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.shop-card h4{margin:0;font-size:17px;font-weight:800;letter-spacing:-.02em}
+.shop-card .meta{margin:3px 0 0;font-size:12px;color:var(--muted);font-weight:600}
+.shop-card .total{font-size:22px;font-weight:800;color:var(--accent);line-height:1;text-align:right}
+.shop-card .total span{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-top:2px}
+.size-grid{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}
+.size-pill{
+  display:inline-flex;align-items:baseline;gap:8px;min-width:92px;
+  padding:10px 12px;border-radius:12px;background:var(--raise);border:1px solid var(--line);
+}
+.size-pill .sz{font-size:13px;font-weight:800;color:var(--ink)}
+.size-pill .n{font-size:20px;font-weight:800;color:var(--accent);line-height:1}
+.size-pill .n small{font-size:11px;font-weight:700;color:var(--muted);margin-left:2px}
+.print-row{display:flex;flex-wrap:wrap;gap:6px}
+.print-row i{
+  font-style:normal;font-size:11.5px;font-weight:700;padding:5px 9px;border-radius:999px;
+  background:var(--raise);border:1px solid var(--line);color:var(--muted);
+}
+.print-row i b{color:var(--ink);font-weight:800}
+.shop-nums{margin-top:8px;font-size:12px;color:var(--muted);font-weight:600;line-height:1.45}
+.shop-nums b{color:var(--ink)}
+.shop-prints{
+  border:1px solid var(--line);border-radius:16px;background:var(--surface2);
+  padding:14px 16px;margin:0 0 16px;
+}
+.shop-prints h4{margin:0 0 10px;font-size:14px;font-weight:800}
+.shop-prints-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+@media(max-width:760px){.shop-prints-grid{grid-template-columns:repeat(2,1fr)}}
+.shop-rule{margin:0 0 12px;font-size:12.5px;color:var(--muted);line-height:1.5}
+.shop-rule b{color:var(--ink)}
+details.shop-more{margin-top:16px;border:1px solid var(--line);border-radius:14px;padding:10px 14px;background:var(--surface2)}
+details.shop-more > summary{cursor:pointer;font-weight:800;font-size:13px;color:var(--ink);list-style:none}
+details.shop-more > summary::-webkit-details-marker{display:none}
+details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent)}
+@media print{
+  details.shop-more,#printPrices{display:none !important}
+  .shop-card{break-inside:avoid;box-shadow:none}
+}
 .place{font-size:11px;color:var(--dim);font-weight:600;margin:2px 0 0}
 
 @media(max-width:520px){
@@ -708,7 +834,7 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
   <?php if ($canEdit): ?>
   <div class="note editbar">Bewerkmodus. Vink per speler wat hij krijgt en kies de maat. <b>Opslaan</b> met een lege maat wist niets. <b>Verwijderen</b> haalt een item weg. De bestelling bovenaan is wat de winkel moet aanschaffen en bedrukken.</div>
   <?php else: ?>
-  <div class="note">Bestelling voor de winkel: alle artikelen, maten en bedrukking. <b>Maten invullen</b> met pincode.</div>
+  <div class="note">Bestelling voor de drukker: per product maten + aantallen, plus logo’s/initialen/nummers. <b>Maten invullen</b> met pincode.</div>
   <?php endif; ?>
 
   <div class="note alert hidden" id="parentAlert">
@@ -729,20 +855,78 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
   </div>
 
   <div class="section" id="bestel">
-    <h3>Bestelling voor de winkel</h3>
-    <p class="sub">Eén lijst om naar de zaak te sturen: wat aanschaffen, in welke maat, en hoe bedrukken. Rohda-logo, initialen (zoals MvT) en het sponsorblok als <b>1 groot blok</b>. Naam op rug = voornaam, alleen bij shirts. <?= (int) $orderPieces ?> stuks · <?= euro($orderTotal) ?>.</p>
-    <img class="packshot" src="pakket-14-2.png" alt="Pakket 14-2: shirt, Field Jack, Prime Padded Jacket, broekje, Pro Bag Prime, sokken en grip met Rohda, initialen en sponsorblok">
-    <div class="brandbits">
-      <div class="stat accent"><b><?= (int) $orderPieces ?></b><span>stuks</span></div>
-      <div class="stat"><b><?= (int) $orderBrand['rohda'] ?></b><span>Rohda Raalte logo</span></div>
-      <div class="stat"><b><?= (int) $orderBrand['initials'] ?></b><span>initialen</span></div>
-      <div class="stat"><b><?= (int) $orderBrand['sponsor'] ?></b><span>sponsorlogo (1 blok)</span></div>
-      <div class="stat"><b><?= (int) $orderBrand['name_back'] ?></b><span>naam op rug</span></div>
+    <h3>Bestelling voor de drukker</h3>
+    <p class="sub">Overzicht uit alle spelers: aantallen per product/maat + wat er bedrukt moet worden. <?= (int) $orderPieces ?> stuks<?= $orderTotal > 0 ? ' · ' . euro($orderTotal) : '' ?>.</p>
+    <p class="shop-rule"><b>Rohda Raalte logo</b> + <b>bedrijfslogo</b>: jassen, shirt, tas · <b>Initialen</b>: jassen, shirt, broekje, tas · <b>Nummer achterop</b>: shirt</p>
+    <img class="packshot" src="pakket-14-2.png" alt="Pakket 14-2">
+
+    <div class="actions">
+      <a class="btn dark" href="?csv=bestel">CSV voor de drukker</a>
+      <a class="btn" href="javascript:window.print()">Print</a>
+      <?php if ($canEdit): ?>
+      <button type="button" class="btn" id="assignPackageAll">Pakket aan alle spelers</button>
+      <?php endif; ?>
     </div>
+
+    <?php if (!$shopByType): ?>
+      <p class="sub">Nog niets te bestellen. Zet per speler producten op bestellen met maat.</p>
+    <?php else: ?>
+
+    <div class="shop-prints">
+      <h4>Totaal bedrukken</h4>
+      <div class="shop-prints-grid">
+        <div class="stat accent"><b><?= (int) $orderBrand['rohda'] ?></b><span>Rohda Raalte logo</span></div>
+        <div class="stat"><b><?= (int) $orderBrand['initials'] ?></b><span>initialen</span></div>
+        <div class="stat"><b><?= (int) $orderBrand['sponsor'] ?></b><span>bedrijfslogo</span></div>
+        <div class="stat"><b><?= (int) $orderBrand['name_back'] ?></b><span>nummer achterop</span></div>
+      </div>
+    </div>
+
+    <div class="shop-grid">
+      <?php foreach ($shopByType as $shop): ?>
+      <div class="shop-card">
+        <div class="shop-card-top">
+          <div>
+            <h4><?= h($shop['label']) ?></h4>
+            <div class="meta">
+              <?php
+                $bits = array_filter([
+                  $shop['article'] !== '' ? 'art. ' . $shop['article'] : '',
+                  $shop['color'] !== '' ? $shop['color'] : '',
+                ]);
+                echo h(implode(' · ', $bits));
+              ?>
+            </div>
+          </div>
+          <div class="total"><?= (int) $shop['count'] ?><span>stuks</span></div>
+        </div>
+        <div class="size-grid">
+          <?php foreach ($shop['sizes'] as $sz => $cnt): ?>
+          <div class="size-pill">
+            <span class="sz"><?= h((string) $sz) ?></span>
+            <span class="n"><?= (int) $cnt ?><small>×</small></span>
+          </div>
+          <?php endforeach; ?>
+        </div>
+        <?php if ($shop['rohda'] || $shop['initials'] || $shop['sponsor'] || $shop['name_back']): ?>
+        <div class="print-row">
+          <?php if ($shop['rohda']): ?><i>Rohda logo <b><?= (int) $shop['rohda'] ?></b></i><?php endif; ?>
+          <?php if ($shop['initials']): ?><i>Initialen <b><?= (int) $shop['initials'] ?></b></i><?php endif; ?>
+          <?php if ($shop['sponsor']): ?><i>Bedrijfslogo <b><?= (int) $shop['sponsor'] ?></b></i><?php endif; ?>
+          <?php if ($shop['name_back']): ?><i>Nummer achterop <b><?= (int) $shop['name_back'] ?></b></i><?php endif; ?>
+        </div>
+        <?php endif; ?>
+        <?php if (!empty($shop['numbers'])): ?>
+        <div class="shop-nums">Nummers: <b><?= h(implode(', ', array_map(static fn($n) => '#'.$n, $shop['numbers']))) ?></b></div>
+        <?php endif; ?>
+      </div>
+      <?php endforeach; ?>
+    </div>
+
     <?php if ($canEdit): ?>
-    <div class="parent-defaults" id="printPrices" style="margin-top:12px">
+    <div class="parent-defaults" id="printPrices" style="margin-top:4px">
       <h4>Printprijs per applicatie</h4>
-      <p class="hint">Leeg = alleen tellen, niet meerekenen. Wordt opgeteld bij de richtprijs van deze lijst.</p>
+      <p class="hint">Leeg = alleen tellen, niet meerekenen.</p>
       <div class="add-type" style="margin-top:8px">
         <?php foreach ($printLines as $key => $label):
           $val = $printPrices[$key] ?? null;
@@ -753,89 +937,49 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
         <?php endforeach; ?>
       </div>
     </div>
+
+    <details class="shop-more">
+      <summary>Prijsregels (intern)</summary>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="name">Product</th>
+              <th>Maat</th>
+              <th>Aantal</th>
+              <th>Stuk</th>
+              <th>Subtotaal</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach ($orderGroups as $g):
+              $tid = (int) $g['tid'];
+              $t = $types[$tid] ?? [];
+              $small = isset($t['price_small']) && $t['price_small'] !== '' && $t['price_small'] !== null ? (float) $t['price_small'] : null;
+              $large = isset($t['price_large']) && $t['price_large'] !== '' && $t['price_large'] !== null ? (float) $t['price_large'] : (isset($t['price']) && $t['price'] !== '' && $t['price'] !== null ? (float) $t['price'] : null);
+              $field = ($g['band'] ?? 'large') === 'small' ? 'price_small' : 'price_large';
+              $shown = $field === 'price_small' ? $small : $large;
+            ?>
+            <tr>
+              <td class="name"><?= h(shortTypeName($tid, $types)) ?></td>
+              <td class="<?= $g['size'] === 'maat onbekend' ? 'no' : 'ok' ?>"><?= h($g['size']) ?></td>
+              <td><b><?= (int) $g['count'] ?></b></td>
+              <td><?= moneyInput($tid, $field, $shown) ?></td>
+              <td><?= $g['price'] !== null ? euro($g['price'] * $g['count']) : '—' ?></td>
+            </tr>
+            <?php endforeach; ?>
+            <tr>
+              <td class="name">Totaal</td>
+              <td></td>
+              <td><b><?= (int) $orderPieces ?></b></td>
+              <td></td>
+              <td><b><?= euro($orderCost) ?></b></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
     <?php endif; ?>
-    <div class="actions">
-      <a class="btn dark" href="?csv=bestel">CSV voor de winkel</a>
-      <a class="btn" href="javascript:window.print()">Print</a>
-      <?php if ($canEdit): ?>
-      <button type="button" class="btn" id="assignPackageAll">Pakket aan alle spelers</button>
-      <?php endif; ?>
-    </div>
-    <?php if (!$orderGroups): ?>
-      <p class="sub">Nog niets te bestellen. Zet items op bestellen bij de spelers.</p>
-    <?php else: ?>
-    <h3 style="margin:18px 0 8px;font-size:15px">Aanschaffen</h3>
-    <div class="tablewrap">
-      <table>
-        <thead>
-          <tr>
-            <th class="name">Type</th>
-            <th>Artikel</th>
-            <th>Maat</th>
-            <th>Aantal</th>
-            <th>Rohda</th>
-            <th>Initialen</th>
-            <th>Sponsor</th>
-            <th>Naam rug</th>
-            <th>Stuk</th>
-            <th>Subtotaal</th>
-            <th class="name">Voor</th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php foreach ($orderGroups as $g):
-            $tid = (int) $g['tid'];
-            $t = $types[$tid] ?? [];
-            $small = isset($t['price_small']) && $t['price_small'] !== '' && $t['price_small'] !== null ? (float) $t['price_small'] : null;
-            $large = isset($t['price_large']) && $t['price_large'] !== '' && $t['price_large'] !== null ? (float) $t['price_large'] : (isset($t['price']) && $t['price'] !== '' && $t['price'] !== null ? (float) $t['price'] : null);
-            $field = ($g['band'] ?? 'large') === 'small' ? 'price_small' : 'price_large';
-            $shown = $field === 'price_small' ? $small : $large;
-          ?>
-          <tr>
-            <td class="name"><?= h($g['type']) ?><?php if ($g['place']): ?><div class="place"><?= h($g['place']) ?></div><?php endif; ?></td>
-            <td><?= h((string) $g['article']) ?></td>
-            <td class="<?= $g['size'] === 'maat onbekend' ? 'no' : 'ok' ?>"><?= h($g['size']) ?></td>
-            <td><b><?= (int) $g['count'] ?></b></td>
-            <td><?= $g['rohda'] ? (int) $g['count'] : '—' ?></td>
-            <td><?= $g['initials'] ? (int) $g['count'] : '—' ?></td>
-            <td><?= $g['sponsor'] ? (int) $g['count'] : '—' ?></td>
-            <td><?= $g['name_back'] ? (int) $g['count'] : '—' ?></td>
-            <td><?php if ($canEdit): ?><?= moneyInput($tid, $field, $shown) ?><?php else: ?><?= euro($g['price']) ?><?php endif; ?></td>
-            <td><?= $g['price'] !== null ? euro($g['price'] * $g['count']) : '—' ?></td>
-            <td class="left"><?= h(implode(', ', $g['names'])) ?></td>
-          </tr>
-          <?php endforeach; ?>
-          <tr>
-            <td class="name">Totaal</td>
-            <td></td><td></td>
-            <td><b><?= (int) $orderPieces ?></b></td>
-            <td><b><?= (int) $orderBrand['rohda'] ?></b></td>
-            <td><b><?= (int) $orderBrand['initials'] ?></b></td>
-            <td><b><?= (int) $orderBrand['sponsor'] ?></b></td>
-            <td><b><?= (int) $orderBrand['name_back'] ?: '—' ?></b></td>
-            <td></td>
-            <td><b><?= euro($orderCost) ?></b></td>
-            <td class="left"></td>
-          </tr>
-          <?php if ($printCost > 0): ?>
-          <tr>
-            <td class="name">Bedrukking</td>
-            <td></td><td></td><td></td><td></td><td></td><td></td><td></td>
-            <td><b><?= euro($printCost) ?></b></td>
-            <td class="left"></td>
-          </tr>
-          <tr>
-            <td class="name">Totaal incl. print</td>
-            <td></td><td></td>
-            <td><b><?= (int) $orderPieces ?></b></td>
-            <td></td><td></td><td></td><td></td>
-            <td><b><?= euro($orderTotal) ?></b></td>
-            <td class="left"></td>
-          </tr>
-          <?php endif; ?>
-        </tbody>
-      </table>
-    </div>
     <?php endif; ?>
   </div>
 

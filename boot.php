@@ -431,17 +431,17 @@ function ensureTypePrintColumns(mysqli $db): void {
 
 function seedTypePrintDefaults(mysqli $db): void {
     $rows = [
-        1 => [1, 1, 1, 1, 'Rohda borst · sponsorblok middenvoor · initialen onder · naam op rug'],
+        1 => [1, 1, 1, 1, 'Rohda Raalte logo · bedrijfslogo · initialen · nummer achterop'],
         3 => [0, 0, 0, 0, 'Geen bedrukking'],
-        4 => [0, 1, 0, 0, 'Alleen initialen op het broekje'],
+        4 => [0, 1, 0, 0, 'Alleen initialen'],
         7 => [0, 0, 0, 0, 'Geen bedrukking'],
-        9 => [1, 1, 0, 1, 'Rohda borst · initialen · naam op rug'],
+        9 => [1, 1, 1, 1, 'Rohda Raalte logo · bedrijfslogo · initialen · nummer achterop'],
         10 => [0, 0, 0, 0, 'Geen bedrukking'],
         11 => [0, 0, 0, 0, 'Geen bedrukking'],
         12 => [0, 0, 0, 0, 'Geen bedrukking'],
-        13 => [1, 1, 1, 0, 'Rohda borst · initialen onder logo · sponsorblok op rug'],
-        14 => [1, 1, 1, 0, 'Rohda borst · initialen onder logo · sponsorblok op rug'],
-        15 => [1, 1, 1, 0, 'Rohda · sponsorblok · initialen op de tas'],
+        13 => [1, 1, 1, 0, 'Rohda Raalte logo · bedrijfslogo · initialen'],
+        14 => [1, 1, 1, 0, 'Rohda Raalte logo · bedrijfslogo · initialen'],
+        15 => [1, 1, 1, 0, 'Rohda Raalte logo · bedrijfslogo · initialen'],
     ];
     $st = $db->prepare('UPDATE clothing_types SET print_rohda=?, print_initials=?, print_sponsor=?, print_name_back=?, print_place=? WHERE id=?');
     foreach ($rows as $id => $r) {

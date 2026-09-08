@@ -358,10 +358,10 @@ function keeperCoreTypeIds(?array $types = null): array {
 }
 
 function fieldOnlyTypeIds(): array {
-    return [1, 3, 7]; // shirt, sokken, grip
+    return [1, 3]; // veldshirt, veldsokken — grip mag ook voor keepers
 }
 
-/** Keeper krijgt geen veldshirt/sokken/grip; veldspeler geen keepershirt/-sokken. */
+/** Keeper krijgt geen veldshirt/veldsokken; veldspeler geen keepershirt/-sokken. */
 function typeAllowedForPlayer(array $player, int $tid): bool {
     $isKeeper = ($player['position'] ?? '') === 'goalkeeper';
     if ($isKeeper && in_array($tid, fieldOnlyTypeIds(), true)) {
@@ -375,7 +375,7 @@ function typeAllowedForPlayer(array $player, int $tid): bool {
 
 /** Ruimt verkeerde shirt/sok-types op (bv. keeper met gewoon shirt). */
 function cleanupMismatchedPlayerKit(mysqli $db): int {
-    $field = implode(',', array_map('intval', fieldOnlyTypeIds())) ?: '1,3,7';
+    $field = implode(',', array_map('intval', fieldOnlyTypeIds())) ?: '1,3';
     $keeper = implode(',', array_map('intval', keeperOnlyTypeIds())) ?: '9,10';
     $sql = "DELETE pc FROM player_clothing pc
             INNER JOIN players p ON p.id = pc.player_id
@@ -676,7 +676,7 @@ function parentFormPath(): string {
 
 function parentTypeChoices(string $kind): array {
     if ($kind === 'keeper') {
-        return array_values(array_unique(array_merge(keeperCoreTypeIds(), [13, 14, 15, 11, 12, 10, 4])));
+        return array_values(array_unique(array_merge(keeperCoreTypeIds(), [13, 14, 15, 11, 12, 10, 4, 7])));
     }
     return [1, 4, 13, 14, 15, 3, 7, 11, 12];
 }

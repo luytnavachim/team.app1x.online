@@ -100,6 +100,9 @@ if ($action === 'parent_save') {
             if (sanitizeSize($size) === '') {
                 throw new RuntimeException('Vul alle maten in of kies n.v.t.');
             }
+            if (!typeAllowedForPlayer($player, (int) $tid)) {
+                continue;
+            }
             upsertPersonItem($mysqli, $types, 'player', (int) $player['id'], (int) $tid, $size, 'pending');
             $saved++;
         }

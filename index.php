@@ -12,6 +12,7 @@ $posLabel = [
 $posOrder = ['goalkeeper', 'defender', 'midfielder', 'attacker'];
 
 $types = loadTypes($mysqli);
+cleanupMismatchedPlayerKit($mysqli);
 
 $FIELD_CORE = [1, 4, 3, 7];
 $KEEPER_CORE = [9, 4, 10];
@@ -28,7 +29,11 @@ function cardTypeIds(array $p, array $types, array $packageIds, array $keeperOnl
         $ids[] = (int) $tid;
     }
     foreach (array_keys($p['items'] ?? []) as $tid) {
-        $ids[] = (int) $tid;
+        $tid = (int) $tid;
+        if (!typeAllowedForPlayer($p, $tid)) {
+            continue;
+        }
+        $ids[] = $tid;
     }
     $out = [];
     foreach ($ids as $tid) {
@@ -36,6 +41,9 @@ function cardTypeIds(array $p, array $types, array $packageIds, array $keeperOnl
             continue;
         }
         if (!$isKeeper && in_array($tid, $keeperOnly, true) && empty($p['items'][$tid])) {
+            continue;
+        }
+        if (!typeAllowedForPlayer($p, $tid)) {
             continue;
         }
         $out[$tid] = $tid;
@@ -191,7 +199,11 @@ $addGap = static function (array $person, int $tid, string $whoLabel) use (&$gap
 };
 foreach ($active as $p) {
     foreach (array_keys($p['items']) as $tid) {
-        $addGap($p, (int) $tid, fullName($p));
+        $tid = (int) $tid;
+        if (!typeAllowedForPlayer($p, $tid)) {
+            continue;
+        }
+        $addGap($p, $tid, fullName($p));
     }
 }
 foreach ($staff as $s) {

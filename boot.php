@@ -257,6 +257,38 @@ function packageTypeIds(): array {
     return $ids !== [] ? $ids : [13, 14, 15];
 }
 
+function keeperOnlyTypeIds(): array {
+    return [9, 10]; // keepershirt, keepersokken
+}
+
+function fieldOnlyTypeIds(): array {
+    return [1, 3, 7]; // shirt, sokken, grip
+}
+
+/** Keeper krijgt geen veldshirt/sokken/grip; veldspeler geen keepershirt/-sokken. */
+function typeAllowedForPlayer(array $player, int $tid): bool {
+    $isKeeper = ($player['position'] ?? '') === 'goalkeeper';
+    if ($isKeeper && in_array($tid, fieldOnlyTypeIds(), true)) {
+        return false;
+    }
+    if (!$isKeeper && in_array($tid, keeperOnlyTypeIds(), true)) {
+        return false;
+    }
+    return true;
+}
+
+/** Ruimt verkeerde shirt/sok-types op (bv. keeper met gewoon shirt). */
+function cleanupMismatchedPlayerKit(mysqli $db): int {
+    $sql = "DELETE pc FROM player_clothing pc
+            INNER JOIN players p ON p.id = pc.player_id
+            WHERE (p.position = 'goalkeeper' AND pc.clothing_type_id IN (1,3,7))
+               OR ((p.position IS NULL OR p.position <> 'goalkeeper') AND pc.clothing_type_id IN (9,10))";
+    if (!$db->query($sql)) {
+        return 0;
+    }
+    return (int) $db->affected_rows;
+}
+
 function isPackageType(int $tid): bool {
     return in_array($tid, packageTypeIds(), true);
 }
@@ -1035,6 +1067,9 @@ function assignPackageToPerson(
     bool $onlyMissing = true
 ): array {
     $shirt = currentItemSize($db, $who, $personId, 1);
+    if ($shirt === '' && $who === 'player') {
+        $shirt = currentItemSize($db, $who, $personId, 9); // keeper: maat van keepershirt
+    }
     $shorts = currentItemSize($db, $who, $personId, 4);
     $socks = currentItemSize($db, $who, $personId, 3);
     if ($socks === '') {
@@ -1104,6 +1139,21 @@ function applyPersonItemChoice(
     mixed $input,
     string $mode
 ): bool {
+    if ($who === 'player') {
+        $st = $db->prepare('SELECT id, position FROM players WHERE id=? LIMIT 1');
+        $st->bind_param('i', $personId);
+        $st->execute();
+        $player = $st->get_result()->fetch_assoc();
+        if ($player && !typeAllowedForPlayer($player, $typeId)) {
+            // Verkeerd type voor positie: weghalen i.p.v. opslaan
+            $existing = personItemRow($db, $who, $personId, $typeId);
+            if ($existing) {
+                removePersonItem($db, $who, $personId, $typeId);
+                return true;
+            }
+            return false;
+        }
+    }
     $parsed = parseItemInput($input);
     if ($parsed['remove']) {
         $existing = personItemRow($db, $who, $personId, $typeId);

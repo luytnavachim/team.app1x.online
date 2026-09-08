@@ -747,8 +747,7 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
 .packshot{
   width:100%;max-width:720px;margin:0 auto 16px;display:block;
   aspect-ratio:1 / 1;object-fit:contain;object-position:center;
-  border-radius:var(--r);border:1px solid var(--line);
-  background:transparent;padding:0;
+  border:0;border-radius:0;background:transparent;padding:0;
 }
 .brandbits{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 0 14px}
 @media(max-width:760px){.brandbits{grid-template-columns:repeat(2,1fr)}}

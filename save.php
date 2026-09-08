@@ -217,6 +217,12 @@ if ($action === 'save_type') {
     $article = array_key_exists('article_number', $body)
         ? substr(trim((string) $body['article_number']), 0, 50)
         : (string) ($types[$id]['article_number'] ?? '');
+    $display = array_key_exists('display_name', $body)
+        ? substr(trim((string) $body['display_name']), 0, 255)
+        : (string) ($types[$id]['display_name'] ?? '');
+    if ($display === '') {
+        jsonOut(['ok' => false, 'error' => 'Naam mag niet leeg zijn.'], 400);
+    }
     $color = array_key_exists('color', $body)
         ? substr(trim((string) $body['color']), 0, 255)
         : (string) ($types[$id]['color'] ?? '');
@@ -252,8 +258,8 @@ if ($action === 'save_type') {
     $printPlace = array_key_exists('print_place', $body)
         ? substr(trim((string) $body['print_place']), 0, 255)
         : (string) ($types[$id]['print_place'] ?? '');
-    $upd = $mysqli->prepare("UPDATE clothing_types SET article_number=?, color=?, brand=?, price_small=NULLIF(?, ''), price_large=NULLIF(?, ''), price=NULLIF(?, ''), size_kind=?, order_group=?, print_rohda=?, print_initials=?, print_sponsor=?, print_name_back=?, print_place=?, updated_at=NOW() WHERE id=?");
-    $upd->bind_param('ssssssssiiiisi', $article, $color, $brand, $smallS, $largeS, $stdS, $sizeKind, $orderGroup, $printRohda, $printIni, $printSp, $printName, $printPlace, $id);
+    $upd = $mysqli->prepare("UPDATE clothing_types SET display_name=?, article_number=?, color=?, brand=?, price_small=NULLIF(?, ''), price_large=NULLIF(?, ''), price=NULLIF(?, ''), size_kind=?, order_group=?, print_rohda=?, print_initials=?, print_sponsor=?, print_name_back=?, print_place=?, updated_at=NOW() WHERE id=?");
+    $upd->bind_param('sssssssssiiiisi', $display, $article, $color, $brand, $smallS, $largeS, $stdS, $sizeKind, $orderGroup, $printRohda, $printIni, $printSp, $printName, $printPlace, $id);
     $upd->execute();
     jsonOut([
         'ok' => true,
@@ -262,7 +268,54 @@ if ($action === 'save_type') {
         'price_large' => $large,
         'article_number' => $article,
         'color' => $color,
+        'display_name' => $display,
     ]);
+}
+
+if ($action === 'delete_type') {
+    if (!canEdit()) {
+        jsonOut(['ok' => false, 'error' => 'Niet ingelogd.'], 401);
+    }
+    $token = (string) ($body['csrf'] ?? '');
+    if ($token === '' || !hash_equals(csrfToken(), $token)) {
+        jsonOut(['ok' => false, 'error' => 'Sessie verlopen. Vernieuw de pagina.'], 403);
+    }
+    $id = (int) ($body['id'] ?? 0);
+    if ($id < 1) {
+        jsonOut(['ok' => false, 'error' => 'Onbekend item.'], 400);
+    }
+    $types = loadTypes($mysqli);
+    if (!isset($types[$id]) || !typeIsActive($types[$id])) {
+        jsonOut(['ok' => false, 'error' => 'Onbekend item.'], 400);
+    }
+    $pc = 0;
+    $sc = 0;
+    $st = $mysqli->prepare('SELECT COUNT(*) AS c FROM player_clothing WHERE clothing_type_id=?');
+    $st->bind_param('i', $id);
+    $st->execute();
+    $pc = (int) ($st->get_result()->fetch_assoc()['c'] ?? 0);
+    $st = $mysqli->prepare('SELECT COUNT(*) AS c FROM staff_clothing WHERE clothing_type_id=?');
+    $st->bind_param('i', $id);
+    $st->execute();
+    $sc = (int) ($st->get_result()->fetch_assoc()['c'] ?? 0);
+
+    $mysqli->begin_transaction();
+    try {
+        $upd = $mysqli->prepare('UPDATE clothing_types SET active=0, updated_at=NOW() WHERE id=?');
+        $upd->bind_param('i', $id);
+        $upd->execute();
+        $kit = loadKitSettings();
+        $kit['package'] = array_values(array_filter(
+            array_map('intval', $kit['package'] ?? []),
+            static fn(int $tid): bool => $tid !== $id
+        ));
+        saveKitSettings($kit);
+        $mysqli->commit();
+    } catch (Throwable $e) {
+        $mysqli->rollback();
+        jsonOut(['ok' => false, 'error' => $e->getMessage()], 400);
+    }
+    jsonOut(['ok' => true, 'player_items' => $pc, 'staff_items' => $sc]);
 }
 
 if ($action === 'add_package') {

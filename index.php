@@ -707,6 +707,17 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
 }
 .print-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
 .print-tags i{font-style:normal;font-size:10px;font-weight:800;letter-spacing:.3px;color:var(--dim);background:var(--raise);border-radius:999px;padding:2px 7px}
+.cat-prints{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.cat-prints label{
+  display:inline-flex;align-items:center;gap:5px;cursor:pointer;
+  border:1px solid var(--line);background:var(--raise);color:var(--ink);
+  border-radius:999px;padding:4px 9px;font-size:11px;font-weight:700;
+}
+.cat-prints label:has(input:checked){background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.cat-prints input{margin:0}
+.cat-name{display:grid;gap:5px;min-width:160px}
+.cat-name .cat-input{width:100%;min-width:140px}
+.cat-del{border:0;background:transparent;color:var(--miss);font:inherit;font-size:11px;font-weight:800;cursor:pointer;padding:4px 2px;white-space:nowrap}
 .assign{
   display:grid;grid-template-columns:minmax(140px,1.4fr) minmax(110px,1fr) 110px auto auto auto;
   gap:8px;align-items:center;
@@ -1273,13 +1284,14 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <div class="section" id="catalogus">
     <h3>Catalogus · Stanno</h3>
-    <p class="sub">Artikelnummers en richtprijzen. 164/176 en XS gebruiken de kleine prijs, S t/m XL de grote.<?= $canEdit ? ' Voeg hier een artikel toe en vink welke items bij <b>Pakket</b> horen.' : '' ?></p>
+    <p class="sub">Artikelnummers en richtprijzen. 164/176 en XS gebruiken de kleine prijs, S t/m XL de grote.<?= $canEdit ? ' Pas naam, artikel, bedrukking en prijzen aan, of verwijder een artikel. Voeg hieronder een nieuw artikel toe en vink welke items bij <b>Pakket</b> horen.' : '' ?></p>
     <?php if ($canEdit): ?>
     <div class="parent-defaults" id="packageDefaults">
       <h4>Pakket-sjabloon</h4>
       <p class="hint">Deze items zet <b>Pakket</b> in één keer op bestellen. Jacks nemen de shirtmaat over.</p>
       <div class="checks" id="packageChecks">
         <?php foreach ($types as $t):
+          if (!typeIsActive($t)) continue;
           $tid = (int) $t['id'];
           $on = in_array($tid, $PACKAGE_CORE, true) ? ' checked' : '';
         ?>
@@ -1299,10 +1311,12 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             <th>164 / JR</th>
             <th>S–XL / SR</th>
             <th class="name">Bedrukking</th>
+            <?php if ($canEdit): ?><th></th><?php endif; ?>
           </tr>
         </thead>
         <tbody>
           <?php foreach ($types as $t):
+            if (!typeIsActive($t)) continue;
             $tid = (int) $t['id'];
             $small = isset($t['price_small']) && $t['price_small'] !== '' && $t['price_small'] !== null ? (float) $t['price_small'] : null;
             $large = isset($t['price_large']) && $t['price_large'] !== '' && $t['price_large'] !== null ? (float) $t['price_large'] : (isset($t['price']) && $t['price'] !== '' && $t['price'] !== null ? (float) $t['price'] : null);
@@ -1313,13 +1327,36 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             if (typePrints($t, 'print_name_back')) $tags[] = 'nummer';
           ?>
           <tr data-type-id="<?= $tid ?>">
-            <td class="name"><?= h($t['display_name']) ?><?php if (!empty($t['print_place'])): ?><div class="place"><?= h((string) $t['print_place']) ?></div><?php endif; ?></td>
+            <td class="name">
+              <?php if ($canEdit): ?>
+              <div class="cat-name">
+                <input class="cat-input" data-tid="<?= $tid ?>" data-field="display_name" value="<?= h((string) $t['display_name']) ?>" aria-label="Naam">
+                <input class="cat-input" data-tid="<?= $tid ?>" data-field="print_place" value="<?= h((string) ($t['print_place'] ?? '')) ?>" placeholder="Plaats bedrukking…">
+              </div>
+              <?php else: ?>
+              <?= h($t['display_name']) ?><?php if (!empty($t['print_place'])): ?><div class="place"><?= h((string) $t['print_place']) ?></div><?php endif; ?>
+              <?php endif; ?>
+            </td>
             <td><?php if ($canEdit): ?><input class="cat-input" data-tid="<?= $tid ?>" data-field="article_number" value="<?= h((string) $t['article_number']) ?>"><?php else: ?><?= h((string) $t['article_number']) ?><?php endif; ?></td>
             <td><?php if ($canEdit): ?><input class="cat-input" data-tid="<?= $tid ?>" data-field="color" value="<?= h((string) $t['color']) ?>"><?php else: ?><?= h((string) $t['color']) ?><?php endif; ?></td>
-            <td><?= h((string) $t['brand']) ?></td>
+            <td><?php if ($canEdit): ?><input class="cat-input" data-tid="<?= $tid ?>" data-field="brand" value="<?= h((string) $t['brand']) ?>"><?php else: ?><?= h((string) $t['brand']) ?><?php endif; ?></td>
             <td><?php if ($canEdit): ?><?= moneyInput($tid, 'price_small', $small) ?><?php else: ?><?= euro($small) ?><?php endif; ?></td>
             <td><?php if ($canEdit): ?><?= moneyInput($tid, 'price_large', $large) ?><?php else: ?><?= euro($large) ?><?php endif; ?></td>
-            <td class="left"><div class="print-tags"><?php foreach ($tags as $tag): ?><i><?= h($tag) ?></i><?php endforeach; ?><?php if (!$tags): ?><span class="muted">geen</span><?php endif; ?></div></td>
+            <td class="left">
+              <?php if ($canEdit): ?>
+              <div class="cat-prints" data-tid="<?= $tid ?>">
+                <label><input type="checkbox" data-print="print_rohda"<?= typePrints($t, 'print_rohda') ? ' checked' : '' ?>> Rohda</label>
+                <label><input type="checkbox" data-print="print_initials"<?= typePrints($t, 'print_initials') ? ' checked' : '' ?>> Initialen</label>
+                <label><input type="checkbox" data-print="print_sponsor"<?= typePrints($t, 'print_sponsor') ? ' checked' : '' ?>> Sponsorblok</label>
+                <label><input type="checkbox" data-print="print_name_back"<?= typePrints($t, 'print_name_back') ? ' checked' : '' ?>> Nummer</label>
+              </div>
+              <?php else: ?>
+              <div class="print-tags"><?php foreach ($tags as $tag): ?><i><?= h($tag) ?></i><?php endforeach; ?><?php if (!$tags): ?><span class="muted">geen</span><?php endif; ?></div>
+              <?php endif; ?>
+            </td>
+            <?php if ($canEdit): ?>
+            <td><button type="button" class="cat-del" data-tid="<?= $tid ?>" data-name="<?= h((string) $t['display_name']) ?>">Verwijderen</button></td>
+            <?php endif; ?>
           </tr>
           <?php endforeach; ?>
         </tbody>
@@ -1771,6 +1808,30 @@ async function saveTypeField(el){
 }
 document.querySelectorAll('.money:not(.print-price), .cat-input[data-tid]').forEach(el=>{
   el.addEventListener('change', ()=>saveTypeField(el));
+});
+document.querySelectorAll('.cat-prints').forEach(box=>{
+  box.addEventListener('change', async ()=>{
+    const id=+box.dataset.tid;
+    if(!id) return;
+    const payload={action:'save_type', csrf:TEAM.csrf, id};
+    box.querySelectorAll('input[data-print]').forEach(i=>{ payload[i.dataset.print]=i.checked?1:0; });
+    const out=await api(payload);
+    if(!out.ok){ toast(out.error||'Niet opgeslagen'); return; }
+    toast('Bedrukking opgeslagen');
+    location.reload();
+  });
+});
+document.querySelectorAll('.cat-del').forEach(btn=>{
+  btn.addEventListener('click', async ()=>{
+    const id=+btn.dataset.tid;
+    const name=btn.dataset.name||'dit artikel';
+    if(!id) return;
+    if(!confirm('“'+name+'” verwijderen uit de catalogus?\nBestaande toewijzingen bij spelers blijven staan, maar het artikel verdwijnt uit de lijst.')) return;
+    const out=await api({action:'delete_type', csrf:TEAM.csrf, id});
+    if(!out.ok){ toast(out.error||'Verwijderen mislukt'); return; }
+    toast('Verwijderd');
+    location.reload();
+  });
 });
 </script>
 </body>

@@ -603,9 +603,16 @@ function shortTypeName(int $tid, array $types = []): string {
     };
 }
 
+function typeIsActive(array $t): bool {
+    return !array_key_exists('active', $t) || (int) $t['active'] === 1;
+}
+
 function typeOptionsHtml(array $types, string $placeholder = 'Type'): string {
     $html = '<option value="">'.h($placeholder).'</option>';
     foreach ($types as $tid => $t) {
+        if (!is_array($t) || !typeIsActive($t)) {
+            continue;
+        }
         $tid = (int) $tid;
         $html .= '<option value="'.$tid.'">'.h(shortTypeName($tid, $types)).'</option>';
     }

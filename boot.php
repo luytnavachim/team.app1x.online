@@ -1305,6 +1305,103 @@ function sizeSelect(int $tid, string $current, string $who, int $id, bool $na = 
     return $html;
 }
 
+function normalizeJerseyNumber(mixed $raw): ?string {
+    $s = trim((string) $raw);
+    if ($s === '' || strtolower($s) === 'null') {
+        return null;
+    }
+    if (!preg_match('/^\d{1,2}$/', $s)) {
+        return null;
+    }
+    $n = (int) $s;
+    if ($n < 1 || $n > 99) {
+        return null;
+    }
+    return (string) $n;
+}
+
+/** Rugnummers in gebruik door andere actieve spelers. */
+function takenJerseyNumbers(mysqli $db, int $excludePlayerId = 0): array {
+    $taken = [];
+    $st = $db->prepare(
+        "SELECT id, jersey_number FROM players
+         WHERE status='active' AND IFNULL(is_guest,0)=0
+           AND jersey_number IS NOT NULL AND TRIM(jersey_number) <> ''"
+    );
+    $st->execute();
+    $res = $st->get_result();
+    while ($row = $res->fetch_assoc()) {
+        $id = (int) ($row['id'] ?? 0);
+        if ($excludePlayerId > 0 && $id === $excludePlayerId) {
+            continue;
+        }
+        $num = normalizeJerseyNumber($row['jersey_number'] ?? '');
+        if ($num !== null) {
+            $taken[$num] = $id;
+        }
+    }
+    return $taken;
+}
+
+function availableJerseyNumbers(mysqli $db, int $playerId = 0, ?string $current = null): array {
+    $taken = takenJerseyNumbers($db, $playerId);
+    $cur = normalizeJerseyNumber($current);
+    $out = [];
+    for ($i = 1; $i <= 99; $i++) {
+        $n = (string) $i;
+        if (isset($taken[$n]) && $n !== $cur) {
+            continue;
+        }
+        $out[] = $n;
+    }
+    return $out;
+}
+
+function jerseySelectHtml(mysqli $db, array $player): string {
+    $pid = (int) ($player['id'] ?? 0);
+    $current = normalizeJerseyNumber($player['jersey_number'] ?? '');
+    $opts = availableJerseyNumbers($db, $pid, $current);
+    $html = '<select class="size-select" id="jerseySelect" name="jersey_number" required aria-label="Rugnummer">';
+    $html .= '<option value="">Kies nummer…</option>';
+    foreach ($opts as $o) {
+        $sel = ($current !== null && $o === $current) ? ' selected' : '';
+        $html .= '<option value="'.h($o).'"'.$sel.'>#'.h($o).'</option>';
+    }
+    $html .= '</select>';
+    return $html;
+}
+
+/**
+ * Zet rugnummer voor speler; faalt als nummer al bezet is.
+ * @throws RuntimeException
+ */
+function setPlayerJerseyNumber(mysqli $db, int $playerId, mixed $raw): string {
+    $num = normalizeJerseyNumber($raw);
+    if ($num === null) {
+        throw new RuntimeException('Kies een rugnummer (1–99).');
+    }
+    $nInt = (int) $num;
+    $st = $db->prepare(
+        "SELECT id, first_name, last_name FROM players
+         WHERE status='active' AND IFNULL(is_guest,0)=0
+           AND id <> ?
+           AND jersey_number IS NOT NULL AND TRIM(jersey_number) <> ''
+           AND CAST(TRIM(jersey_number) AS UNSIGNED) = ?
+         LIMIT 1 FOR UPDATE"
+    );
+    $st->bind_param('ii', $playerId, $nInt);
+    $st->execute();
+    $other = $st->get_result()->fetch_assoc();
+    if ($other) {
+        $who = trim(($other['first_name'] ?? '') . ' ' . ($other['last_name'] ?? ''));
+        throw new RuntimeException('Nummer #' . $num . ' is al gekozen' . ($who !== '' ? ' door ' . $who : '') . '. Kies een ander nummer.');
+    }
+    $upd = $db->prepare('UPDATE players SET jersey_number=?, updated_at=NOW() WHERE id=?');
+    $upd->bind_param('si', $num, $playerId);
+    $upd->execute();
+    return $num;
+}
+
 ensureParentTokenColumn($mysqli);
 ensureParentSavedAtColumn($mysqli);
 ensurePackageTypes($mysqli);

@@ -84,8 +84,10 @@ if ($action === 'parent_save') {
     }
     $types = loadTypes($mysqli);
     $saved = 0;
+    $jerseySaved = null;
     $mysqli->begin_transaction();
     try {
+        $jerseySaved = setPlayerJerseyNumber($mysqli, (int) $player['id'], $body['jersey_number'] ?? '');
         foreach ($allowed as $tid => $_) {
             if (!array_key_exists((string) $tid, $items) && !array_key_exists($tid, $items)) {
                 throw new RuntimeException('Vul alle maten in of kies n.v.t.');
@@ -116,7 +118,7 @@ if ($action === 'parent_save') {
         jsonOut(['ok' => false, 'error' => $e->getMessage()], 400);
     }
     registerParentSave();
-    jsonOut(['ok' => true, 'saved' => $saved]);
+    jsonOut(['ok' => true, 'saved' => $saved, 'jersey' => $jerseySaved]);
 }
 
 if ($action === 'parent_form') {

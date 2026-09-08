@@ -163,8 +163,8 @@ body{
     </div>
   <?php else: ?>
     <p class="note">
-      Vul de kledingmaten van <b><?= h($name) ?></b> in en druk op opslaan.
-      <?php if ($formSettings['note'] !== ''): ?><?= h($formSettings['note']) ?><?php else: ?>Kies 164 t/m XL voor shirt, broek en jacks; sokken 36-40 of 41-44. Kies <b>n.v.t.</b> als hij dit item al heeft of niet krijgt.<?php endif; ?>
+      Vul de kledingmaten van <b><?= h($name) ?></b> in, kies een <b>rugnummer</b> en druk op opslaan.
+      <?php if ($formSettings['note'] !== ''): ?><?= h($formSettings['note']) ?><?php else: ?>Kies 164 t/m XL voor shirt, broek en jacks; sokken 36-40 of 41-44. Kies <b>n.v.t.</b> als hij dit item al heeft of niet krijgt. Een nummer dat al door een andere speler is gekozen, kun je niet meer kiezen.<?php endif; ?>
     </p>
     <?php if ($typeOrder === []): ?>
     <div class="section">
@@ -174,9 +174,13 @@ body{
     <?php else: ?>
     <div class="section">
       <h2><?= h($name) ?></h2>
-      <p class="sub"><?= h($posLabel[$player['position'] ?? ''] ?? 'speler') ?><?= !empty($player['jersey_number']) ? ' · #' . h((string) $player['jersey_number']) : '' ?></p>
+      <p class="sub"><?= h($posLabel[$player['position'] ?? ''] ?? 'speler') ?><?= normalizeJerseyNumber($player['jersey_number'] ?? '') ? ' · #' . h((string) normalizeJerseyNumber($player['jersey_number'])) : '' ?></p>
       <form id="parentForm">
         <div class="kit">
+          <div class="row wait">
+            <span>Rugnummer <small style="font-weight:600;opacity:.8">(uniek)</small></span>
+            <?= jerseySelectHtml($mysqli, $player) ?>
+          </div>
           <?php foreach ($typeOrder as $tid):
             if (!isset($types[$tid])) continue;
             $t = $types[$tid];
@@ -231,7 +235,7 @@ function toast(msg){
 }
 document.addEventListener('change', e=>{
   const sel=e.target.closest?.('.size-select');
-  if(!sel) return;
+  if(!sel || sel.id==='jerseySelect') return;
   const tid=sel.dataset.tid, who=sel.dataset.who, id=sel.dataset.id;
   document.querySelectorAll(`.size-select[data-who="${who}"][data-id="${id}"][data-copy-from="${tid}"]`).forEach(t=>{
     if(!t.value) t.value=sel.value;
@@ -242,20 +246,22 @@ document.getElementById('parentForm')?.addEventListener('submit', async e=>{
   const err=document.getElementById('formErr');
   const btn=document.getElementById('saveBtn');
   err.textContent='';
+  const jersey=document.getElementById('jerseySelect')?.value || '';
+  if(!jersey){ err.textContent='Kies een rugnummer.'; return; }
   const items={};
-  document.querySelectorAll('.size-select').forEach(s=>{ items[s.dataset.tid]=s.value; });
+  document.querySelectorAll('.size-select[data-tid]').forEach(s=>{ items[s.dataset.tid]=s.value; });
   btn.disabled=true;
   try{
     const res=await fetch('save.php', {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'parent_save', csrf:PARENT.csrf, token:PARENT.token, items}),
+      body:JSON.stringify({action:'parent_save', csrf:PARENT.csrf, token:PARENT.token, items, jersey_number:jersey}),
       credentials:'same-origin'
     });
     let data={};
     try{ data=await res.json(); }catch(ex){ data={ok:false,error:'Geen antwoord'}; }
     if(!data.ok){ err.textContent=data.error||'Opslaan mislukt'; return; }
-    toast('Opgeslagen, bedankt');
+    toast('Opgeslagen, bedankt'+(data.jersey ? ' · #'+data.jersey : ''));
     setTimeout(()=>location.reload(), 700);
   } finally {
     btn.disabled=false;

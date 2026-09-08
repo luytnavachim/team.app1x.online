@@ -141,6 +141,12 @@ body{
 .toast.show{opacity:1}
 .line{margin:16px 0 8px;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--dim)}
 .err{color:var(--miss);font-size:13px;font-weight:700;min-height:18px;margin:8px 0 0}
+.packshot-wrap{margin:0 0 16px;text-align:center}
+.packshot{
+  display:block;margin:0 auto;width:100%;max-width:180px;height:auto;
+  aspect-ratio:1 / 1;object-fit:contain;background:transparent;
+}
+.packcap{margin:6px 0 0;font-size:12px;font-weight:600;color:var(--muted)}
 @media(max-width:420px){
   .row{flex-wrap:wrap}
   .size-select{width:100%;max-width:none}
@@ -170,6 +176,10 @@ body{
       Vul de kledingmaten van <b><?= h($name) ?></b> in, kies een <b>rugnummer</b> en druk op opslaan.
       <?php if ($formSettings['note'] !== ''): ?><?= h($formSettings['note']) ?><?php else: ?>Kies 164 t/m XL voor shirt, broek en jacks; sokken 36-40 of 41-44. Kies <b>n.v.t.</b> als hij dit item al heeft of niet krijgt. Een nummer dat al door een andere speler is gekozen, kun je niet meer kiezen.<?php endif; ?>
     </p>
+    <div class="packshot-wrap">
+      <img class="packshot" src="pakket-14-2.png" width="1023" height="1022" alt="Pakket 14-2: shirt, jassen, broekje, tas en sokken">
+      <p class="packcap">Dit gaan jullie bestellen</p>
+    </div>
     <?php if ($typeOrder === []): ?>
     <div class="section">
       <h2><?= h($name) ?></h2>

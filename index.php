@@ -1310,7 +1310,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             if (typePrints($t, 'print_rohda')) $tags[] = 'Rohda';
             if (typePrints($t, 'print_initials')) $tags[] = 'initialen';
             if (typePrints($t, 'print_sponsor')) $tags[] = 'sponsorblok';
-            if (typePrints($t, 'print_name_back')) $tags[] = 'naam rug';
+            if (typePrints($t, 'print_name_back')) $tags[] = 'nummer';
           ?>
           <tr data-type-id="<?= $tid ?>">
             <td class="name"><?= h($t['display_name']) ?><?php if (!empty($t['print_place'])): ?><div class="place"><?= h((string) $t['print_place']) ?></div><?php endif; ?></td>
@@ -1356,7 +1356,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         <label><input type="checkbox" value="print_rohda"> Rohda</label>
         <label><input type="checkbox" value="print_initials"> Initialen</label>
         <label><input type="checkbox" value="print_sponsor"> Sponsorblok</label>
-        <label><input type="checkbox" value="print_name_back"> Naam rug</label>
+        <label><input type="checkbox" value="print_name_back"> Nummer</label>
       </div>
       <div class="actions">
         <button type="button" class="btn dark" id="addTypeBtn">Artikel toevoegen</button>

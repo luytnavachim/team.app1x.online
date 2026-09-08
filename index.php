@@ -485,7 +485,7 @@ body{
   background-attachment:fixed;
   font-variant-numeric:tabular-nums;
 }
-.wrap{max-width:1100px;margin:auto;padding:18px 16px 72px}
+.wrap{max-width:1080px;margin:auto;padding:16px 16px 80px}
 a{color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
 
@@ -543,13 +543,14 @@ button.btn{font-family:inherit;cursor:pointer}
 .editbar b{color:var(--accent-text)}
 
 /* ---------- stats ---------- */
-.stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:16px}
-@media(max-width:900px){.stats{grid-template-columns:repeat(3,minmax(0,1fr))}}
-@media(max-width:560px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}
+@media(max-width:720px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 13px;min-width:0}
 .stat b{display:block;font-size:clamp(18px,2.4vw,26px);line-height:1.1;font-weight:800;letter-spacing:-.8px;overflow-wrap:anywhere}
 .stat span{display:block;margin-top:4px;font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.2px;line-height:1.3}
+.stat:hover{border-color:var(--line2)}
 .stat.accent b{color:var(--accent-text)}
+.stat a{text-decoration:none}
 .nav .count{
   display:inline-block;min-width:1.3em;margin-left:5px;padding:1px 6px;border-radius:999px;
   background:var(--accent);color:var(--on-accent);font-size:10px;font-weight:800;line-height:1.4;text-align:center;
@@ -756,10 +757,17 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
 }
 .toast.show{opacity:1}
 .packshot{
-  width:100%;max-width:720px;margin:0 auto 16px;display:block;
+  width:100%;max-width:420px;margin:8px auto 0;display:block;
   aspect-ratio:1 / 1;object-fit:contain;object-position:center;
   border:0;border-radius:0;background:transparent;padding:0;
 }
+.packfold{margin:0 0 14px;border:0;padding:0;background:transparent}
+.packfold > summary{
+  cursor:pointer;font-weight:800;font-size:12.5px;color:var(--muted);list-style:none;
+  padding:8px 0;
+}
+.packfold > summary::-webkit-details-marker{display:none}
+.packfold[open] > summary{color:var(--ink)}
 .brandbits{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 0 14px}
 @media(max-width:760px){.brandbits{grid-template-columns:repeat(2,1fr)}}
 .shop-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0 18px}
@@ -810,9 +818,8 @@ details.shop-more > summary{cursor:pointer;font-weight:800;font-size:13px;color:
 details.shop-more > summary::-webkit-details-marker{display:none}
 details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 @media print{
-  details.shop-more,#printPrices{display:none !important}
+  details.shop-more,#printPrices,.packfold{display:none !important}
   .shop-card{break-inside:avoid;box-shadow:none}
-  .packshot{max-width:420px;padding:0;border:0}
 }
 .place{font-size:11px;color:var(--dim);font-weight:600;margin:2px 0 0}
 
@@ -843,7 +850,9 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         --warn:#a16207;--warnbg:#fef3c7;--na:#71717a;--nabg:#fafafa}
   html{color-scheme:light}
   body{background:#fff;color:#111}
-  .navwrap,.filters,.actions,.note,.toast,.modal,.theme-switch,#parentAlert,.assign,.addrow,.money,.cat-input,#printPrices,.parent-defaults{display:none !important}
+  .navwrap,.filters,.actions,.note,.toast,.modal,.theme-switch,#parentAlert,.assign,.addrow,.money,.cat-input,#printPrices,.parent-defaults,.packfold > summary{display:none !important}
+  .packfold{display:block}
+  .packshot{max-width:360px}
   .featured,.card{break-inside:avoid;border:1px solid #d4d4d8}
   .section{border:1px solid #d4d4d8}
   #bestel{break-inside:auto}
@@ -876,12 +885,13 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <div class="navwrap">
   <nav class="nav">
-    <a href="#bestel">Bestelling</a>
     <a href="#spelers">Spelers</a>
+    <?php if ($canEdit): ?>
     <a href="#ouders">Ouders<?php if ($parentFilled): ?> <span class="count" id="ouderNavCount"><?= count($parentFilled) ?></span><?php endif; ?></a>
+    <?php endif; ?>
+    <a href="#bestel">Bestelling</a>
     <a href="#staf">Staf</a>
     <a href="#catalogus">Catalogus</a>
-    <a href="?csv=bestel">CSV winkel</a>
     <?php if ($canEdit): ?>
       <button type="button" class="btn" id="saveAllBtn">Alles opslaan</button>
       <button type="button" class="btn" id="logoutBtn">Klaar</button>
@@ -891,12 +901,6 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   </nav>
   </div>
 
-  <?php if ($canEdit): ?>
-  <div class="note editbar">Bewerkmodus. Vink per speler wat hij krijgt en kies de maat. <b>Opslaan</b> met een lege maat wist niets. <b>Verwijderen</b> haalt een item weg. De bestelling bovenaan is wat de winkel moet aanschaffen en bedrukken.</div>
-  <?php else: ?>
-  <div class="note">Bestelling voor de drukker: per product maten + aantallen, plus logo’s/initialen/nummers. <b>Maten invullen</b> met pincode.</div>
-  <?php endif; ?>
-
   <div class="note alert hidden" id="parentAlert">
     <b>Nieuw ingevuld:</b> <span id="parentAlertNames"></span>
     <a href="#ouders">Bekijken</a>
@@ -904,225 +908,18 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   </div>
 
   <div class="stats">
-    <div class="stat"><b><?= count($active) ?></b><span>spelers</span></div>
-    <div class="stat accent"><b><?= (int) $orderPieces ?></b><span>stuks voor de winkel</span></div>
+    <a class="stat" href="#spelers"><b><?= count($active) ?></b><span>spelers</span></a>
+    <a class="stat accent" href="#bestel"><b><?= (int) $orderPieces ?></b><span>stuks te bestellen</span></a>
     <div class="stat"><b><?= euro($orderTotal) ?></b><span>richtprijs<?= $printCost > 0 ? ' incl. print' : '' ?></span></div>
-    <div class="stat"><b><?= (int) $orderBrand['rohda'] ?></b><span>Rohda-logo</span></div>
-    <div class="stat accent">
+    <a class="stat accent" href="#ouders">
       <b><?= count($parentFilled) ?>/<?= count($active) ?></b><span>ouders ingevuld</span>
       <div class="progress"><i style="width:<?= count($active) ? round(100 * count($parentFilled) / count($active)) : 0 ?>%"></i></div>
-    </div>
-  </div>
-
-  <div class="section" id="bestel">
-    <h3>Bestelling voor de drukker</h3>
-    <p class="sub">Overzicht uit alle spelers: aantallen per product/maat + wat er bedrukt moet worden. <?= (int) $orderPieces ?> stuks<?= $orderTotal > 0 ? ' · ' . euro($orderTotal) : '' ?>.</p>
-    <p class="shop-rule"><b>Rohda Raalte logo</b> + <b>bedrijfslogo</b>: jassen, shirt, tas · <b>Initialen</b>: jassen, shirt, broekje, tas · <b>Nummer achterop</b>: shirt</p>
-    <img class="packshot" src="pakket-14-2.png" width="1023" height="1022" alt="Pakket 14-2: shirt, jassen, broekje, tas en sokken">
-
-    <div class="actions">
-      <a class="btn dark" href="?csv=bestel">CSV voor de drukker</a>
-      <a class="btn" href="javascript:window.print()">Print</a>
-      <?php if ($canEdit): ?>
-      <button type="button" class="btn" id="assignPackageAll">Pakket aan alle spelers</button>
-      <?php endif; ?>
-    </div>
-
-    <?php if (!$shopByType): ?>
-      <p class="sub">Nog niets te bestellen. Zet per speler producten op bestellen met maat.</p>
-    <?php else: ?>
-
-    <div class="shop-prints">
-      <h4>Totaal bedrukken</h4>
-      <div class="shop-prints-grid">
-        <div class="stat accent"><b><?= (int) $orderBrand['rohda'] ?></b><span>Rohda Raalte logo</span></div>
-        <div class="stat"><b><?= (int) $orderBrand['initials'] ?></b><span>initialen</span></div>
-        <div class="stat"><b><?= (int) $orderBrand['sponsor'] ?></b><span>bedrijfslogo</span></div>
-        <div class="stat"><b><?= (int) $orderBrand['name_back'] ?></b><span>nummer achterop</span></div>
-      </div>
-    </div>
-
-    <div class="shop-grid">
-      <?php foreach ($shopByType as $shop): ?>
-      <div class="shop-card">
-        <div class="shop-card-top">
-          <div>
-            <h4><?= h($shop['label']) ?></h4>
-            <?php if ($shop['article'] !== ''): ?>
-            <div class="art">Art. <?= h($shop['article']) ?></div>
-            <?php else: ?>
-            <div class="art" style="color:var(--miss)">Art. ontbreekt</div>
-            <?php endif; ?>
-            <div class="meta">
-              <?php
-                $bits = array_filter([
-                  ($shop['brand'] ?? '') !== '' ? $shop['brand'] : 'Stanno',
-                  $shop['color'] !== '' ? $shop['color'] : '',
-                ]);
-                echo h(implode(' · ', $bits));
-              ?>
-            </div>
-          </div>
-          <div class="total"><?= (int) $shop['count'] ?><span>stuks</span></div>
-        </div>
-        <div class="size-grid">
-          <?php foreach ($shop['sizes'] as $sz => $cnt): ?>
-          <div class="size-pill">
-            <span class="sz"><?= h((string) $sz) ?></span>
-            <span class="n"><?= (int) $cnt ?><small>×</small></span>
-          </div>
-          <?php endforeach; ?>
-        </div>
-        <?php if ($shop['rohda'] || $shop['initials'] || $shop['sponsor'] || $shop['name_back']): ?>
-        <div class="print-row">
-          <?php if ($shop['rohda']): ?><i>Rohda logo <b><?= (int) $shop['rohda'] ?></b></i><?php endif; ?>
-          <?php if ($shop['initials']): ?><i>Initialen <b><?= (int) $shop['initials'] ?></b></i><?php endif; ?>
-          <?php if ($shop['sponsor']): ?><i>Bedrijfslogo <b><?= (int) $shop['sponsor'] ?></b></i><?php endif; ?>
-          <?php if ($shop['name_back']): ?><i>Nummer achterop <b><?= (int) $shop['name_back'] ?></b></i><?php endif; ?>
-        </div>
-        <?php endif; ?>
-        <?php if (!empty($shop['numbers'])): ?>
-        <div class="shop-nums">Nummers: <b><?= h(implode(', ', array_map(static fn($n) => '#'.$n, $shop['numbers']))) ?></b></div>
-        <?php endif; ?>
-      </div>
-      <?php endforeach; ?>
-    </div>
-
-    <?php if ($canEdit): ?>
-    <div class="parent-defaults" id="printPrices" style="margin-top:4px">
-      <h4>Printprijs per applicatie</h4>
-      <p class="hint">Leeg = alleen tellen, niet meerekenen.</p>
-      <div class="add-type" style="margin-top:8px">
-        <?php foreach ($printLines as $key => $label):
-          $val = $printPrices[$key] ?? null;
-        ?>
-        <label><?= h($label) ?>
-          <input class="money print-price" data-print="<?= h($key) ?>" inputmode="decimal" value="<?= $val === null ? '' : h(number_format($val, 2, ',', '')) ?>" placeholder="—">
-        </label>
-        <?php endforeach; ?>
-      </div>
-    </div>
-
-    <details class="shop-more">
-      <summary>Prijsregels (intern)</summary>
-      <div class="tablewrap">
-        <table>
-          <thead>
-            <tr>
-              <th class="name">Product</th>
-              <th>Maat</th>
-              <th>Aantal</th>
-              <th>Stuk</th>
-              <th>Subtotaal</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php foreach ($orderGroups as $g):
-              $tid = (int) $g['tid'];
-              $t = $types[$tid] ?? [];
-              $small = isset($t['price_small']) && $t['price_small'] !== '' && $t['price_small'] !== null ? (float) $t['price_small'] : null;
-              $large = isset($t['price_large']) && $t['price_large'] !== '' && $t['price_large'] !== null ? (float) $t['price_large'] : (isset($t['price']) && $t['price'] !== '' && $t['price'] !== null ? (float) $t['price'] : null);
-              $field = ($g['band'] ?? 'large') === 'small' ? 'price_small' : 'price_large';
-              $shown = $field === 'price_small' ? $small : $large;
-            ?>
-            <tr>
-              <td class="name"><?= h(shortTypeName($tid, $types)) ?></td>
-              <td class="<?= $g['size'] === 'maat onbekend' ? 'no' : 'ok' ?>"><?= h($g['size']) ?></td>
-              <td><b><?= (int) $g['count'] ?></b></td>
-              <td><?= moneyInput($tid, $field, $shown) ?></td>
-              <td><?= $g['price'] !== null ? euro($g['price'] * $g['count']) : '—' ?></td>
-            </tr>
-            <?php endforeach; ?>
-            <tr>
-              <td class="name">Totaal</td>
-              <td></td>
-              <td><b><?= (int) $orderPieces ?></b></td>
-              <td></td>
-              <td><b><?= euro($orderCost) ?></b></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </details>
-    <?php endif; ?>
-    <?php endif; ?>
-  </div>
-
-  <?php if ($parentFilled): ?>
-  <div class="featured" id="ouder-sein">
-    <h2>Ouders hebben ingevuld</h2>
-    <p><?= count($parentFilled) ?> van <?= count($active) ?> · nieuwste eerst.</p>
-    <div class="pills">
-      <?php foreach ($parentFilled as $pf): ?>
-        <span class="pill ok"><?= h(fullName($pf)) ?> · <?= h(date('d-m H:i', strtotime((string) $pf['parent_saved_at']))) ?></span>
-      <?php endforeach; ?>
-    </div>
-  </div>
-  <?php endif; ?>
-
-  <div class="section" id="ouders">
-    <h3>Ouderlinks</h3>
-    <?php if (!$canEdit): ?>
-    <p class="sub">Met pincode kun je kiezen <b>wat</b> ouders invullen (shirt, broek, sokken, …) en per speler een link sturen. Open <b>Maten invullen</b> om dat in te stellen.</p>
-    <?php else:
-      $parentForm = loadParentFormSettings();
-    ?>
-    <p class="sub">Kies eerst wat ouders te zien krijgen. Daarna kopieer je de link of stuur je hem via WhatsApp. Een nieuwe link maakt de oude ongeldig.</p>
-    <div class="parent-defaults" id="parentDefaults">
-      <h4>Wat ouders invullen</h4>
-      <p class="hint">Dit is de standaard. Per speler kun je hieronder afwijken. Regenjack en winterjas staan aan; tas, polo en zip uit, tenzij je ze aanzet. Ouders mogen <b>n.v.t.</b> kiezen als iemand iets al heeft.</p>
-      <div class="line">Veldspelers</div>
-      <?= parentChecksHtml('field', parentTypeChoices('field'), $parentForm['field']) ?>
-      <div class="line">Keepers</div>
-      <?= parentChecksHtml('keeper', parentTypeChoices('keeper'), $parentForm['keeper']) ?>
-      <label class="hint" for="parentNote">Tekst bovenaan het ouderformulier (optioneel)</label>
-      <textarea class="note-input" id="parentNote" maxlength="280" placeholder="Bijvoorbeeld: alleen de nieuwe set voor 26/27, geen polo."><?= h($parentForm['note']) ?></textarea>
-    </div>
-    <div class="tablewrap">
-      <table>
-        <thead>
-          <tr>
-            <th class="name">Speler</th>
-            <th>Status</th>
-            <th class="name">Ziet</th>
-            <th>Link</th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php foreach ($parentLinks as $pid => $pl):
-              $kind = (($pl['position'] ?? '') === 'goalkeeper') ? 'keeper' : 'field';
-              $choices = parentTypeChoices($kind);
-              $defaults = parentDefaultTypeIds($pl['player']);
-              $savedAt = $pl['saved'] ? date('d-m H:i', strtotime((string) $pl['saved'])) : '';
-          ?>
-          <tr<?= $savedAt !== '' ? ' class="parent-done"' : '' ?>>
-            <td class="name"><?= h($pl['name']) ?><?php if ($pl['custom']): ?><div class="tiny">aangepast</div><?php endif; ?></td>
-            <td class="<?= $savedAt !== '' ? 'ok' : 'no' ?>"><?= $savedAt !== '' ? 'ingevuld '.$savedAt : 'nog niet' ?></td>
-            <td class="left">
-              <?= parentChecksHtml('player', $choices, $pl['types'], (int) $pid, $defaults) ?>
-              <?php if ($pl['custom']): ?>
-                <button type="button" class="btn parent-reset" data-id="<?= (int) $pid ?>">Standaard</button>
-              <?php endif; ?>
-            </td>
-            <td class="left">
-              <div class="actions" style="margin:0">
-                <button type="button" class="btn dark parent-copy" data-url="<?= h($pl['url']) ?>">Kopiëren</button>
-                <a class="btn" href="<?= h($pl['wa']) ?>" target="_blank" rel="noopener">WhatsApp</a>
-                <a class="btn" href="<?= h($pl['url']) ?>" target="_blank" rel="noopener">Bekijk</a>
-                <button type="button" class="btn parent-rotate" data-id="<?= (int) $pid ?>">Nieuwe link</button>
-              </div>
-            </td>
-          </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
-    </div>
-    <?php endif; ?>
+    </a>
   </div>
 
   <div class="section" id="spelers">
     <h3>Spelers</h3>
-    <p class="sub">Vink wat hij krijgt en kies de maat (164 t/m XL). Leeg opslaan wist niets; <b>Verwijderen</b> haalt het van de lijst. <?= $canEdit ? '<b>Pakket</b> zet de aangevinkte pakket-items in één keer (zelfde maat als shirt).' : '' ?></p>
+    <p class="sub"><?= $canEdit ? 'Vink wat hij krijgt en kies de maat. <b>Pakket</b> zet de set in één keer.' : 'Overzicht van maten en rugnummers.' ?></p>
     <div class="filters" id="playerFilters">
       <button class="on" data-f="all">Iedereen</button>
       <?php if ($guestPlayers): ?>
@@ -1224,6 +1021,203 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     </div>
   </div>
 
+  <?php if ($canEdit):
+    $parentForm = loadParentFormSettings();
+  ?>
+  <div class="section" id="ouders">
+    <h3>Ouderlinks</h3>
+    <p class="sub">Kopieer de link of stuur hem via WhatsApp. Een nieuwe link maakt de oude ongeldig.</p>
+    <details class="shop-more" id="parentDefaultsWrap">
+      <summary>Wat ouders invullen</summary>
+    <div class="parent-defaults" id="parentDefaults" style="margin:0;border:0;padding:4px 0 0;background:transparent">
+      <p class="hint">Standaard voor veldspelers en keepers. Per speler kun je hieronder afwijken. Ouders mogen <b>n.v.t.</b> kiezen.</p>
+      <div class="line">Veldspelers</div>
+      <?= parentChecksHtml('field', parentTypeChoices('field'), $parentForm['field']) ?>
+      <div class="line">Keepers</div>
+      <?= parentChecksHtml('keeper', parentTypeChoices('keeper'), $parentForm['keeper']) ?>
+      <label class="hint" for="parentNote">Tekst bovenaan het ouderformulier (optioneel)</label>
+      <textarea class="note-input" id="parentNote" maxlength="280" placeholder="Bijvoorbeeld: alleen de nieuwe set voor 26/27, geen polo."><?= h($parentForm['note']) ?></textarea>
+    </div>
+    </details>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="name">Speler</th>
+            <th>Status</th>
+            <th class="name">Ziet</th>
+            <th>Link</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($parentLinks as $pid => $pl):
+              $kind = (($pl['position'] ?? '') === 'goalkeeper') ? 'keeper' : 'field';
+              $choices = parentTypeChoices($kind);
+              $defaults = parentDefaultTypeIds($pl['player']);
+              $savedAt = $pl['saved'] ? date('d-m H:i', strtotime((string) $pl['saved'])) : '';
+          ?>
+          <tr<?= $savedAt !== '' ? ' class="parent-done"' : '' ?>>
+            <td class="name"><?= h($pl['name']) ?><?php if ($pl['custom']): ?><div class="tiny">aangepast</div><?php endif; ?></td>
+            <td class="<?= $savedAt !== '' ? 'ok' : 'no' ?>"><?= $savedAt !== '' ? 'ingevuld '.$savedAt : 'nog niet' ?></td>
+            <td class="left">
+              <?= parentChecksHtml('player', $choices, $pl['types'], (int) $pid, $defaults) ?>
+              <?php if ($pl['custom']): ?>
+                <button type="button" class="btn parent-reset" data-id="<?= (int) $pid ?>">Standaard</button>
+              <?php endif; ?>
+            </td>
+            <td class="left">
+              <div class="actions" style="margin:0">
+                <button type="button" class="btn dark parent-copy" data-url="<?= h($pl['url']) ?>">Kopiëren</button>
+                <a class="btn" href="<?= h($pl['wa']) ?>" target="_blank" rel="noopener">WhatsApp</a>
+                <a class="btn" href="<?= h($pl['url']) ?>" target="_blank" rel="noopener">Bekijk</a>
+                <button type="button" class="btn parent-rotate" data-id="<?= (int) $pid ?>">Nieuwe link</button>
+              </div>
+            </td>
+          </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <?php endif; ?>
+
+  <div class="section" id="bestel">
+    <h3>Bestelling</h3>
+    <p class="sub"><?= (int) $orderPieces ?> stuks<?= $orderTotal > 0 ? ' · ' . euro($orderTotal) : '' ?> · artikelnummers, maten en bedrukking.</p>
+    <p class="shop-rule"><b>Logo + bedrijfslogo:</b> jassen, shirt, tas · <b>Initialen:</b> jassen, shirt, broekje, tas · <b>Nummer:</b> shirt</p>
+    <details class="packfold">
+      <summary>Toon pakketfoto</summary>
+      <img class="packshot" src="pakket-14-2.png" width="1023" height="1022" alt="Pakket 14-2: shirt, jassen, broekje, tas en sokken">
+    </details>
+
+    <div class="actions">
+      <a class="btn dark" href="?csv=bestel">CSV voor de drukker</a>
+      <a class="btn" href="javascript:window.print()">Print</a>
+      <?php if ($canEdit): ?>
+      <button type="button" class="btn" id="assignPackageAll">Pakket aan alle spelers</button>
+      <?php endif; ?>
+    </div>
+
+    <?php if (!$shopByType): ?>
+      <p class="sub">Nog niets te bestellen. Zet per speler producten op bestellen met maat.</p>
+    <?php else: ?>
+
+    <div class="shop-prints">
+      <h4>Totaal bedrukken</h4>
+      <div class="shop-prints-grid">
+        <div class="stat accent"><b><?= (int) $orderBrand['rohda'] ?></b><span>Rohda Raalte logo</span></div>
+        <div class="stat"><b><?= (int) $orderBrand['initials'] ?></b><span>initialen</span></div>
+        <div class="stat"><b><?= (int) $orderBrand['sponsor'] ?></b><span>bedrijfslogo</span></div>
+        <div class="stat"><b><?= (int) $orderBrand['name_back'] ?></b><span>nummer achterop</span></div>
+      </div>
+    </div>
+
+    <div class="shop-grid">
+      <?php foreach ($shopByType as $shop): ?>
+      <div class="shop-card">
+        <div class="shop-card-top">
+          <div>
+            <h4><?= h($shop['label']) ?></h4>
+            <?php if ($shop['article'] !== ''): ?>
+            <div class="art">Art. <?= h($shop['article']) ?></div>
+            <?php else: ?>
+            <div class="art" style="color:var(--miss)">Art. ontbreekt</div>
+            <?php endif; ?>
+            <div class="meta">
+              <?php
+                $bits = array_filter([
+                  ($shop['brand'] ?? '') !== '' ? $shop['brand'] : 'Stanno',
+                  $shop['color'] !== '' ? $shop['color'] : '',
+                ]);
+                echo h(implode(' · ', $bits));
+              ?>
+            </div>
+          </div>
+          <div class="total"><?= (int) $shop['count'] ?><span>stuks</span></div>
+        </div>
+        <div class="size-grid">
+          <?php foreach ($shop['sizes'] as $sz => $cnt): ?>
+          <div class="size-pill">
+            <span class="sz"><?= h((string) $sz) ?></span>
+            <span class="n"><?= (int) $cnt ?><small>×</small></span>
+          </div>
+          <?php endforeach; ?>
+        </div>
+        <?php if ($shop['rohda'] || $shop['initials'] || $shop['sponsor'] || $shop['name_back']): ?>
+        <div class="print-row">
+          <?php if ($shop['rohda']): ?><i>Rohda logo <b><?= (int) $shop['rohda'] ?></b></i><?php endif; ?>
+          <?php if ($shop['initials']): ?><i>Initialen <b><?= (int) $shop['initials'] ?></b></i><?php endif; ?>
+          <?php if ($shop['sponsor']): ?><i>Bedrijfslogo <b><?= (int) $shop['sponsor'] ?></b></i><?php endif; ?>
+          <?php if ($shop['name_back']): ?><i>Nummer achterop <b><?= (int) $shop['name_back'] ?></b></i><?php endif; ?>
+        </div>
+        <?php endif; ?>
+        <?php if (!empty($shop['numbers'])): ?>
+        <div class="shop-nums">Nummers: <b><?= h(implode(', ', array_map(static fn($n) => '#'.$n, $shop['numbers']))) ?></b></div>
+        <?php endif; ?>
+      </div>
+      <?php endforeach; ?>
+    </div>
+
+    <?php if ($canEdit): ?>
+    <details class="shop-more" id="printPrices">
+      <summary>Printprijs per applicatie</summary>
+      <p class="hint">Leeg = alleen tellen, niet meerekenen.</p>
+      <div class="add-type" style="margin-top:8px">
+        <?php foreach ($printLines as $key => $label):
+          $val = $printPrices[$key] ?? null;
+        ?>
+        <label><?= h($label) ?>
+          <input class="money print-price" data-print="<?= h($key) ?>" inputmode="decimal" value="<?= $val === null ? '' : h(number_format($val, 2, ',', '')) ?>" placeholder="—">
+        </label>
+        <?php endforeach; ?>
+      </div>
+    </details>
+
+    <details class="shop-more">
+      <summary>Prijsregels (intern)</summary>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="name">Product</th>
+              <th>Maat</th>
+              <th>Aantal</th>
+              <th>Stuk</th>
+              <th>Subtotaal</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach ($orderGroups as $g):
+              $tid = (int) $g['tid'];
+              $t = $types[$tid] ?? [];
+              $small = isset($t['price_small']) && $t['price_small'] !== '' && $t['price_small'] !== null ? (float) $t['price_small'] : null;
+              $large = isset($t['price_large']) && $t['price_large'] !== '' && $t['price_large'] !== null ? (float) $t['price_large'] : (isset($t['price']) && $t['price'] !== '' && $t['price'] !== null ? (float) $t['price'] : null);
+              $field = ($g['band'] ?? 'large') === 'small' ? 'price_small' : 'price_large';
+              $shown = $field === 'price_small' ? $small : $large;
+            ?>
+            <tr>
+              <td class="name"><?= h(shortTypeName($tid, $types)) ?></td>
+              <td class="<?= $g['size'] === 'maat onbekend' ? 'no' : 'ok' ?>"><?= h($g['size']) ?></td>
+              <td><b><?= (int) $g['count'] ?></b></td>
+              <td><?= moneyInput($tid, $field, $shown) ?></td>
+              <td><?= $g['price'] !== null ? euro($g['price'] * $g['count']) : '—' ?></td>
+            </tr>
+            <?php endforeach; ?>
+            <tr>
+              <td class="name">Totaal</td>
+              <td></td>
+              <td><b><?= (int) $orderPieces ?></b></td>
+              <td></td>
+              <td><b><?= euro($orderCost) ?></b></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </details>
+    <?php endif; ?>
+    <?php endif; ?>
+  </div>
+
   <div class="section" id="staf">
     <h3>Staf</h3>
     <p class="sub">Polo en quarter zip uit de 13-2 administratie.<?= $canEdit ? ' Vul ontbrekende maten in en sla op.' : '' ?></p>
@@ -1284,10 +1278,10 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <div class="section" id="catalogus">
     <h3>Catalogus · Stanno</h3>
-    <p class="sub">Artikelnummers en richtprijzen. 164/176 en XS gebruiken de kleine prijs, S t/m XL de grote.<?= $canEdit ? ' Pas naam, artikel, bedrukking en prijzen aan, of verwijder een artikel. Voeg hieronder een nieuw artikel toe en vink welke items bij <b>Pakket</b> horen.' : '' ?></p>
+    <p class="sub">Artikelnummers en prijzen. <?= $canEdit ? 'Pas een regel aan of verwijder hem. Nieuw artikel onderaan.' : '' ?></p>
     <?php if ($canEdit): ?>
-    <div class="parent-defaults" id="packageDefaults">
-      <h4>Pakket-sjabloon</h4>
+    <details class="shop-more" id="packageDefaults">
+      <summary>Pakket-sjabloon</summary>
       <p class="hint">Deze items zet <b>Pakket</b> in één keer op bestellen. Jacks nemen de shirtmaat over.</p>
       <div class="checks" id="packageChecks">
         <?php foreach ($types as $t):
@@ -1298,7 +1292,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         <label><input type="checkbox" value="<?= $tid ?>"<?= $on ?>> <?= h(shortTypeName($tid, $types)) ?></label>
         <?php endforeach; ?>
       </div>
-    </div>
+    </details>
     <?php endif; ?>
     <div class="tablewrap">
       <table>
@@ -1363,9 +1357,9 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
       </table>
     </div>
     <?php if ($canEdit): ?>
-    <div class="parent-defaults" style="margin-top:14px">
-      <h4>Artikel toevoegen</h4>
-      <p class="hint">Nieuwe jas, tas of trainingsshirt zonder code te wijzigen.</p>
+    <details class="shop-more" style="margin-top:14px">
+      <summary>Artikel toevoegen</summary>
+      <p class="hint">Nieuwe jas, tas of shirt.</p>
       <div class="add-type" id="addTypeForm">
         <label>Naam <input class="cat-input" id="newDisplay" placeholder="Trainingsshirt"></label>
         <label>Artikel <input class="cat-input" id="newArticle" placeholder="410014"></label>
@@ -1398,7 +1392,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
       <div class="actions">
         <button type="button" class="btn dark" id="addTypeBtn">Artikel toevoegen</button>
       </div>
-    </div>
+    </details>
     <?php endif; ?>
   </div>
 </div>

@@ -42,7 +42,7 @@ $posLabel = [
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title><?= $player ? 'Maten · ' . h($name) : 'Link ongeldig' ?> · Kitroom</title>
-<meta name="theme-color" content="#0F1216">
+<meta name="theme-color" content="#090A0C">
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
 <script>
@@ -56,27 +56,27 @@ $posLabel = [
 </script>
 <style>
 :root,html[data-theme="dark"]{
-  --bg:#0F1216; --surface:#171B21; --surface2:#1D222A; --raise:#232A33;
-  --line:#272E38; --line2:#333C48;
-  --ink:#F2F4F7; --muted:#8B95A4; --dim:#5D6773;
-  --accent:#C8FF3D; --accent-dim:#A9DC2A; --on-accent:#12151A; --accent-text:#C8FF3D;
-  --green:#3DDC91; --greenbg:rgba(61,220,145,.13);
-  --miss:#FF6B6B; --missbg:rgba(255,107,107,.13);
-  --warn:#FFD166; --warnbg:rgba(255,197,61,.10);
-  --na:#5D6773; --nabg:rgba(255,255,255,.035);
-  --glow-a:rgba(200,255,61,.10); --glow-b:rgba(61,220,145,.05);
+  --bg:#090A0C; --surface:#121417; --surface2:#181B20; --raise:#22262C;
+  --line:#2C323A; --line2:#3D454E;
+  --ink:#F4F1EC; --muted:#9A9388; --dim:#6B655C;
+  --accent:#E11D2E; --accent-dim:#C41424; --on-accent:#FFFFFF; --accent-text:#FF6B76;
+  --green:#3DCC8A; --greenbg:rgba(61,204,138,.14);
+  --miss:#FF6B6B; --missbg:rgba(255,107,107,.14);
+  --warn:#E8B84A; --warnbg:rgba(232,184,74,.14);
+  --na:#6B655C; --nabg:rgba(255,255,255,.04);
+  --glow-a:rgba(225,29,46,.14); --glow-b:rgba(232,184,74,.07);
   --r:14px; --r-lg:20px;
 }
 html[data-theme="light"]{
-  --bg:#F3F5F0; --surface:#FFFFFF; --surface2:#F7F8F4; --raise:#EEF1E8;
-  --line:#E1E6D8; --line2:#C9D0BC;
-  --ink:#14181D; --muted:#5A6470; --dim:#7A8490;
-  --accent:#C8FF3D; --accent-dim:#9ACC20; --on-accent:#12151A; --accent-text:#4F6C00;
-  --green:#0F8F5C; --greenbg:rgba(15,143,92,.12);
+  --bg:#F4F1EC; --surface:#FFFFFF; --surface2:#F7F4EF; --raise:#EFEBE4;
+  --line:#E4DED4; --line2:#D0C8BB;
+  --ink:#14110F; --muted:#6A635A; --dim:#8A8378;
+  --accent:#E11D2E; --accent-dim:#C41424; --on-accent:#FFFFFF; --accent-text:#B91C1C;
+  --green:#0F7A4F; --greenbg:rgba(15,122,79,.12);
   --miss:#C62828; --missbg:rgba(198,40,40,.10);
-  --warn:#A15C00; --warnbg:rgba(161,92,0,.12);
-  --na:#7A8490; --nabg:rgba(20,24,29,.04);
-  --glow-a:rgba(200,255,61,.22); --glow-b:rgba(15,143,92,.07);
+  --warn:#A67C12; --warnbg:rgba(166,124,18,.12);
+  --na:#8A8378; --nabg:rgba(20,17,15,.04);
+  --glow-a:rgba(225,29,46,.10); --glow-b:rgba(232,184,74,.08);
 }
 *{box-sizing:border-box}
 html{color-scheme:dark;-webkit-text-size-adjust:100%}
@@ -217,7 +217,7 @@ body{
     const next=t==='light' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', next);
     document.documentElement.style.colorScheme=next;
-    if(meta) meta.setAttribute('content', next==='light' ? '#F3F5F0' : '#0F1216');
+    if(meta) meta.setAttribute('content', next==='light' ? '#F4F1EC' : '#090A0C');
     document.querySelectorAll('[data-theme-set]').forEach(btn=>{
       btn.setAttribute('aria-pressed', btn.getAttribute('data-theme-set')===next ? 'true' : 'false');
     });

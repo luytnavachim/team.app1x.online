@@ -29,6 +29,7 @@ if ($player) {
 }
 
 $name = $player ? fullName($player) : '';
+$ini = $player ? playerInitials($player) : '';
 $posLabel = [
     'attacker' => 'aanval',
     'midfielder' => 'middenveld',
@@ -108,7 +109,8 @@ body{
 }
 .note b{color:var(--ink)}
 .section{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:18px 16px}
-.section h2{margin:0 0 4px;font-size:clamp(20px,5vw,24px);font-weight:800;letter-spacing:-.4px}
+.section h2{margin:0 0 4px;font-size:clamp(20px,5vw,24px);font-weight:800;letter-spacing:-.4px;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.section h2 .ini{flex:0 0 auto;font-size:13px;font-weight:800;letter-spacing:.06em;color:var(--muted);border:1px solid var(--line);border-radius:8px;padding:2px 8px}
 .section .sub{margin:0 0 16px;font-size:13px;color:var(--muted);font-weight:500}
 .kit{display:grid;gap:8px}
 .row{
@@ -173,7 +175,7 @@ body{
     </div>
   <?php else: ?>
     <p class="note">
-      Vul bij <b><?= h($name) ?></b> <b>elk item</b> in, of hij het nu wel of niet krijgt. Krijgt hij het: kies de maat. Krijgt hij het niet: kies <b>n.v.t.</b> Shirt, broek en jacks: 164, S, M, L, XL of XXL. Sokken: 36-40 of 41-44. Kies ook een <b>rugnummer</b> en druk op opslaan. Een nummer dat al door een andere speler is gekozen, kun je niet meer kiezen.
+      Vul bij <b><?= h($name) ?></b><?= $ini !== '' ? ' <b>(' . h($ini) . ')</b>' : '' ?> <b>elk item</b> in, of hij het nu wel of niet krijgt. Krijgt hij het: kies de maat. Krijgt hij het niet: kies <b>n.v.t.</b> Shirt, broek en jacks: 164, S, M, L, XL of XXL. Sokken: 36-40 of 41-44. Kies ook een <b>rugnummer</b> en druk op opslaan. Een nummer dat al door een andere speler is gekozen, kun je niet meer kiezen.<?= $ini !== '' ? ' Initialen op de kleding: <b>' . h($ini) . '</b>.' : '' ?>
       <?php if ($formSettings['note'] !== ''): ?> <?= h($formSettings['note']) ?><?php endif; ?>
     </p>
     <div class="packshot-wrap">
@@ -182,13 +184,13 @@ body{
     </div>
     <?php if ($typeOrder === []): ?>
     <div class="section">
-      <h2><?= h($name) ?></h2>
+      <h2><?= h($name) ?><?php if ($ini !== ''): ?> <span class="ini"><?= h($ini) ?></span><?php endif; ?></h2>
       <p class="sub">Er staat nu niets klaar om in te vullen. Vraag de trainer of manager.</p>
     </div>
     <?php else: ?>
     <div class="section">
-      <h2><?= h($name) ?></h2>
-      <p class="sub"><?= h($posLabel[$player['position'] ?? ''] ?? 'speler') ?><?= normalizeJerseyNumber($player['jersey_number'] ?? '') ? ' · #' . h((string) normalizeJerseyNumber($player['jersey_number'])) : '' ?></p>
+      <h2><?= h($name) ?><?php if ($ini !== ''): ?> <span class="ini"><?= h($ini) ?></span><?php endif; ?></h2>
+      <p class="sub"><?= h($posLabel[$player['position'] ?? ''] ?? 'speler') ?><?= normalizeJerseyNumber($player['jersey_number'] ?? '') ? ' · #' . h((string) normalizeJerseyNumber($player['jersey_number'])) : '' ?><?= $ini !== '' ? ' · initialen ' . h($ini) : '' ?></p>
       <form id="parentForm">
         <div class="kit">
           <div class="row wait">

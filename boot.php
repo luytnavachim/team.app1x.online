@@ -771,22 +771,30 @@ function typeOptionsHtml(array $types, string $placeholder = 'Type'): string {
 function playerInitials(array $p): string {
     $first = trim((string) ($p['first_name'] ?? ''));
     $last = trim((string) ($p['last_name'] ?? ''));
-    $out = '';
-    if ($first !== '') {
-        $out .= mb_strtoupper(mb_substr($first, 0, 1, 'UTF-8'), 'UTF-8');
-    }
     $particles = ['van', 'de', 'der', 'den', 'het', 'ten', 'ter', 'te', 'op', 'aan', 'tot', "'t"];
+    $head = '';
+    if ($first !== '') {
+        $head = mb_strtoupper(mb_substr($first, 0, 1, 'UTF-8'), 'UTF-8');
+    }
+    $mids = '';
+    $tail = '';
     foreach (preg_split('/\s+/', $last) ?: [] as $part) {
         if ($part === '') {
             continue;
         }
         $low = mb_strtolower($part, 'UTF-8');
         $ch = mb_substr($part, 0, 1, 'UTF-8');
-        $out .= in_array($low, $particles, true)
-            ? mb_strtolower($ch, 'UTF-8')
-            : mb_strtoupper($ch, 'UTF-8');
+        if (in_array($low, $particles, true)) {
+            $mids .= mb_strtolower($ch, 'UTF-8');
+        } else {
+            $tail .= mb_strtoupper($ch, 'UTF-8');
+        }
     }
-    return $out;
+    $full = $head . $mids . $tail;
+    if (mb_strlen($full, 'UTF-8') <= 3) {
+        return $full;
+    }
+    return mb_substr($head . $tail, 0, 3, 'UTF-8');
 }
 
 function kitSize(array $p, int $tid): string {
@@ -1757,7 +1765,7 @@ function orderListRows(array $shopByType, int $orderPieces): array {
     $rows[] = ['Alle producten · totaal', '', '', '', '', $orderPieces];
     $rows[] = [];
     $rows[] = ['BEDRUKKEN · PER PRODUCT'];
-    $rows[] = ['Product', 'Artikelnummer', 'Stuks', 'Rohda logo', 'Initialen', 'Bedrijfslogo', 'Nummer achterop'];
+    $rows[] = ['Product', 'Artikelnummer', 'Stuks', 'Rohda logo', 'Initialen', 'Initialen letters', 'Bedrijfslogo', 'Nummer achterop'];
     foreach ($shopByType as $shop) {
         $rows[] = [
             $shop['label'],
@@ -1765,9 +1773,25 @@ function orderListRows(array $shopByType, int $orderPieces): array {
             (int) $shop['count'],
             !empty($shop['rohda']) ? (int) $shop['rohda'] : '',
             !empty($shop['initials']) ? (int) $shop['initials'] : '',
+            !empty($shop['letters']) ? implode(', ', $shop['letters']) : '',
             !empty($shop['sponsor']) ? (int) $shop['sponsor'] : '',
             !empty($shop['name_back']) ? (int) $shop['name_back'] : '',
         ];
+    }
+    $letterRows = [];
+    foreach ($shopByType as $shop) {
+        if (empty($shop['letters'])) {
+            continue;
+        }
+        $letterRows[] = [$shop['label'], implode(', ', $shop['letters'])];
+    }
+    if ($letterRows) {
+        $rows[] = [];
+        $rows[] = ['INITIALEN · PER PRODUCT'];
+        $rows[] = ['Product', 'Initialen (max. 3 letters)'];
+        foreach ($letterRows as $letterRow) {
+            $rows[] = $letterRow;
+        }
     }
     return $rows;
 }

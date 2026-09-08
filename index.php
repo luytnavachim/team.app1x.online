@@ -328,6 +328,7 @@ foreach ($orderGroups as $g) {
             'sponsor' => 0,
             'name_back' => 0,
             'numbers' => [],
+            'letters' => [],
             'cost' => 0.0,
         ];
     }
@@ -358,12 +359,18 @@ foreach ($gaps as $g) {
     if (typePrints($g['type'], 'print_name_back') && ($g['jersey'] ?? '') !== '') {
         $shopByType[$tid]['numbers'][] = (string) $g['jersey'];
     }
+    if (typePrints($g['type'], 'print_initials') && ($g['ini'] ?? '') !== '') {
+        $shopByType[$tid]['letters'][] = (string) $g['ini'];
+    }
 }
 foreach ($shopByType as &$shopRow) {
     uksort($shopRow['sizes'], static fn($a, $b) => $sizeRank((string) $a) <=> $sizeRank((string) $b));
     $nums = array_values(array_unique($shopRow['numbers']));
     usort($nums, static fn($a, $b) => ((int) $a) <=> ((int) $b));
     $shopRow['numbers'] = $nums;
+    $letters = $shopRow['letters'] ?? [];
+    usort($letters, static fn($a, $b) => strcasecmp($a, $b));
+    $shopRow['letters'] = $letters;
 }
 unset($shopRow);
 uksort($shopByType, static function ($a, $b) use ($types) {
@@ -586,7 +593,9 @@ button.btn{font-family:inherit;cursor:pointer}
 .card.moos{border-color:rgba(225,29,46,.45);box-shadow:0 0 0 1px rgba(225,29,46,.12)}
 .card.gap{border-left:3px solid rgba(255,107,107,.45)}
 .who{display:flex;justify-content:space-between;gap:10px;align-items:center;min-width:0}
+.who-left{display:flex;align-items:baseline;gap:8px;min-width:0;overflow:hidden}
 .who b{font-size:15.5px;font-weight:700;letter-spacing:-.2px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ini{flex:0 0 auto;font-size:11px;font-weight:800;letter-spacing:.06em;color:var(--dim);border:1px solid var(--line);border-radius:6px;padding:1px 6px;line-height:1.35}
 .nr{font-size:12px;font-weight:800;color:var(--dim);flex:0 0 auto}
 .who .jersey-select{
   width:auto;min-width:5.75rem;max-width:7.25rem;flex:0 0 auto;font-weight:700;
@@ -957,7 +966,10 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
                  data-pos="<?= h($p['position'] ?? '') ?>"
                  data-guest="<?= !empty($p['is_guest']) ? '1' : '0' ?>">
           <div class="who">
-            <b><?= h(fullName($p)) ?></b>
+            <span class="who-left">
+              <b><?= h(fullName($p)) ?></b>
+              <?php $ini = playerInitials($p); if ($ini !== ''): ?><span class="ini"><?= h($ini) ?></span><?php endif; ?>
+            </span>
             <?php if ($canEdit): ?>
             <?= jerseySelectHtml($mysqli, $p, ['class' => 'size-select jersey-select', 'allow_empty' => true]) ?>
             <?php else: ?>
@@ -1153,6 +1165,9 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
           <?php if ($shop['sponsor']): ?><i>Bedrijfslogo <b><?= (int) $shop['sponsor'] ?></b></i><?php endif; ?>
           <?php if ($shop['name_back']): ?><i>Nummer achterop <b><?= (int) $shop['name_back'] ?></b></i><?php endif; ?>
         </div>
+        <?php endif; ?>
+        <?php if (!empty($shop['letters'])): ?>
+        <div class="shop-nums">Initialen: <b><?= h(implode(', ', $shop['letters'])) ?></b></div>
         <?php endif; ?>
         <?php if (!empty($shop['numbers'])): ?>
         <div class="shop-nums">Nummers: <b><?= h(implode(', ', array_map(static fn($n) => '#'.$n, $shop['numbers']))) ?></b></div>

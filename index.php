@@ -293,6 +293,7 @@ foreach ($orderGroups as $g) {
             'label' => shortTypeName($tid, $types),
             'article' => (string) $g['article'],
             'color' => (string) $g['color'],
+            'brand' => (string) ($g['brand'] ?? ''),
             'place' => (string) $g['place'],
             'sizes' => [],
             'count' => 0,
@@ -354,15 +355,20 @@ if ($csvKind === 'bestel' || $csvKind === 'regels') {
     fputcsv($out, [], ';');
 
     fputcsv($out, ['BESTELLEN'], ';');
-    fputcsv($out, ['Product', 'Kleur', 'Maat', 'Aantal'], ';');
+    fputcsv($out, ['Product', 'Artikelnummer', 'Merk', 'Kleur', 'Maat', 'Aantal'], ';');
     foreach ($shopByType as $shop) {
-        foreach ($shop['sizes'] as $sz => $cnt) {
-            fputcsv($out, [$shop['label'], $shop['color'], $sz, $cnt], ';');
+        $art = trim((string) ($shop['article'] ?? ''));
+        $brand = trim((string) ($shop['brand'] ?? ''));
+        if ($brand === '') {
+            $brand = 'Stanno';
         }
-        fputcsv($out, [$shop['label'] . ' · totaal', '', '', $shop['count']], ';');
+        foreach ($shop['sizes'] as $sz => $cnt) {
+            fputcsv($out, [$shop['label'], $art, $brand, $shop['color'], $sz, $cnt], ';');
+        }
+        fputcsv($out, [$shop['label'] . ' · totaal', $art, '', '', '', $shop['count']], ';');
         fputcsv($out, [], ';');
     }
-    fputcsv($out, ['Alle producten · totaal', '', '', $orderPieces], ';');
+    fputcsv($out, ['Alle producten · totaal', '', '', '', '', $orderPieces], ';');
     fputcsv($out, [], ';');
 
     fputcsv($out, ['BEDRUKKEN · TOTALEN'], ';');
@@ -374,11 +380,12 @@ if ($csvKind === 'bestel' || $csvKind === 'regels') {
     fputcsv($out, [], ';');
 
     fputcsv($out, ['BEDRUKKEN · PER PRODUCT'], ';');
-    fputcsv($out, ['Product', 'Stuks', 'Rohda logo', 'Initialen', 'Bedrijfslogo', 'Nummer achterop', 'Nummers'], ';');
+    fputcsv($out, ['Product', 'Artikelnummer', 'Stuks', 'Rohda logo', 'Initialen', 'Bedrijfslogo', 'Nummer achterop', 'Nummers'], ';');
     foreach ($shopByType as $shop) {
         $numStr = $shop['numbers'] ? implode(', ', array_map(static fn($n) => '#' . $n, $shop['numbers'])) : '';
         fputcsv($out, [
             $shop['label'],
+            trim((string) ($shop['article'] ?? '')),
             $shop['count'],
             $shop['rohda'] ?: '',
             $shop['initials'] ?: '',
@@ -754,6 +761,10 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
 }
 .shop-card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;margin-bottom:10px}
 .shop-card h4{margin:0;font-size:16px;font-weight:800;letter-spacing:-.02em}
+.shop-card .art{
+  margin:4px 0 0;font-size:13px;font-weight:800;color:var(--accent-text);letter-spacing:.2px;
+  font-variant-numeric:tabular-nums;
+}
 .shop-card .meta{margin:3px 0 0;font-size:12px;color:var(--muted);font-weight:600}
 .shop-card .total{font-size:22px;font-weight:800;color:var(--accent-text);line-height:1;text-align:right;flex:0 0 auto}
 .shop-card .total span{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-top:2px}
@@ -927,10 +938,15 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         <div class="shop-card-top">
           <div>
             <h4><?= h($shop['label']) ?></h4>
+            <?php if ($shop['article'] !== ''): ?>
+            <div class="art">Art. <?= h($shop['article']) ?></div>
+            <?php else: ?>
+            <div class="art" style="color:var(--miss)">Art. ontbreekt</div>
+            <?php endif; ?>
             <div class="meta">
               <?php
                 $bits = array_filter([
-                  $shop['article'] !== '' ? 'art. ' . $shop['article'] : '',
+                  ($shop['brand'] ?? '') !== '' ? $shop['brand'] : 'Stanno',
                   $shop['color'] !== '' ? $shop['color'] : '',
                 ]);
                 echo h(implode(' · ', $bits));

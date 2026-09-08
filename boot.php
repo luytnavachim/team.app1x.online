@@ -188,6 +188,7 @@ function defaultKitSettings(): array {
             'sponsor' => null,
             'name_back' => null,
         ],
+        'season' => '26/27',
     ];
 }
 
@@ -219,9 +220,14 @@ function loadKitSettings(bool $reload = false): array {
     foreach (array_keys($print) as $key) {
         $print[$key] = parseMoney($raw['print'][$key] ?? null);
     }
+    $season = trim((string) ($raw['season'] ?? $def['season']));
+    if ($season === '') {
+        $season = $def['season'];
+    }
     $cached = [
         'package' => $package !== [] ? array_values($package) : $def['package'],
         'print' => $print,
+        'season' => substr($season, 0, 16),
     ];
     return $cached;
 }
@@ -243,9 +249,14 @@ function saveKitSettings(array $settings): void {
     foreach (array_keys($def['print']) as $key) {
         $print[$key] = parseMoney($settings['print'][$key] ?? null);
     }
+    $season = trim((string) ($settings['season'] ?? $def['season']));
+    if ($season === '') {
+        $season = $def['season'];
+    }
     $clean = [
         'package' => $package !== [] ? array_values($package) : $def['package'],
         'print' => $print,
+        'season' => substr($season, 0, 16),
     ];
     file_put_contents(kitSettingsPath(), json_encode($clean, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
     loadKitSettings(true);
@@ -605,6 +616,16 @@ function shortTypeName(int $tid, array $types = []): string {
 
 function typeIsActive(array $t): bool {
     return !array_key_exists('active', $t) || (int) $t['active'] === 1;
+}
+
+function normalizePlayerPosition(string $pos): string {
+    $pos = strtolower(trim($pos));
+    return in_array($pos, ['goalkeeper', 'defender', 'midfielder', 'attacker'], true) ? $pos : 'midfielder';
+}
+
+function normalizeStaffStatus(string $status): string {
+    $status = strtolower(trim($status));
+    return in_array($status, ['active', 'inactive', 'former'], true) ? $status : 'active';
 }
 
 /** Catalogusregel voor een bedrukking (logo/initialen), geen kledingstuk. */

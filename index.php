@@ -89,6 +89,10 @@ while ($row = $res->fetch_assoc()) {
     $staff[$sid]['items'][(int) $row['clothing_type_id']][] = $row;
 }
 
+$staffAll = array_values($staff);
+$staff = array_values(array_filter($staffAll, static fn($s) => ($s['status'] ?? '') === 'active'));
+$season = trim((string) ($kitSettings['season'] ?? '26/27')) ?: '26/27';
+
 function parentChecksHtml(string $scope, array $choices, array $selected, int $playerId = 0, array $defaultIds = []): string {
     $html = '<div class="checks" data-parent-scope="'.h($scope).'" data-id="'.$playerId.'" data-default="'.h(implode(',', $defaultIds)).'">';
     foreach ($choices as $tid) {
@@ -148,6 +152,29 @@ usort($active, static function ($a, $b) use ($posOrder) {
 });
 
 $guestPlayers = array_values(array_filter($players, fn($p) => (int) ($p['is_guest'] ?? 0) === 1 && ($p['status'] ?? '') === 'active'));
+foreach ($guestPlayers as &$p) {
+    $p['scout_pos'] = '';
+    $p['scout_type'] = '';
+    $p['voet'] = '';
+    $p['jaar'] = '';
+    $p['need'] = ($p['position'] ?? '') === 'goalkeeper' ? $KEEPER_CORE : $FIELD_CORE;
+    $p['card_types'] = cardTypeIds($p, $types, $PACKAGE_CORE, $KEEPER_ONLY);
+    $p['missing'] = [];
+    $p['to_order'] = [];
+    $p['owned'] = [];
+    foreach ($p['items'] as $tid => $list) {
+        $tid = (int) $tid;
+        $it = itemFor($p, $tid);
+        if (isPendingItem($it)) {
+            $p['to_order'][] = $tid;
+        } elseif (isIssued($it)) {
+            $p['owned'][] = $tid;
+        }
+    }
+    $p['miss'] = count($p['to_order']);
+    $p['complete'] = $p['miss'] === 0 && $p['owned'] !== [];
+}
+unset($p);
 
 $parentFilled = array_values(array_filter($active, static fn($p) => !empty($p['parent_saved_at'])));
 usort($parentFilled, static fn($a, $b) => strcmp((string) ($b['parent_saved_at'] ?? ''), (string) ($a['parent_saved_at'] ?? '')));
@@ -417,8 +444,9 @@ if ($csvKind === 'bestel' || $csvKind === 'regels') {
 }
 
 $byLine = [];
+$cardPlayers = array_merge($active, $guestPlayers);
 foreach ($posOrder as $pos) {
-    $byLine[$pos] = array_values(array_filter($active, fn($p) => ($p['position'] ?? '') === $pos));
+    $byLine[$pos] = array_values(array_filter($cardPlayers, fn($p) => ($p['position'] ?? '') === $pos));
 }
 
 $voetLabel = static function (string $v): string {
@@ -625,6 +653,8 @@ button.btn{font-family:inherit;cursor:pointer}
   padding:5px 7px;font-size:12px;
 }
 .meta{font-size:11.5px;color:var(--muted);font-weight:600;margin:5px 0 11px;line-height:1.35}
+.meta a{color:var(--accent-text);text-decoration:none;font-weight:800}
+.meta a:hover{text-decoration:underline}
 .kit{display:grid;gap:6px;flex:1}
 .row{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:12.5px;font-weight:600;padding:8px 10px;border-radius:9px;background:var(--nabg);color:var(--muted);min-width:0}
 .row.ok{background:var(--greenbg);color:var(--green)}
@@ -737,6 +767,12 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
 .cat-name{display:grid;gap:5px;min-width:160px}
 .cat-name .cat-input{width:100%;min-width:140px}
 .cat-del{border:0;background:transparent;color:var(--miss);font:inherit;font-size:11px;font-weight:800;cursor:pointer;padding:4px 2px;white-space:nowrap}
+.cms-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:8px;align-items:end;margin:8px 0 14px}
+.cms-grid .btn{justify-self:start}
+.cms-grid label{display:grid;gap:4px;font-size:11px;font-weight:700;color:var(--dim)}
+.cms-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+#beheer,[id^="cms-p-"],[id^="cms-s-"],[id^="card-p-"],[id^="card-s-"]{scroll-margin-top:72px}
+tr.archived td{opacity:.55}
 .assign{
   display:grid;grid-template-columns:minmax(140px,1.4fr) minmax(110px,1fr) 110px auto auto auto;
   gap:8px;align-items:center;
@@ -868,7 +904,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         --warn:#a16207;--warnbg:#fef3c7;--na:#71717a;--nabg:#fafafa}
   html{color-scheme:light}
   body{background:#fff;color:#111}
-  .navwrap,.filters,.actions,.note,.toast,.modal,.theme-switch,#parentAlert,.assign,.addrow,.money,.cat-input,#printPrices,.parent-defaults,.packfold > summary{display:none !important}
+  .navwrap,.filters,.actions,.note,.toast,.modal,.theme-switch,#parentAlert,.assign,.addrow,.money,.cat-input,#printPrices,.parent-defaults,.packfold > summary,#beheer{display:none !important}
   .packfold{display:block}
   .packshot{max-width:360px}
   .featured,.card{break-inside:avoid;border:1px solid #d4d4d8}
@@ -897,7 +933,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         <button type="button" data-theme-set="dark" aria-pressed="true">Donker</button>
         <button type="button" data-theme-set="light" aria-pressed="false">Licht</button>
       </div>
-      <div class="badge">26/27</div>
+      <div class="badge"><?= h($season) ?></div>
     </div>
   </header>
 
@@ -910,6 +946,9 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     <a href="#bestel">Bestelling</a>
     <a href="#staf">Staf</a>
     <a href="#catalogus">Catalogus</a>
+    <?php if ($canEdit): ?>
+    <a href="#beheer">Beheer</a>
+    <?php endif; ?>
     <?php if ($canEdit): ?>
       <button type="button" class="btn" id="saveAllBtn">Alles opslaan</button>
       <button type="button" class="btn" id="logoutBtn">Klaar</button>
@@ -974,7 +1013,9 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
           }
         ?>
         <article class="card<?= $isMoos ? ' moos' : '' ?><?= $p['to_order'] ? ' gap' : '' ?>"
-                 data-pos="<?= h($p['position'] ?? '') ?>">
+                 id="card-p-<?= (int) $p['id'] ?>"
+                 data-pos="<?= h($p['position'] ?? '') ?>"
+                 data-guest="<?= !empty($p['is_guest']) ? '1' : '0' ?>">
           <div class="who">
             <b><?= h(fullName($p)) ?></b>
             <?php if ($canEdit): ?>
@@ -983,7 +1024,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             <span class="nr"><?= $p['jersey_number'] ? '#'.h($p['jersey_number']) : '' ?></span>
             <?php endif; ?>
           </div>
-          <div class="meta"><?= h(implode(' · ', array_filter($meta))) ?></div>
+          <div class="meta"><?= h(implode(' · ', array_filter($meta))) ?><?php if ($canEdit): ?> · <a href="#cms-p-<?= (int) $p['id'] ?>">Wijzigen</a><?php endif; ?></div>
           <div class="kit">
             <?php
               $cardTypes = $p['card_types'] ?? [];
@@ -1249,8 +1290,9 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     <p class="sub">Polo en quarter zip uit de 13-2 administratie.<?= $canEdit ? ' Vul ontbrekende maten in en sla op.' : '' ?></p>
     <div class="cards">
       <?php foreach ($staff as $s): ?>
-      <article class="card">
+      <article class="card" id="card-s-<?= (int) $s['id'] ?>">
         <div class="who"><b><?= h(fullName($s)) ?></b><span class="nr"><?= h($s['role']) ?></span></div>
+        <?php if ($canEdit): ?><div class="meta"><a href="#cms-s-<?= (int) $s['id'] ?>">Wijzigen</a></div><?php endif; ?>
         <div class="kit">
           <?php
             $staffTypes = $STAFF_CORE;
@@ -1421,6 +1463,167 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     </details>
     <?php endif; ?>
   </div>
+
+  <?php if ($canEdit):
+    $cmsPlayers = array_values($players);
+    usort($cmsPlayers, static fn($a, $b) => strcasecmp(fullName($a), fullName($b)));
+    $inactiveTypes = array_values(array_filter($types, static fn($t) => is_array($t) && !typeIsActive($t)));
+    $posSelect = static function (string $current) use ($posLabel): string {
+        $html = '';
+        foreach ($posLabel as $key => $lab) {
+            $sel = ($current === $key) ? ' selected' : '';
+            $html .= '<option value="'.h($key).'"'.$sel.'>'.h($lab).'</option>';
+        }
+        return $html;
+    };
+  ?>
+  <div class="section" id="beheer">
+    <h3>Beheer</h3>
+    <p class="sub">CMS: spelers, staf, seizoen en verwijderde artikelen. Kledingmaten blijven per kaart staan. Archiveren verwijdert niemand definitief.</p>
+
+    <div class="parent-defaults">
+      <h4>Seizoen</h4>
+      <div class="cms-grid">
+        <label>Seizoen
+          <input class="cat-input" id="seasonInput" value="<?= h($season) ?>" maxlength="16" placeholder="26/27">
+        </label>
+        <button type="button" class="btn dark" id="seasonSave">Opslaan</button>
+      </div>
+    </div>
+
+    <h4 class="line">Spelers</h4>
+    <div class="parent-defaults">
+      <p class="hint">Nieuwe speler. Gast telt niet mee in de ouderlinks-standaard.</p>
+      <div class="cms-grid" id="newPlayerForm">
+        <label>Voornaam <input class="cat-input" id="npFirst" placeholder="Voornaam"></label>
+        <label>Achternaam <input class="cat-input" id="npLast" placeholder="Achternaam"></label>
+        <label>Lijn <select class="cat-input" id="npPos"><?= $posSelect('midfielder') ?></select></label>
+        <label>Rugnummer <input class="cat-input" id="npJersey" inputmode="numeric" placeholder="1–99"></label>
+        <label>Gast <select class="cat-input" id="npGuest"><option value="0">Nee</option><option value="1">Ja</option></select></label>
+        <button type="button" class="btn dark" id="npAdd">Speler toevoegen</button>
+      </div>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="name">Naam</th>
+            <th>Lijn</th>
+            <th>Rugnr</th>
+            <th>Gast</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($cmsPlayers as $cp):
+            $pid = (int) $cp['id'];
+            $st = (($cp['status'] ?? '') === 'active') ? 'active' : 'inactive';
+          ?>
+          <tr class="<?= $st === 'inactive' ? 'archived' : '' ?>" id="cms-p-<?= $pid ?>">
+            <td class="name">
+              <div class="cat-name">
+                <input class="cat-input cms-p-first" value="<?= h((string) $cp['first_name']) ?>" aria-label="Voornaam">
+                <input class="cat-input cms-p-last" value="<?= h((string) $cp['last_name']) ?>" aria-label="Achternaam">
+              </div>
+            </td>
+            <td><select class="cat-input cms-p-pos"><?= $posSelect((string) ($cp['position'] ?? 'midfielder')) ?></select></td>
+            <td><input class="cat-input cms-p-jersey" value="<?= h((string) normalizeJerseyNumber($cp['jersey_number'] ?? '') ?? '') ?>" inputmode="numeric" style="width:4.5rem"></td>
+            <td><select class="cat-input cms-p-guest"><option value="0"<?= empty($cp['is_guest']) ? ' selected' : '' ?>>Nee</option><option value="1"<?= !empty($cp['is_guest']) ? ' selected' : '' ?>>Ja</option></select></td>
+            <td class="<?= $st === 'active' ? 'ok' : 'no' ?>"><?= $st === 'active' ? 'actief' : 'archief' ?></td>
+            <td>
+              <div class="cms-actions">
+                <button type="button" class="btn dark cms-p-save" data-id="<?= $pid ?>">Opslaan</button>
+                <?php if ($st === 'active'): ?>
+                <a class="btn" href="#card-p-<?= $pid ?>">Kaart</a>
+                <button type="button" class="cat-del cms-p-archive" data-id="<?= $pid ?>">Archiveren</button>
+                <?php else: ?>
+                <button type="button" class="btn cms-p-restore" data-id="<?= $pid ?>">Terugzetten</button>
+                <?php endif; ?>
+              </div>
+            </td>
+          </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+
+    <h4 class="line">Staf</h4>
+    <div class="parent-defaults">
+      <div class="cms-grid" id="newStaffForm">
+        <label>Voornaam <input class="cat-input" id="nsFirst" placeholder="Voornaam"></label>
+        <label>Achternaam <input class="cat-input" id="nsLast" placeholder="Achternaam"></label>
+        <label>Rol <input class="cat-input" id="nsRole" placeholder="trainer"></label>
+        <button type="button" class="btn dark" id="nsAdd">Staflid toevoegen</button>
+      </div>
+    </div>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="name">Naam</th>
+            <th>Rol</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($staffAll as $cs):
+            $sid = (int) $cs['id'];
+            $sst = (string) ($cs['status'] ?? 'active');
+            $sstLabel = ['active' => 'actief', 'inactive' => 'archief', 'former' => 'oud'][$sst] ?? $sst;
+          ?>
+          <tr class="<?= $sst === 'active' ? '' : 'archived' ?>" id="cms-s-<?= $sid ?>">
+            <td class="name">
+              <div class="cat-name">
+                <input class="cat-input cms-s-first" value="<?= h((string) $cs['first_name']) ?>">
+                <input class="cat-input cms-s-last" value="<?= h((string) $cs['last_name']) ?>">
+              </div>
+            </td>
+            <td><input class="cat-input cms-s-role" value="<?= h((string) $cs['role']) ?>"></td>
+            <td class="<?= $sst === 'active' ? 'ok' : 'no' ?>"><?= h($sstLabel) ?></td>
+            <td>
+              <div class="cms-actions">
+                <button type="button" class="btn dark cms-s-save" data-id="<?= $sid ?>">Opslaan</button>
+                <?php if ($sst === 'active'): ?>
+                <a class="btn" href="#card-s-<?= $sid ?>">Kaart</a>
+                <button type="button" class="cat-del cms-s-archive" data-id="<?= $sid ?>">Archiveren</button>
+                <?php else: ?>
+                <button type="button" class="btn cms-s-restore" data-id="<?= $sid ?>">Terugzetten</button>
+                <?php endif; ?>
+              </div>
+            </td>
+          </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+
+    <?php if ($inactiveTypes): ?>
+    <h4 class="line">Verwijderde artikelen</h4>
+    <p class="sub">Terugzetten maakt het artikel weer zichtbaar in de catalogus. Bestaande toewijzingen blijven.</p>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th class="name">Type</th><th>Artikel</th><th></th></tr>
+        </thead>
+        <tbody>
+          <?php foreach ($inactiveTypes as $it): ?>
+          <tr class="archived">
+            <td class="name"><?= h((string) $it['display_name']) ?></td>
+            <td><?= h((string) ($it['article_number'] ?? '')) ?></td>
+            <td><button type="button" class="btn cms-t-restore" data-id="<?= (int) $it['id'] ?>">Terugzetten</button></td>
+          </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+    <?php else: ?>
+    <h4 class="line">Verwijderde artikelen</h4>
+    <p class="sub">Geen verwijderde catalogusartikelen.</p>
+    <?php endif; ?>
+  </div>
+  <?php endif; ?>
 </div>
 <div id="pinModal" class="modal hidden">
   <form class="modalbox" id="pinForm">
@@ -1841,7 +2044,7 @@ document.querySelectorAll('.cat-prints').forEach(box=>{
     location.reload();
   });
 });
-document.querySelectorAll('.cat-del').forEach(btn=>{
+document.querySelectorAll('.cat-del[data-tid]').forEach(btn=>{
   btn.addEventListener('click', async ()=>{
     const id=+btn.dataset.tid;
     const name=btn.dataset.name||'dit artikel';
@@ -1851,6 +2054,87 @@ document.querySelectorAll('.cat-del').forEach(btn=>{
     if(!out.ok){ toast(out.error||'Verwijderen mislukt'); return; }
     toast('Verwijderd');
     location.reload();
+  });
+});
+async function cmsOk(out, okMsg){
+  if(!out.ok){ toast(out.error||'Mislukt'); return false; }
+  toast(okMsg||'Opgeslagen');
+  location.reload();
+  return true;
+}
+document.getElementById('seasonSave')?.addEventListener('click', async ()=>{
+  const season=document.getElementById('seasonInput')?.value||'';
+  await cmsOk(await api({action:'save_kit', csrf:TEAM.csrf, season}), 'Seizoen opgeslagen');
+});
+document.getElementById('npAdd')?.addEventListener('click', async ()=>{
+  await cmsOk(await api({
+    action:'save_player', csrf:TEAM.csrf, id:0,
+    first_name: document.getElementById('npFirst')?.value||'',
+    last_name: document.getElementById('npLast')?.value||'',
+    position: document.getElementById('npPos')?.value||'midfielder',
+    jersey_number: document.getElementById('npJersey')?.value||'',
+    is_guest: document.getElementById('npGuest')?.value==='1'?1:0,
+    status:'active'
+  }), 'Speler toegevoegd');
+});
+document.querySelectorAll('.cms-p-save').forEach(btn=>{
+  btn.addEventListener('click', async ()=>{
+    const row=btn.closest('tr');
+    await cmsOk(await api({
+      action:'save_player', csrf:TEAM.csrf, id:+btn.dataset.id,
+      first_name: row.querySelector('.cms-p-first')?.value||'',
+      last_name: row.querySelector('.cms-p-last')?.value||'',
+      position: row.querySelector('.cms-p-pos')?.value||'midfielder',
+      jersey_number: row.querySelector('.cms-p-jersey')?.value||'',
+      is_guest: row.querySelector('.cms-p-guest')?.value==='1'?1:0
+    }), 'Speler opgeslagen');
+  });
+});
+document.querySelectorAll('.cms-p-archive').forEach(btn=>{
+  btn.addEventListener('click', async ()=>{
+    if(!confirm('Deze speler archiveren? Hij verdwijnt uit de actieve lijst.')) return;
+    await cmsOk(await api({action:'set_player_status', csrf:TEAM.csrf, id:+btn.dataset.id, status:'inactive'}), 'Gearchiveerd');
+  });
+});
+document.querySelectorAll('.cms-p-restore').forEach(btn=>{
+  btn.addEventListener('click', async ()=>{
+    await cmsOk(await api({action:'set_player_status', csrf:TEAM.csrf, id:+btn.dataset.id, status:'active'}), 'Teruggezet');
+  });
+});
+document.getElementById('nsAdd')?.addEventListener('click', async ()=>{
+  await cmsOk(await api({
+    action:'save_staff', csrf:TEAM.csrf, id:0,
+    first_name: document.getElementById('nsFirst')?.value||'',
+    last_name: document.getElementById('nsLast')?.value||'',
+    role: document.getElementById('nsRole')?.value||'staf',
+    status:'active'
+  }), 'Staflid toegevoegd');
+});
+document.querySelectorAll('.cms-s-save').forEach(btn=>{
+  btn.addEventListener('click', async ()=>{
+    const row=btn.closest('tr');
+    await cmsOk(await api({
+      action:'save_staff', csrf:TEAM.csrf, id:+btn.dataset.id,
+      first_name: row.querySelector('.cms-s-first')?.value||'',
+      last_name: row.querySelector('.cms-s-last')?.value||'',
+      role: row.querySelector('.cms-s-role')?.value||'staf'
+    }), 'Staf opgeslagen');
+  });
+});
+document.querySelectorAll('.cms-s-archive').forEach(btn=>{
+  btn.addEventListener('click', async ()=>{
+    if(!confirm('Dit staflid archiveren?')) return;
+    await cmsOk(await api({action:'set_staff_status', csrf:TEAM.csrf, id:+btn.dataset.id, status:'inactive'}), 'Gearchiveerd');
+  });
+});
+document.querySelectorAll('.cms-s-restore').forEach(btn=>{
+  btn.addEventListener('click', async ()=>{
+    await cmsOk(await api({action:'set_staff_status', csrf:TEAM.csrf, id:+btn.dataset.id, status:'active'}), 'Teruggezet');
+  });
+});
+document.querySelectorAll('.cms-t-restore').forEach(btn=>{
+  btn.addEventListener('click', async ()=>{
+    await cmsOk(await api({action:'restore_type', csrf:TEAM.csrf, id:+btn.dataset.id}), 'Artikel teruggezet');
   });
 });
 </script>

@@ -534,8 +534,148 @@ if ($action === 'save_kit') {
     if (isset($body['print']) && is_array($body['print'])) {
         $kit['print'] = array_merge($kit['print'], $body['print']);
     }
+    if (array_key_exists('season', $body)) {
+        $kit['season'] = $body['season'];
+    }
     saveKitSettings($kit);
     jsonOut(['ok' => true, 'settings' => loadKitSettings()]);
+}
+
+function requireEditor(array $body): void {
+    if (!canEdit()) {
+        jsonOut(['ok' => false, 'error' => 'Niet ingelogd.'], 401);
+    }
+    $token = (string) ($body['csrf'] ?? '');
+    if ($token === '' || !hash_equals(csrfToken(), $token)) {
+        jsonOut(['ok' => false, 'error' => 'Sessie verlopen. Vernieuw de pagina.'], 403);
+    }
+}
+
+if ($action === 'save_player') {
+    requireEditor($body);
+    $id = (int) ($body['id'] ?? 0);
+    $first = substr(trim((string) ($body['first_name'] ?? '')), 0, 255);
+    $last = substr(trim((string) ($body['last_name'] ?? '')), 0, 255);
+    if ($first === '' || $last === '') {
+        jsonOut(['ok' => false, 'error' => 'Voor- en achternaam zijn verplicht.'], 400);
+    }
+    $position = normalizePlayerPosition((string) ($body['position'] ?? 'midfielder'));
+    $guest = !empty($body['is_guest']) ? 1 : 0;
+    $jerseyRaw = $body['jersey_number'] ?? '';
+    if ($id > 0) {
+        $chk = $mysqli->prepare('SELECT id FROM players WHERE id=? LIMIT 1');
+        $chk->bind_param('i', $id);
+        $chk->execute();
+        if (!$chk->get_result()->fetch_row()) {
+            jsonOut(['ok' => false, 'error' => 'Onbekende speler.'], 400);
+        }
+        if (array_key_exists('status', $body)) {
+            $status = (($body['status'] ?? '') === 'inactive') ? 'inactive' : 'active';
+            $upd = $mysqli->prepare('UPDATE players SET first_name=?, last_name=?, position=?, is_guest=?, status=?, updated_at=NOW() WHERE id=?');
+            $upd->bind_param('sssisi', $first, $last, $position, $guest, $status, $id);
+        } else {
+            $upd = $mysqli->prepare('UPDATE players SET first_name=?, last_name=?, position=?, is_guest=?, updated_at=NOW() WHERE id=?');
+            $upd->bind_param('sssii', $first, $last, $position, $guest, $id);
+        }
+        $upd->execute();
+    } else {
+        $status = (($body['status'] ?? 'active') === 'inactive') ? 'inactive' : 'active';
+        $ins = $mysqli->prepare("INSERT INTO players (first_name, last_name, position, is_guest, status, created_at, updated_at) VALUES (?,?,?,?,?,NOW(),NOW())");
+        $ins->bind_param('sssis', $first, $last, $position, $guest, $status);
+        if (!$ins->execute()) {
+            jsonOut(['ok' => false, 'error' => 'Kon speler niet toevoegen.'], 400);
+        }
+        $id = (int) $mysqli->insert_id;
+    }
+    if ($id > 0 && array_key_exists('jersey_number', $body)) {
+        try {
+            $mysqli->begin_transaction();
+            setPlayerJerseyNumber($mysqli, $id, $jerseyRaw, true);
+            $mysqli->commit();
+        } catch (Throwable $e) {
+            $mysqli->rollback();
+            jsonOut(['ok' => false, 'error' => $e->getMessage()], 400);
+        }
+    }
+    jsonOut(['ok' => true, 'id' => $id]);
+}
+
+if ($action === 'set_player_status') {
+    requireEditor($body);
+    $id = (int) ($body['id'] ?? 0);
+    $status = (($body['status'] ?? '') === 'inactive') ? 'inactive' : 'active';
+    if ($id < 1) {
+        jsonOut(['ok' => false, 'error' => 'Kies een speler.'], 400);
+    }
+    $upd = $mysqli->prepare('UPDATE players SET status=?, updated_at=NOW() WHERE id=?');
+    $upd->bind_param('si', $status, $id);
+    $upd->execute();
+    jsonOut(['ok' => true, 'status' => $status]);
+}
+
+if ($action === 'save_staff') {
+    requireEditor($body);
+    $id = (int) ($body['id'] ?? 0);
+    $first = substr(trim((string) ($body['first_name'] ?? '')), 0, 255);
+    $last = substr(trim((string) ($body['last_name'] ?? '')), 0, 255);
+    $role = substr(trim((string) ($body['role'] ?? 'staf')), 0, 255);
+    if ($first === '' || $last === '') {
+        jsonOut(['ok' => false, 'error' => 'Voor- en achternaam zijn verplicht.'], 400);
+    }
+    if ($role === '') {
+        $role = 'staf';
+    }
+    if ($id > 0) {
+        $chk = $mysqli->prepare('SELECT id FROM staff_members WHERE id=? LIMIT 1');
+        $chk->bind_param('i', $id);
+        $chk->execute();
+        if (!$chk->get_result()->fetch_row()) {
+            jsonOut(['ok' => false, 'error' => 'Onbekende staf.'], 400);
+        }
+        if (array_key_exists('status', $body)) {
+            $status = normalizeStaffStatus((string) $body['status']);
+            $upd = $mysqli->prepare('UPDATE staff_members SET first_name=?, last_name=?, role=?, status=?, updated_at=NOW() WHERE id=?');
+            $upd->bind_param('ssssi', $first, $last, $role, $status, $id);
+        } else {
+            $upd = $mysqli->prepare('UPDATE staff_members SET first_name=?, last_name=?, role=?, updated_at=NOW() WHERE id=?');
+            $upd->bind_param('sssi', $first, $last, $role, $id);
+        }
+        $upd->execute();
+    } else {
+        $status = normalizeStaffStatus((string) ($body['status'] ?? 'active'));
+        $ins = $mysqli->prepare("INSERT INTO staff_members (first_name, last_name, role, status, created_at, updated_at) VALUES (?,?,?,?,NOW(),NOW())");
+        $ins->bind_param('ssss', $first, $last, $role, $status);
+        if (!$ins->execute()) {
+            jsonOut(['ok' => false, 'error' => 'Kon staf niet toevoegen.'], 400);
+        }
+        $id = (int) $mysqli->insert_id;
+    }
+    jsonOut(['ok' => true, 'id' => $id]);
+}
+
+if ($action === 'set_staff_status') {
+    requireEditor($body);
+    $id = (int) ($body['id'] ?? 0);
+    $status = normalizeStaffStatus((string) ($body['status'] ?? 'inactive'));
+    if ($id < 1) {
+        jsonOut(['ok' => false, 'error' => 'Kies een staflid.'], 400);
+    }
+    $upd = $mysqli->prepare('UPDATE staff_members SET status=?, updated_at=NOW() WHERE id=?');
+    $upd->bind_param('si', $status, $id);
+    $upd->execute();
+    jsonOut(['ok' => true, 'status' => $status]);
+}
+
+if ($action === 'restore_type') {
+    requireEditor($body);
+    $id = (int) ($body['id'] ?? 0);
+    if ($id < 1) {
+        jsonOut(['ok' => false, 'error' => 'Onbekend item.'], 400);
+    }
+    $upd = $mysqli->prepare('UPDATE clothing_types SET active=1, updated_at=NOW() WHERE id=?');
+    $upd->bind_param('i', $id);
+    $upd->execute();
+    jsonOut(['ok' => true]);
 }
 
 jsonOut(['ok' => false, 'error' => 'Onbekende actie.'], 400);

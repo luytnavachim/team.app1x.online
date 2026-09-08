@@ -607,10 +607,45 @@ function typeIsActive(array $t): bool {
     return !array_key_exists('active', $t) || (int) $t['active'] === 1;
 }
 
+/** Catalogusregel voor een bedrukking (logo/initialen), geen kledingstuk. */
+function isPrintCatalogType(array $t): bool {
+    if (!typeIsActive($t)) {
+        return false;
+    }
+    if (trim((string) ($t['article_number'] ?? '')) !== '') {
+        return false;
+    }
+    return typePrints($t, 'print_rohda')
+        || typePrints($t, 'print_initials')
+        || typePrints($t, 'print_sponsor')
+        || typePrints($t, 'print_name_back');
+}
+
+/** Stukprijs per bedrukking uit de catalogus. */
+function catalogPrintPrices(array $types): array {
+    $map = [
+        'rohda' => 'print_rohda',
+        'initials' => 'print_initials',
+        'sponsor' => 'print_sponsor',
+        'name_back' => 'print_name_back',
+    ];
+    $out = ['rohda' => null, 'initials' => null, 'sponsor' => null, 'name_back' => null];
+    foreach ($map as $key => $flag) {
+        foreach ($types as $t) {
+            if (!is_array($t) || !isPrintCatalogType($t) || !typePrints($t, $flag)) {
+                continue;
+            }
+            $out[$key] = priceFor($t, '');
+            break;
+        }
+    }
+    return $out;
+}
+
 function typeOptionsHtml(array $types, string $placeholder = 'Type'): string {
     $html = '<option value="">'.h($placeholder).'</option>';
     foreach ($types as $tid => $t) {
-        if (!is_array($t) || !typeIsActive($t)) {
+        if (!is_array($t) || !typeIsActive($t) || isPrintCatalogType($t)) {
             continue;
         }
         $tid = (int) $tid;

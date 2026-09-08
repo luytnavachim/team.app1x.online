@@ -21,6 +21,12 @@ $KEEPER_ONLY = [9, 10];
 $STAFF_CORE = [11, 12];
 $kitSettings = loadKitSettings();
 $printPrices = $kitSettings['print'];
+$catalogPrint = catalogPrintPrices($types);
+foreach ($catalogPrint as $key => $unit) {
+    if ($unit !== null) {
+        $printPrices[$key] = $unit;
+    }
+}
 
 function cardTypeIds(array $p, array $types, array $packageIds, array $keeperOnly): array {
     $isKeeper = ($p['position'] ?? '') === 'goalkeeper';
@@ -182,7 +188,7 @@ $gaps = [];
 $addGap = static function (array $person, int $tid, string $whoLabel) use (&$gaps, $types): void {
     $t = $types[$tid] ?? null;
     $it = itemFor($person, $tid);
-    if (!$t || !isPendingItem($it)) {
+    if (!$t || isPrintCatalogType($t) || !isPendingItem($it)) {
         return;
     }
     $sz = trim((string) ($it['size'] ?? ''));
@@ -269,12 +275,15 @@ $printLines = [
     'sponsor' => 'Bedrijfslogo',
     'name_back' => 'Nummer achterop',
 ];
-foreach ($printLines as $key => $_) {
+$printRows = [];
+foreach ($printLines as $key => $label) {
     $unit = $printPrices[$key] ?? null;
-    if ($unit === null) {
-        continue;
+    $n = (int) $orderBrand[$key];
+    $sum = ($unit !== null && $n > 0) ? $unit * $n : null;
+    if ($unit !== null) {
+        $printCost += $unit * $n;
     }
-    $printCost += $unit * (int) $orderBrand[$key];
+    $printRows[$key] = ['label' => $label, 'count' => $n, 'unit' => $unit, 'sum' => $sum];
 }
 $orderTotal = $orderCost + $printCost;
 
@@ -372,11 +381,20 @@ if ($csvKind === 'bestel' || $csvKind === 'regels') {
     fputcsv($out, [], ';');
 
     fputcsv($out, ['BEDRUKKEN · TOTALEN'], ';');
-    fputcsv($out, ['Soort', 'Aantal'], ';');
-    fputcsv($out, ['Rohda Raalte logo', $orderBrand['rohda']], ';');
-    fputcsv($out, ['Initialen', $orderBrand['initials']], ';');
-    fputcsv($out, ['Bedrijfslogo', $orderBrand['sponsor']], ';');
-    fputcsv($out, ['Nummer achterop', $orderBrand['name_back']], ';');
+    fputcsv($out, ['Soort', 'Aantal', 'Stukprijs', 'Subtotaal'], ';');
+    foreach ($printRows as $row) {
+        fputcsv($out, [
+            $row['label'],
+            $row['count'],
+            $row['unit'] !== null ? number_format($row['unit'], 2, ',', '') : '',
+            $row['sum'] !== null ? number_format($row['sum'], 2, ',', '') : '',
+        ], ';');
+    }
+    fputcsv($out, [], ';');
+    fputcsv($out, ['RICHTPRIJS'], ';');
+    fputcsv($out, ['Kleding', number_format($orderCost, 2, ',', '')], ';');
+    fputcsv($out, ['Bedrukking', number_format($printCost, 2, ',', '')], ';');
+    fputcsv($out, ['Totaal', number_format($orderTotal, 2, ',', '')], ';');
     fputcsv($out, [], ';');
 
     fputcsv($out, ['BEDRUKKEN · PER PRODUCT'], ';');
@@ -910,7 +928,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   <div class="stats">
     <a class="stat" href="#spelers"><b><?= count($active) ?></b><span>spelers</span></a>
     <a class="stat accent" href="#bestel"><b><?= (int) $orderPieces ?></b><span>stuks te bestellen</span></a>
-    <div class="stat"><b><?= euro($orderTotal) ?></b><span>richtprijs<?= $printCost > 0 ? ' incl. print' : '' ?></span></div>
+    <div class="stat"><b><?= euro($orderTotal) ?></b><span>richtprijs<?= $printCost > 0 ? ' · kleding + print' : '' ?></span></div>
     <a class="stat accent" href="#ouders">
       <b><?= count($parentFilled) ?>/<?= count($active) ?></b><span>ouders ingevuld</span>
       <div class="progress"><i style="width:<?= count($active) ? round(100 * count($parentFilled) / count($active)) : 0 ?>%"></i></div>
@@ -1083,7 +1101,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <div class="section" id="bestel">
     <h3>Bestelling</h3>
-    <p class="sub"><?= (int) $orderPieces ?> stuks<?= $orderTotal > 0 ? ' · ' . euro($orderTotal) : '' ?> · artikelnummers, maten en bedrukking.</p>
+    <p class="sub"><?= (int) $orderPieces ?> stuks<?= $orderTotal > 0 ? ' · ' . euro($orderTotal) . ' kleding + bedrukking' : '' ?> · artikelnummers, maten en print.</p>
     <p class="shop-rule"><b>Logo + bedrijfslogo:</b> jassen, shirt, tas · <b>Initialen:</b> jassen, shirt, broekje, tas · <b>Nummer:</b> shirt</p>
     <details class="packfold">
       <summary>Toon pakketfoto</summary>
@@ -1105,10 +1123,13 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     <div class="shop-prints">
       <h4>Totaal bedrukken</h4>
       <div class="shop-prints-grid">
-        <div class="stat accent"><b><?= (int) $orderBrand['rohda'] ?></b><span>Rohda Raalte logo</span></div>
-        <div class="stat"><b><?= (int) $orderBrand['initials'] ?></b><span>initialen</span></div>
-        <div class="stat"><b><?= (int) $orderBrand['sponsor'] ?></b><span>bedrijfslogo</span></div>
-        <div class="stat"><b><?= (int) $orderBrand['name_back'] ?></b><span>nummer achterop</span></div>
+        <?php foreach ($printRows as $row): ?>
+        <div class="stat<?= ($row['unit'] !== null && $row['count'] > 0) ? ' accent' : '' ?>">
+          <b><?= (int) $row['count'] ?></b>
+          <span><?= h($row['label']) ?><?php if ($row['unit'] !== null): ?> · <?= euro($row['unit']) ?> p.st.<?php endif; ?></span>
+          <?php if ($row['sum'] !== null): ?><span><?= euro($row['sum']) ?></span><?php elseif ($row['count'] > 0 && $row['unit'] === null): ?><span>geen prijs in catalogus</span><?php endif; ?>
+        </div>
+        <?php endforeach; ?>
       </div>
     </div>
 
@@ -1159,20 +1180,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     </div>
 
     <?php if ($canEdit): ?>
-    <details class="shop-more" id="printPrices">
-      <summary>Printprijs per applicatie</summary>
-      <p class="hint">Leeg = alleen tellen, niet meerekenen.</p>
-      <div class="add-type" style="margin-top:8px">
-        <?php foreach ($printLines as $key => $label):
-          $val = $printPrices[$key] ?? null;
-        ?>
-        <label><?= h($label) ?>
-          <input class="money print-price" data-print="<?= h($key) ?>" inputmode="decimal" value="<?= $val === null ? '' : h(number_format($val, 2, ',', '')) ?>" placeholder="—">
-        </label>
-        <?php endforeach; ?>
-      </div>
-    </details>
-
+    <p class="shop-rule">Printprijzen komen uit de catalogus (Rohda Logo, Logo Sponser, Initialen<?= ($printPrices['name_back'] ?? null) === null ? '; nummer: nog geen catalogusprijs' : '' ?>).</p>
     <details class="shop-more">
       <summary>Prijsregels (intern)</summary>
       <div class="tablewrap">
@@ -1204,11 +1212,29 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             </tr>
             <?php endforeach; ?>
             <tr>
-              <td class="name">Totaal</td>
+              <td class="name">Kleding</td>
               <td></td>
               <td><b><?= (int) $orderPieces ?></b></td>
               <td></td>
               <td><b><?= euro($orderCost) ?></b></td>
+            </tr>
+            <?php foreach ($printRows as $row):
+              if ($row['count'] < 1) continue;
+            ?>
+            <tr>
+              <td class="name"><?= h($row['label']) ?></td>
+              <td class="ok">applicatie</td>
+              <td><b><?= (int) $row['count'] ?></b></td>
+              <td><?= $row['unit'] !== null ? euro($row['unit']) : '—' ?></td>
+              <td><?= $row['sum'] !== null ? euro($row['sum']) : '—' ?></td>
+            </tr>
+            <?php endforeach; ?>
+            <tr>
+              <td class="name">Totaal</td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td><b><?= euro($orderTotal) ?></b></td>
             </tr>
           </tbody>
         </table>
@@ -1285,7 +1311,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
       <p class="hint">Deze items zet <b>Pakket</b> in één keer op bestellen. Jacks nemen de shirtmaat over.</p>
       <div class="checks" id="packageChecks">
         <?php foreach ($types as $t):
-          if (!typeIsActive($t)) continue;
+          if (!typeIsActive($t) || isPrintCatalogType($t)) continue;
           $tid = (int) $t['id'];
           $on = in_array($tid, $PACKAGE_CORE, true) ? ' checked' : '';
         ?>

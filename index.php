@@ -1030,7 +1030,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     <details class="shop-more" id="parentDefaultsWrap">
       <summary>Wat ouders invullen</summary>
     <div class="parent-defaults" id="parentDefaults" style="margin:0;border:0;padding:4px 0 0;background:transparent">
-      <p class="hint">Standaard voor veldspelers en keepers. Per speler kun je hieronder afwijken. Ouders mogen <b>n.v.t.</b> kiezen.</p>
+      <p class="hint">Standaard voor veldspelers en keepers. Per speler kun je hieronder afwijken. Ouders moeten elk item invullen: maat of n.v.t.</p>
       <div class="line">Veldspelers</div>
       <?= parentChecksHtml('field', parentTypeChoices('field'), $parentForm['field']) ?>
       <div class="line">Keepers</div>

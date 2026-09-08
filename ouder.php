@@ -173,8 +173,8 @@ body{
     </div>
   <?php else: ?>
     <p class="note">
-      Vul de kledingmaten van <b><?= h($name) ?></b> in, kies een <b>rugnummer</b> en druk op opslaan.
-      <?php if ($formSettings['note'] !== ''): ?><?= h($formSettings['note']) ?><?php else: ?>Kies 164 t/m XL voor shirt, broek en jacks; sokken 36-40 of 41-44. Kies <b>n.v.t.</b> als hij dit item al heeft of niet krijgt. Een nummer dat al door een andere speler is gekozen, kun je niet meer kiezen.<?php endif; ?>
+      Vul bij <b><?= h($name) ?></b> <b>elk item</b> in, of hij het nu wel of niet krijgt. Krijgt hij het: kies de maat. Krijgt hij het niet: kies <b>n.v.t.</b> Shirt, broek en jacks: 164 t/m XL. Sokken: 36-40 of 41-44. Kies ook een <b>rugnummer</b> en druk op opslaan. Een nummer dat al door een andere speler is gekozen, kun je niet meer kiezen.
+      <?php if ($formSettings['note'] !== ''): ?> <?= h($formSettings['note']) ?><?php endif; ?>
     </p>
     <div class="packshot-wrap">
       <img class="packshot" src="pakket-14-2.png" width="1023" height="1022" alt="Pakket 14-2: shirt, jassen, broekje, tas en sokken">

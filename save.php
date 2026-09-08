@@ -321,6 +321,29 @@ if ($action === 'add_package_all') {
     jsonOut(['ok' => true, 'saved' => $saved, 'people' => $people]);
 }
 
+if ($action === 'save_jersey') {
+    if (!canEdit()) {
+        jsonOut(['ok' => false, 'error' => 'Niet ingelogd.'], 401);
+    }
+    $token = (string) ($body['csrf'] ?? '');
+    if ($token === '' || !hash_equals(csrfToken(), $token)) {
+        jsonOut(['ok' => false, 'error' => 'Sessie verlopen. Vernieuw de pagina.'], 403);
+    }
+    $id = (int) ($body['id'] ?? 0);
+    if ($id < 1) {
+        jsonOut(['ok' => false, 'error' => 'Kies een speler.'], 400);
+    }
+    $mysqli->begin_transaction();
+    try {
+        $jersey = setPlayerJerseyNumber($mysqli, $id, $body['jersey_number'] ?? '', true);
+        $mysqli->commit();
+    } catch (Throwable $e) {
+        $mysqli->rollback();
+        jsonOut(['ok' => false, 'error' => $e->getMessage()], 400);
+    }
+    jsonOut(['ok' => true, 'jersey' => $jersey]);
+}
+
 if ($action === 'save' || $action === 'save_all') {
     if (!canEdit()) {
         jsonOut(['ok' => false, 'error' => 'Niet ingelogd.'], 401);

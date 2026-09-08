@@ -179,7 +179,7 @@ body{
         <div class="kit">
           <div class="row wait">
             <span>Rugnummer <small style="font-weight:600;opacity:.8">(uniek)</small></span>
-            <?= jerseySelectHtml($mysqli, $player) ?>
+            <?= jerseySelectHtml($mysqli, $player, ['id' => 'jerseySelect', 'required' => true, 'class' => 'size-select']) ?>
           </div>
           <?php foreach ($typeOrder as $tid):
             if (!isset($types[$tid])) continue;

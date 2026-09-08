@@ -589,9 +589,10 @@ button.btn{font-family:inherit;cursor:pointer}
 .card:hover{border-color:var(--line2)}
 .card.moos{border-color:rgba(200,255,61,.42);box-shadow:0 0 0 1px rgba(200,255,61,.12)}
 .card.gap{border-left:3px solid rgba(255,107,107,.45)}
-.who{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.who{display:flex;justify-content:space-between;gap:8px;align-items:center}
 .who b{font-size:15.5px;font-weight:700;letter-spacing:-.2px}
 .nr{font-size:11.5px;font-weight:800;color:var(--dim)}
+.who .jersey-select{width:auto;min-width:7.5rem;flex:0 0 auto;font-weight:700}
 .meta{font-size:11.5px;color:var(--muted);font-weight:600;margin:4px 0 10px}
 .kit{display:grid;gap:5px}
 .row{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:12.5px;font-weight:600;padding:7px 10px;border-radius:9px;background:var(--nabg);color:var(--muted)}
@@ -1109,7 +1110,11 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent)}
                  data-pos="<?= h($p['position'] ?? '') ?>">
           <div class="who">
             <b><?= h(fullName($p)) ?></b>
+            <?php if ($canEdit): ?>
+            <?= jerseySelectHtml($mysqli, $p, ['class' => 'size-select jersey-select', 'allow_empty' => true]) ?>
+            <?php else: ?>
             <span class="nr"><?= $p['jersey_number'] ? '#'.h($p['jersey_number']) : '' ?></span>
+            <?php endif; ?>
           </div>
           <div class="meta"><?= h(implode(' · ', array_filter($meta))) ?></div>
           <div class="kit">
@@ -1467,7 +1472,7 @@ document.addEventListener('change', e=>{
     }
   }
   const sel=e.target.closest?.('.size-select');
-  if(!sel) return;
+  if(!sel || sel.dataset.jersey) return;
   const tid=sel.dataset.tid, who=sel.dataset.who, id=sel.dataset.id;
   document.querySelectorAll(`.size-select[data-who="${who}"][data-id="${id}"][data-copy-from="${tid}"]`).forEach(t=>{
     if(!t.value) t.value=sel.value;
@@ -1494,6 +1499,20 @@ async function saveRow(who, id, mode, root){
 }
 document.querySelectorAll('.save-one').forEach(btn=>{
   btn.onclick=()=>saveRow(btn.dataset.who, +btn.dataset.id, btn.dataset.mode||'pending', btn.closest('article, tr'));
+});
+document.querySelectorAll('.jersey-select').forEach(sel=>{
+  sel.addEventListener('change', async ()=>{
+    const id=+sel.dataset.id;
+    if(!id) return;
+    const out=await api({action:'save_jersey', csrf:TEAM.csrf, id, jersey_number:sel.value||''});
+    if(!out.ok){
+      toast(out.error||'Nummer opslaan mislukt');
+      location.reload();
+      return;
+    }
+    toast(out.jersey ? 'Rugnummer #'+out.jersey : 'Rugnummer gewist');
+    location.reload();
+  });
 });
 document.getElementById('saveAllBtn')?.addEventListener('click', async ()=>{
   const map=new Map();

@@ -1357,15 +1357,26 @@ function availableJerseyNumbers(mysqli $db, int $playerId = 0, ?string $current 
     return $out;
 }
 
-function jerseySelectHtml(mysqli $db, array $player): string {
+/**
+ * @param array{id?:string,required?:bool,allow_empty?:bool,class?:string} $opts
+ */
+function jerseySelectHtml(mysqli $db, array $player, array $opts = []): string {
     $pid = (int) ($player['id'] ?? 0);
     $current = normalizeJerseyNumber($player['jersey_number'] ?? '');
-    $opts = availableJerseyNumbers($db, $pid, $current);
-    $html = '<select class="size-select" id="jerseySelect" name="jersey_number" required aria-label="Rugnummer">';
-    $html .= '<option value="">Kies nummer…</option>';
-    foreach ($opts as $o) {
+    $numbers = availableJerseyNumbers($db, $pid, $current);
+    $required = !empty($opts['required']);
+    $allowEmpty = array_key_exists('allow_empty', $opts) ? (bool) $opts['allow_empty'] : !$required;
+    $class = h($opts['class'] ?? 'size-select jersey-select');
+    $idAttr = isset($opts['id']) && $opts['id'] !== '' ? ' id="' . h((string) $opts['id']) . '"' : '';
+    $html = '<select class="' . $class . '"' . $idAttr
+        . ' name="jersey_number"'
+        . ($required ? ' required' : '')
+        . ' data-jersey="1" data-who="player" data-id="' . $pid . '"'
+        . ' aria-label="Rugnummer">';
+    $html .= '<option value="">' . ($allowEmpty ? 'Geen nummer' : 'Kies nummer…') . '</option>';
+    foreach ($numbers as $o) {
         $sel = ($current !== null && $o === $current) ? ' selected' : '';
-        $html .= '<option value="'.h($o).'"'.$sel.'>#'.h($o).'</option>';
+        $html .= '<option value="' . h($o) . '"' . $sel . '>#' . h($o) . '</option>';
     }
     $html .= '</select>';
     return $html;
@@ -1373,11 +1384,19 @@ function jerseySelectHtml(mysqli $db, array $player): string {
 
 /**
  * Zet rugnummer voor speler; faalt als nummer al bezet is.
+ * @return string|null Gekozen nummer, of null als gewist (alleen met $allowEmpty)
  * @throws RuntimeException
  */
-function setPlayerJerseyNumber(mysqli $db, int $playerId, mixed $raw): string {
+function setPlayerJerseyNumber(mysqli $db, int $playerId, mixed $raw, bool $allowEmpty = false): ?string {
+    $trimmed = trim((string) ($raw ?? ''));
     $num = normalizeJerseyNumber($raw);
     if ($num === null) {
+        if ($allowEmpty && $trimmed === '') {
+            $upd = $db->prepare('UPDATE players SET jersey_number=NULL, updated_at=NOW() WHERE id=?');
+            $upd->bind_param('i', $playerId);
+            $upd->execute();
+            return null;
+        }
         throw new RuntimeException('Kies een rugnummer (1–99).');
     }
     $nInt = (int) $num;

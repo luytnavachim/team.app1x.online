@@ -292,26 +292,6 @@ if ($csvKind === 'bestel' || $csvKind === 'regels') {
         ], ';');
     }
     fputcsv($out, ['Totaal', '', '', '', $orderPieces, $orderBrand['rohda'] ?: '', $orderBrand['initials'] ?: '', $orderBrand['sponsor'] ?: '', $orderBrand['name_back'] ?: '', '', ''], ';');
-    fputcsv($out, [], ';');
-    fputcsv($out, ['BEDRUKKEN PER SPELER'], ';');
-    fputcsv($out, ['Speler', 'Initialen', 'Type', 'Artikel', 'Kleur', 'Maat', 'Rohda', 'Initialen op item', 'Sponsorblok', 'Naam rug', 'Bedrukking'], ';');
-    foreach ($gaps as $g) {
-        $t = $g['type'];
-        $nameBack = typePrints($t, 'print_name_back') ? ($g['first'] !== '' ? $g['first'] : 'ja') : '';
-        fputcsv($out, [
-            $g['who'],
-            $g['ini'],
-            $t['display_name'] ?? '',
-            $t['article_number'] ?? '',
-            $t['color'] ?? '',
-            $g['size'] !== '' ? $g['size'] : 'maat onbekend',
-            typePrints($t, 'print_rohda') ? 'ja' : '',
-            typePrints($t, 'print_initials') ? $g['ini'] : '',
-            typePrints($t, 'print_sponsor') ? 'ja' : '',
-            $nameBack,
-            (string) ($t['print_place'] ?? ''),
-        ], ';');
-    }
     fclose($out);
     exit;
 }
@@ -853,45 +833,6 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
             <td class="left"></td>
           </tr>
           <?php endif; ?>
-        </tbody>
-      </table>
-    </div>
-    <h3 style="margin:22px 0 8px;font-size:15px">Bedrukken per speler</h3>
-    <p class="sub" style="margin-bottom:8px">Per item: welke initialen, of er Rohda en sponsorblok op moet, en of de voornaam op de rug komt.</p>
-    <div class="tablewrap">
-      <table>
-        <thead>
-          <tr>
-            <th class="name">Speler</th>
-            <th>Initialen</th>
-            <th class="name">Type</th>
-            <th>Artikel</th>
-            <th>Maat</th>
-            <th>Rohda</th>
-            <th>Initialen</th>
-            <th>Sponsor</th>
-            <th>Naam rug</th>
-            <th class="name">Plaatsing</th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php foreach ($gaps as $g):
-            $t = $g['type'];
-            $nameBack = typePrints($t, 'print_name_back') ? (($g['first'] ?? '') !== '' ? $g['first'] : 'ja') : '—';
-          ?>
-          <tr>
-            <td class="name"><?= h($g['who']) ?></td>
-            <td><?= h($g['ini']) ?></td>
-            <td class="name"><?= h((string) ($t['display_name'] ?? '')) ?></td>
-            <td><?= h((string) ($t['article_number'] ?? '')) ?></td>
-            <td class="<?= ($g['size'] ?? '') === '' ? 'no' : 'ok' ?>"><?= h($g['size'] !== '' ? $g['size'] : 'maat onbekend') ?></td>
-            <td><?= typePrints($t, 'print_rohda') ? 'ja' : '—' ?></td>
-            <td><?= typePrints($t, 'print_initials') ? h($g['ini']) : '—' ?></td>
-            <td><?= typePrints($t, 'print_sponsor') ? 'ja' : '—' ?></td>
-            <td><?= h($nameBack) ?></td>
-            <td class="left"><?= h((string) ($t['print_place'] ?? '')) ?></td>
-          </tr>
-          <?php endforeach; ?>
         </tbody>
       </table>
     </div>

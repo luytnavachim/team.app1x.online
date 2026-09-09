@@ -608,7 +608,7 @@ function ensurePackageTypes(mysqli $db): void {
     $rows = [
         13 => ['field_jack', 'Field Jack (regenjas)', '454002', 'Regenjack pakket 14-2', 35.50, 37.50],
         14 => ['prime_padded_jacket', 'Prime Padded Jacket (Winterjas)', '456004', 'Winterjas pakket 14-2', 89.99, 94.99],
-        15 => ['pro_bag_prime', 'Pro Bag Prime', '484837', 'Sporttas pakket 14-2', 43.99, 43.99],
+        15 => ['pro_bag_prime', 'Pro Bag Prime (multifunctionele tas)', '484837', 'Sporttas pakket 14-2', 43.99, 43.99],
     ];
     foreach ($rows as $id => $r) {
         [$name, $display, $article, $desc, $small, $large] = $r;
@@ -702,7 +702,7 @@ function shortTypeName(int $tid, array $types = []): string {
         12 => 'Zip',
         13 => 'Field Jack (regenjas)',
         14 => 'Prime Padded Jacket (Winterjas)',
-        15 => 'Tas',
+        15 => 'Pro Bag Prime (multifunctionele tas)',
         default => (string) ($types[$tid]['display_name'] ?? $tid),
     };
 }

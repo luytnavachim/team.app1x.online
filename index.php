@@ -30,18 +30,24 @@ foreach ($catalogPrint as $key => $unit) {
 
 function cardTypeIds(array $p, array $types, array $packageIds, array $keeperOnly): array {
     $out = [];
-    foreach (array_keys($p['items'] ?? []) as $tid) {
-        $tid = (int) $tid;
-        if ($tid < 1 || !isset($types[$tid]) || isset($out[$tid])) {
-            continue;
+    $add = static function (int $tid) use (&$out, $types, $p): void {
+        if ($tid < 1 || isset($out[$tid]) || !isset($types[$tid])) {
+            return;
         }
-        if (!itemFor($p, $tid)) {
-            continue;
-        }
-        if (!typeAllowedForPlayer($p, $tid)) {
-            continue;
+        if (!isWearCatalogType($types[$tid]) || !typeAllowedForPlayer($p, $tid)) {
+            return;
         }
         $out[$tid] = $tid;
+    };
+    $kind = (($p['position'] ?? '') === 'goalkeeper') ? 'keeper' : 'field';
+    foreach (parentTypeChoices($kind) as $tid) {
+        $add((int) $tid);
+    }
+    foreach (array_keys($p['items'] ?? []) as $tid) {
+        if (!itemFor($p, (int) $tid)) {
+            continue;
+        }
+        $add((int) $tid);
     }
     return array_values($out);
 }
@@ -793,18 +799,17 @@ tr.archived td{opacity:.55}
   box-shadow:0 8px 26px rgba(0,0,0,.4);
 }
 .toast.show{opacity:1}
+.packshot-wrap{
+  margin:0 0 18px;text-align:center;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:16px 16px 14px;
+}
 .packshot{
-  width:100%;max-width:420px;margin:8px auto 0;display:block;
+  width:100%;max-width:560px;margin:0 auto;display:block;
   aspect-ratio:1 / 1;object-fit:contain;object-position:center;
-  border:0;border-radius:0;background:transparent;padding:0;
+  border:0;border-radius:12px;background:#111;padding:0;
 }
-.packfold{margin:0 0 14px;border:0;padding:0;background:transparent}
-.packfold > summary{
-  cursor:pointer;font-weight:800;font-size:12.5px;color:var(--muted);list-style:none;
-  padding:8px 0;
-}
-.packfold > summary::-webkit-details-marker{display:none}
-.packfold[open] > summary{color:var(--ink)}
+.packcap{margin:10px 0 0;font-size:12.5px;font-weight:600;color:var(--muted)}
 .brandbits{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 0 14px}
 @media(max-width:760px){.brandbits{grid-template-columns:repeat(2,1fr)}}
 .shop-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0 18px}
@@ -855,7 +860,7 @@ details.shop-more > summary{cursor:pointer;font-weight:800;font-size:13px;color:
 details.shop-more > summary::-webkit-details-marker{display:none}
 details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 @media print{
-  details.shop-more,#printPrices,.packfold{display:none !important}
+  details.shop-more,#printPrices{display:none !important}
   .shop-card{break-inside:avoid;box-shadow:none}
 }
 .place{font-size:11px;color:var(--dim);font-weight:600;margin:2px 0 0}
@@ -887,8 +892,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         --warn:#a16207;--warnbg:#fef3c7;--na:#71717a;--nabg:#fafafa}
   html{color-scheme:light}
   body{background:#fff;color:#111}
-  .navwrap,.filters,.actions,.note,.toast,.modal,.theme-switch,#parentAlert,.assign,.addrow,.money,.cat-input,#printPrices,.parent-defaults,.packfold > summary,#beheer{display:none !important}
-  .packfold{display:block}
+  .navwrap,.filters,.actions,.note,.toast,.modal,.theme-switch,#parentAlert,.assign,.addrow,.money,.cat-input,#printPrices,.parent-defaults,#beheer{display:none !important}
   .packshot{max-width:360px}
   .featured,.card{break-inside:avoid;border:1px solid #d4d4d8}
   .section{border:1px solid #d4d4d8}
@@ -957,6 +961,11 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     </a>
   </div>
 
+  <div class="packshot-wrap">
+    <img class="packshot" src="pakket-14-2.png" width="1023" height="1022" alt="Pakket 14-2: shirt, jassen, broekje, tas en sokken">
+    <p class="packcap">Pakket 14-2 · shirt, jassen, broekje, tas en sokken</p>
+  </div>
+
   <div class="section" id="spelers">
     <h3>Spelers</h3>
     <p class="sub"><?= $canEdit ? 'Vink wat hij krijgt en kies de maat. <b>Pakket</b> zet de set in één keer.' : 'Overzicht van maten en rugnummers.' ?></p>
@@ -1019,7 +1028,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               if (!isset($types[$tid])) continue;
               $t = $types[$tid];
               $it = itemFor($p, $tid);
-              if (!$it) continue;
+              if (!$it && !$canEdit) continue;
               $pending = isPendingItem($it);
               $owned = isIssued($it);
               $cls = $it ? ($pending ? 'wait' : 'ok') : 'extra';
@@ -1076,7 +1085,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     <details class="shop-more" id="parentDefaultsWrap">
       <summary>Wat ouders invullen</summary>
     <div class="parent-defaults" id="parentDefaults" style="margin:0;border:0;padding:4px 0 0;background:transparent">
-      <p class="hint">Standaard voor veldspelers en keepers. Per speler kun je hieronder afwijken. Ouders moeten elk item invullen: maat of n.v.t.</p>
+      <p class="hint">Standaard voor veldspelers en keepers. Nieuwe catalogusartikelen staan hier automatisch bij. Per speler kun je hieronder afwijken. Ouders moeten elk item invullen: maat of n.v.t.</p>
       <div class="line">Veldspelers</div>
       <?= parentChecksHtml('field', parentTypeChoices('field'), $parentForm['field']) ?>
       <div class="line">Keepers</div>
@@ -1172,10 +1181,6 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     <h3>Bestelling</h3>
     <p class="sub"><?= (int) $orderPieces ?> stuks<?= $orderTotal > 0 ? ' · ' . euro($orderTotal) . ' kleding + bedrukking' : '' ?> · artikelnummers, maten en print.</p>
     <p class="shop-rule"><b>Logo + bedrijfslogo:</b> jassen, shirt, keeperstenue, tas · <b>Initialen:</b> jassen, shirt, broekje, keeperstenue, tas · <b>Nummer:</b> shirt, keeperstenue</p>
-    <details class="packfold">
-      <summary>Toon pakketfoto</summary>
-      <img class="packshot" src="pakket-14-2.png" width="1023" height="1022" alt="Pakket 14-2: shirt, jassen, broekje, tas en sokken">
-    </details>
 
     <div class="actions">
       <a class="btn dark" href="?csv=bestel">Excel-bestellijst</a>
@@ -1335,17 +1340,24 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         <div class="kit">
           <?php
             $staffTypes = [];
-            foreach (array_keys($s['items']) as $extraTid) {
+            foreach (parentTypeChoices('staff') as $extraTid) {
                 $extraTid = (int) $extraTid;
-                if ($extraTid > 0 && isset($types[$extraTid])) {
-                    $staffTypes[] = $extraTid;
+                if ($extraTid > 0 && isset($types[$extraTid]) && isWearCatalogType($types[$extraTid])) {
+                    $staffTypes[$extraTid] = $extraTid;
                 }
             }
+            foreach (array_keys($s['items']) as $extraTid) {
+                $extraTid = (int) $extraTid;
+                if ($extraTid > 0 && isset($types[$extraTid]) && itemFor($s, $extraTid)) {
+                    $staffTypes[$extraTid] = $extraTid;
+                }
+            }
+            $staffTypes = array_values($staffTypes);
           ?>
           <?php foreach ($staffTypes as $tid):
               if (!isset($types[$tid])) continue;
               $it = itemFor($s, $tid);
-              if (!$it) continue;
+              if (!$it && !$canEdit) continue;
               $pending = isPendingItem($it);
               $owned = isIssued($it);
               $cls = $owned ? 'ok' : ($pending ? 'wait' : 'extra');
@@ -1390,14 +1402,14 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <div class="section" id="catalogus">
     <h3>Catalogus · Stanno</h3>
-    <p class="sub">Artikelnummers en prijzen. <?= $canEdit ? 'Pas een regel aan of verwijder hem. Nieuw artikel onderaan.' : '' ?></p>
+    <p class="sub">Artikelnummers en prijzen. <?= $canEdit ? 'Pas een regel aan of verwijder hem. Nieuw artikel onderaan; dat kun je daarna bij spelers aanvinken.' : '' ?></p>
     <?php if ($canEdit): ?>
     <details class="shop-more" id="packageDefaults">
       <summary>Pakket-sjabloon</summary>
       <p class="hint">Deze items zet <b>Pakket</b> in één keer op bestellen. Jacks nemen de shirtmaat over.</p>
       <div class="checks" id="packageChecks">
         <?php foreach ($types as $t):
-          if (!typeIsActive($t) || isPrintCatalogType($t)) continue;
+          if (!isWearCatalogType($t)) continue;
           $tid = (int) $t['id'];
           $on = in_array($tid, $PACKAGE_CORE, true) ? ' checked' : '';
         ?>
@@ -1471,7 +1483,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     <?php if ($canEdit): ?>
     <details class="shop-more" style="margin-top:14px">
       <summary>Artikel toevoegen</summary>
-      <p class="hint">Nieuwe jas, tas of shirt.</p>
+      <p class="hint">Nieuwe jas, tas of shirt. Daarna kun je het bij spelers, keepers en staf aanvinken.</p>
       <div class="add-type" id="addTypeForm">
         <label>Naam <input class="cat-input" id="newDisplay" placeholder="Trainingsshirt"></label>
         <label>Artikel <input class="cat-input" id="newArticle" placeholder="410014"></label>

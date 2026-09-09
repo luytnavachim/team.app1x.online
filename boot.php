@@ -706,6 +706,7 @@ function ensureStaffShirtType(mysqli $db): void {
     $mv->bind_param('i', $id);
     $mv->execute();
 
+    loadTypes($db);
     saveParentFormSettings(loadParentFormSettings(true));
 }
 
@@ -751,25 +752,72 @@ function parentFormPath(): string {
     return __DIR__ . '/.data/parent-form.json';
 }
 
+function isStaffOnlyType(int $tid, ?array $t = null): bool {
+    if ($tid === staffShirtTypeId()) {
+        return true;
+    }
+    return strtolower(trim((string) ($t['name'] ?? ''))) === 'staff_shirt';
+}
+
+function isWearCatalogType(array $t): bool {
+    return typeIsActive($t) && !isPrintCatalogType($t);
+}
+
 function parentTypeChoices(string $kind): array {
-    if ($kind === 'keeper') {
-        return array_values(array_unique(array_merge(keeperCoreTypeIds(), [13, 14, 15, 11, 12, 10, 4, 7])));
+    $base = match ($kind) {
+        'keeper' => array_values(array_unique(array_merge(keeperCoreTypeIds(), [13, 14, 15, 11, 12, 10, 4, 7]))),
+        'staff' => [staffShirtTypeId(), 4, 11, 12, 13, 14, 15],
+        default => [1, 4, 13, 14, 15, 3, 7, 11, 12],
+    };
+    $types = rememberTypes();
+    $seen = [];
+    $out = [];
+    $accept = static function (int $tid) use ($kind, $types): bool {
+        if ($tid < 1) {
+            return false;
+        }
+        $t = $types[$tid] ?? null;
+        if ($t && !isWearCatalogType($t)) {
+            return false;
+        }
+        if ($kind === 'keeper') {
+            return !in_array($tid, fieldOnlyTypeIds(), true) && !isStaffOnlyType($tid, $t);
+        }
+        if ($kind === 'staff') {
+            return !in_array($tid, fieldOnlyTypeIds(), true) && !in_array($tid, keeperOnlyTypeIds($types), true);
+        }
+        return !in_array($tid, keeperOnlyTypeIds($types), true) && !isStaffOnlyType($tid, $t);
+    };
+    foreach ($base as $tid) {
+        $tid = (int) $tid;
+        if (!$accept($tid) || isset($seen[$tid])) {
+            continue;
+        }
+        $seen[$tid] = true;
+        $out[] = $tid;
     }
-    if ($kind === 'staff') {
-        return [staffShirtTypeId(), 4, 11, 12, 13, 14, 15];
+    foreach ($types as $tid => $t) {
+        $tid = (int) $tid;
+        if (!$accept($tid) || isset($seen[$tid]) || !is_array($t)) {
+            continue;
+        }
+        $seen[$tid] = true;
+        $out[] = $tid;
     }
-    return [1, 4, 13, 14, 15, 3, 7, 11, 12];
+    return $out;
 }
 
 function allParentTypeIds(): array {
     return array_values(array_unique(array_merge(
         parentTypeChoices('field'),
-        parentTypeChoices('keeper'),
-        [9, 10, 19]
+        parentTypeChoices('keeper')
     )));
 }
 
 function shortTypeName(int $tid, array $types = []): string {
+    if ($types === []) {
+        $types = rememberTypes();
+    }
     return match ($tid) {
         1 => 'Shirt',
         23 => 'Staf shirt',
@@ -840,7 +888,7 @@ function catalogPrintPrices(array $types): array {
 function typeOptionsHtml(array $types, string $placeholder = 'Type'): string {
     $html = '<option value="">'.h($placeholder).'</option>';
     foreach ($types as $tid => $t) {
-        if (!is_array($t) || !typeIsActive($t) || isPrintCatalogType($t)) {
+        if (!is_array($t) || !isWearCatalogType($t)) {
             continue;
         }
         $tid = (int) $tid;

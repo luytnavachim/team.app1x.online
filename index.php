@@ -30,18 +30,24 @@ foreach ($catalogPrint as $key => $unit) {
 
 function cardTypeIds(array $p, array $types, array $packageIds, array $keeperOnly): array {
     $out = [];
-    foreach (array_keys($p['items'] ?? []) as $tid) {
-        $tid = (int) $tid;
-        if ($tid < 1 || !isset($types[$tid]) || isset($out[$tid])) {
-            continue;
+    $add = static function (int $tid) use (&$out, $types, $p): void {
+        if ($tid < 1 || isset($out[$tid]) || !isset($types[$tid])) {
+            return;
         }
-        if (!itemFor($p, $tid)) {
-            continue;
-        }
-        if (!typeAllowedForPlayer($p, $tid)) {
-            continue;
+        if (!isWearCatalogType($types[$tid]) || !typeAllowedForPlayer($p, $tid)) {
+            return;
         }
         $out[$tid] = $tid;
+    };
+    $kind = (($p['position'] ?? '') === 'goalkeeper') ? 'keeper' : 'field';
+    foreach (parentTypeChoices($kind) as $tid) {
+        $add((int) $tid);
+    }
+    foreach (array_keys($p['items'] ?? []) as $tid) {
+        if (!itemFor($p, (int) $tid)) {
+            continue;
+        }
+        $add((int) $tid);
     }
     return array_values($out);
 }
@@ -1019,7 +1025,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               if (!isset($types[$tid])) continue;
               $t = $types[$tid];
               $it = itemFor($p, $tid);
-              if (!$it) continue;
+              if (!$it && !$canEdit) continue;
               $pending = isPendingItem($it);
               $owned = isIssued($it);
               $cls = $it ? ($pending ? 'wait' : 'ok') : 'extra';
@@ -1076,7 +1082,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     <details class="shop-more" id="parentDefaultsWrap">
       <summary>Wat ouders invullen</summary>
     <div class="parent-defaults" id="parentDefaults" style="margin:0;border:0;padding:4px 0 0;background:transparent">
-      <p class="hint">Standaard voor veldspelers en keepers. Per speler kun je hieronder afwijken. Ouders moeten elk item invullen: maat of n.v.t.</p>
+      <p class="hint">Standaard voor veldspelers en keepers. Nieuwe catalogusartikelen staan hier automatisch bij. Per speler kun je hieronder afwijken. Ouders moeten elk item invullen: maat of n.v.t.</p>
       <div class="line">Veldspelers</div>
       <?= parentChecksHtml('field', parentTypeChoices('field'), $parentForm['field']) ?>
       <div class="line">Keepers</div>
@@ -1335,17 +1341,24 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         <div class="kit">
           <?php
             $staffTypes = [];
-            foreach (array_keys($s['items']) as $extraTid) {
+            foreach (parentTypeChoices('staff') as $extraTid) {
                 $extraTid = (int) $extraTid;
-                if ($extraTid > 0 && isset($types[$extraTid])) {
-                    $staffTypes[] = $extraTid;
+                if ($extraTid > 0 && isset($types[$extraTid]) && isWearCatalogType($types[$extraTid])) {
+                    $staffTypes[$extraTid] = $extraTid;
                 }
             }
+            foreach (array_keys($s['items']) as $extraTid) {
+                $extraTid = (int) $extraTid;
+                if ($extraTid > 0 && isset($types[$extraTid]) && itemFor($s, $extraTid)) {
+                    $staffTypes[$extraTid] = $extraTid;
+                }
+            }
+            $staffTypes = array_values($staffTypes);
           ?>
           <?php foreach ($staffTypes as $tid):
               if (!isset($types[$tid])) continue;
               $it = itemFor($s, $tid);
-              if (!$it) continue;
+              if (!$it && !$canEdit) continue;
               $pending = isPendingItem($it);
               $owned = isIssued($it);
               $cls = $owned ? 'ok' : ($pending ? 'wait' : 'extra');
@@ -1390,14 +1403,14 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <div class="section" id="catalogus">
     <h3>Catalogus · Stanno</h3>
-    <p class="sub">Artikelnummers en prijzen. <?= $canEdit ? 'Pas een regel aan of verwijder hem. Nieuw artikel onderaan.' : '' ?></p>
+    <p class="sub">Artikelnummers en prijzen. <?= $canEdit ? 'Pas een regel aan of verwijder hem. Nieuw artikel onderaan; dat kun je daarna bij spelers aanvinken.' : '' ?></p>
     <?php if ($canEdit): ?>
     <details class="shop-more" id="packageDefaults">
       <summary>Pakket-sjabloon</summary>
       <p class="hint">Deze items zet <b>Pakket</b> in één keer op bestellen. Jacks nemen de shirtmaat over.</p>
       <div class="checks" id="packageChecks">
         <?php foreach ($types as $t):
-          if (!typeIsActive($t) || isPrintCatalogType($t)) continue;
+          if (!isWearCatalogType($t)) continue;
           $tid = (int) $t['id'];
           $on = in_array($tid, $PACKAGE_CORE, true) ? ' checked' : '';
         ?>
@@ -1471,7 +1484,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     <?php if ($canEdit): ?>
     <details class="shop-more" style="margin-top:14px">
       <summary>Artikel toevoegen</summary>
-      <p class="hint">Nieuwe jas, tas of shirt.</p>
+      <p class="hint">Nieuwe jas, tas of shirt. Daarna kun je het bij spelers, keepers en staf aanvinken.</p>
       <div class="add-type" id="addTypeForm">
         <label>Naam <input class="cat-input" id="newDisplay" placeholder="Trainingsshirt"></label>
         <label>Artikel <input class="cat-input" id="newArticle" placeholder="410014"></label>

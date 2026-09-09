@@ -1781,9 +1781,11 @@ function itemPrintMarks(array $g): array {
     ];
 }
 
-function orderListRows(array $shopByType, int $orderPieces, array $gaps = []): array {
+function orderListRows(array $shopByType, int $orderPieces, array $gaps = [], ?DateTimeInterface $stamp = null): array {
+    $stamp ??= new DateTimeImmutable('now', new DateTimeZone('Europe/Amsterdam'));
+    $when = $stamp->format('d-m-Y H:i');
     $rows = [];
-    $rows[] = ['Bestelling Rohda Raalte 14-2 · ' . date('d-m-Y')];
+    $rows[] = ['Bestelling Rohda Raalte 14-2 · versie ' . $when];
     $rows[] = ['Winkel: aantallen per maat. Drukker: per maat de initialen/nummers, en per stuk precies wat erop moet.'];
     $rows[] = ['Rohda Raalte logo + bedrijfslogo: jassen, shirt, keeperstenue, tas. Initialen: jassen, shirt, broekje, keeperstenue, tas. Nummer achterop: shirt, keeperstenue.'];
     $rows[] = [];

@@ -397,9 +397,10 @@ uksort($shopByType, static function ($a, $b) use ($types) {
 $csvKind = (string) ($_GET['csv'] ?? $_GET['xls'] ?? '');
 
 if ($csvKind === 'bestel' || $csvKind === 'regels') {
+    $stamp = new DateTimeImmutable('now', new DateTimeZone('Europe/Amsterdam'));
     sendXlsxDownload(
-        'kitroom-14-2-bestelling-' . date('d-m-Y') . '.xlsx',
-        orderListRows($shopByType, (int) $orderPieces, $gaps)
+        'kitroom-14-2-bestelling-' . $stamp->format('d-m-Y-H.i') . '.xlsx',
+        orderListRows($shopByType, (int) $orderPieces, $gaps, $stamp)
     );
 }
 

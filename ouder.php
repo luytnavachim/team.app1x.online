@@ -162,9 +162,18 @@ body{
   aspect-ratio:1 / 1;object-fit:contain;background:transparent;
 }
 .packcap{margin:6px 0 0;font-size:12px;font-weight:600;color:var(--muted)}
-@media(max-width:420px){
+.packfold{margin:0 0 16px}
+.packfold > summary{
+  cursor:pointer;font-weight:800;font-size:13px;color:var(--muted);list-style:none;
+  min-height:40px;display:flex;align-items:center;
+}
+.packfold > summary::-webkit-details-marker{display:none}
+@media(max-width:520px){
   .row{flex-wrap:wrap}
-  .size-select{width:100%;max-width:none}
+  .row>span:first-child{width:100%}
+  .size-select{width:100%;max-width:none;min-height:44px;font-size:16px}
+  .section h2{font-size:22px}
+  .note{font-size:14px;line-height:1.5}
 }
 </style>
 </head>
@@ -195,10 +204,13 @@ body{
       <?php endif; ?>
       <?php if ($formSettings['note'] !== ''): ?> <?= h($formSettings['note']) ?><?php endif; ?>
     </p>
-    <div class="packshot-wrap">
-      <img class="packshot" src="pakket-14-2.png" width="1023" height="1022" alt="Pakket 14-2: shirt, jassen, broekje, tas en sokken">
-      <p class="packcap">Dit gaan jullie bestellen</p>
-    </div>
+    <details class="packfold">
+      <summary>Toon pakketfoto</summary>
+      <div class="packshot-wrap">
+        <img class="packshot" src="pakket-14-2.png" width="1023" height="1022" alt="Pakket 14-2: shirt, jassen, broekje, tas en sokken">
+        <p class="packcap">Dit gaan jullie bestellen</p>
+      </div>
+    </details>
     <?php if ($typeOrder === []): ?>
     <div class="section">
       <h2><?= h($name) ?><?php if ($ini !== ''): ?> <span class="ini"><?= h($ini) ?></span><?php endif; ?></h2>

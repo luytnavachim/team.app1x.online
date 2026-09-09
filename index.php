@@ -609,6 +609,19 @@ button.btn{font-family:inherit;cursor:pointer}
 /* ---------- sections ---------- */
 .section{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px;margin-bottom:14px}
 .section h3{margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-.3px}
+details.fold > summary.fold-head{
+  list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:2px 0 8px;min-height:44px;
+}
+details.fold > summary.fold-head::-webkit-details-marker{display:none}
+details.fold > summary.fold-head h3{margin:0;flex:1;min-width:0}
+.fold-meta{flex:0 0 auto;font-size:12px;font-weight:800;color:var(--muted)}
+details.fold > summary.fold-head::after{
+  content:'▾';flex:0 0 auto;color:var(--dim);font-size:14px;font-weight:800;line-height:1;
+}
+details.fold:not([open]) > summary.fold-head{padding-bottom:0}
+details.fold:not([open]) > summary.fold-head::after{content:'▸';transform:none}
+details.fold[open] > summary.fold-head{margin-bottom:2px;border-bottom:1px solid var(--line)}
 .section .sub{margin:0 0 14px;font-size:12.5px;color:var(--muted);font-weight:500}
 .section .sub b{color:var(--ink);font-weight:700}
 .legend{display:flex;gap:14px;flex-wrap:wrap;font-size:11px;font-weight:700;color:var(--muted);margin-bottom:12px}
@@ -664,7 +677,7 @@ button.btn{font-family:inherit;cursor:pointer}
 @media(max-width:760px){.add-type{grid-template-columns:1fr 1fr}}
 
 /* ---------- tables ---------- */
-.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface2)}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:var(--r);background:var(--surface2)}
 table{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px}
 th,td{padding:9px 10px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap}
 tr:last-child td{border-bottom:0}
@@ -800,8 +813,8 @@ tr.archived td{opacity:.55}
 }
 .packfold{margin:0 0 14px;border:0;padding:0;background:transparent}
 .packfold > summary{
-  cursor:pointer;font-weight:800;font-size:12.5px;color:var(--muted);list-style:none;
-  padding:8px 0;
+  cursor:pointer;font-weight:800;font-size:13px;color:var(--muted);list-style:none;
+  padding:8px 0;min-height:44px;display:flex;align-items:center;
 }
 .packfold > summary::-webkit-details-marker{display:none}
 .packfold[open] > summary{color:var(--ink)}
@@ -851,15 +864,31 @@ tr.archived td{opacity:.55}
 .shop-rule{margin:0 0 12px;font-size:12.5px;color:var(--muted);line-height:1.5}
 .shop-rule b{color:var(--ink)}
 details.shop-more{margin-top:16px;border:1px solid var(--line);border-radius:14px;padding:10px 14px;background:var(--surface2)}
-details.shop-more > summary{cursor:pointer;font-weight:800;font-size:13px;color:var(--ink);list-style:none}
+details.shop-more > summary{cursor:pointer;font-weight:800;font-size:13px;color:var(--ink);list-style:none;min-height:44px;display:flex;align-items:center}
 details.shop-more > summary::-webkit-details-marker{display:none}
 details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 @media print{
-  details.shop-more,#printPrices,.packfold{display:none !important}
+  details.shop-more,#printPrices{display:none !important}
+  details.fold{display:block}
+  details.fold > summary.fold-head{display:flex;border:0;padding:0 0 8px}
+  details.fold > summary.fold-head::after{display:none}
   .shop-card{break-inside:avoid;box-shadow:none}
 }
 .place{font-size:11px;color:var(--dim);font-weight:600;margin:2px 0 0}
 
+@media(max-width:720px){
+  .note,.shop-rule,.section .sub{font-size:14px;line-height:1.5}
+  .nav a,.btn,button.btn,.filters button{
+    min-height:42px;display:inline-flex;align-items:center;justify-content:center;
+  }
+  .checks label{min-height:40px}
+  .row .want{white-space:normal;line-height:1.35;overflow-wrap:anywhere}
+  .shop-card h4{overflow-wrap:anywhere}
+  .who b{white-space:normal}
+  .tablewrap{margin-inline:-4px}
+  .actions .btn{flex:1 1 calc(50% - 7px);text-align:center}
+  .card .actions .btn{flex:1 1 auto}
+}
 @media(max-width:560px){
   .wrap{padding:14px 12px 64px}
   .navwrap{margin-left:-12px;margin-right:-12px}
@@ -871,12 +900,14 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     display:grid;grid-template-columns:1fr auto;grid-template-areas:"want size" "want del";
     gap:6px 8px;align-items:center;
   }
-  .kit-row .want{grid-area:want}
-  .kit-row .size-select{grid-area:size;max-width:110px}
-  .kit-row .del{grid-area:del;justify-self:end}
+  .kit-row .want{grid-area:want;font-size:13.5px}
+  .kit-row .size-select{grid-area:size;max-width:120px;min-height:42px;font-size:16px}
+  .kit-row .del{grid-area:del;justify-self:end;min-height:36px}
   .who{flex-wrap:wrap}
-  .who .jersey-select{max-width:none;width:100%}
+  .who .jersey-select{max-width:none;width:100%;min-height:42px}
   .packshot{max-width:100%;padding:8px}
+  .section{padding:14px 12px}
+  .fold-meta{font-size:11px}
 }
 
 /* ---------- print: terug naar licht ---------- */
@@ -957,8 +988,8 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     </a>
   </div>
 
-  <div class="section" id="spelers">
-    <h3>Spelers</h3>
+  <details class="section fold" id="spelers" open>
+    <summary class="fold-head"><h3>Spelers</h3><span class="fold-meta"><?= count($active) ?></span></summary>
     <p class="sub"><?= $canEdit ? 'Vink wat hij krijgt en kies de maat. <b>Pakket</b> zet de set in één keer.' : 'Overzicht van maten en rugnummers.' ?></p>
     <div class="filters" id="playerFilters">
       <button class="on" data-f="all">Iedereen</button>
@@ -1065,13 +1096,13 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         </div>
       <?php endforeach; ?>
     </div>
-  </div>
+  </details>
 
   <?php if ($canEdit):
     $parentForm = loadParentFormSettings();
   ?>
-  <div class="section" id="ouders">
-    <h3>Ouderlinks</h3>
+  <details class="section fold" id="ouders" open>
+    <summary class="fold-head"><h3>Ouderlinks</h3><span class="fold-meta"><?= count($parentFilled) ?>/<?= count($active) ?></span></summary>
     <p class="sub">Kopieer de link of stuur hem via WhatsApp. Een nieuwe link maakt de oude ongeldig.</p>
     <details class="shop-more" id="parentDefaultsWrap">
       <summary>Wat ouders invullen</summary>
@@ -1127,7 +1158,9 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
       </table>
     </div>
 
-    <h3 style="margin-top:22px">Staflinks</h3>
+    <details class="shop-more" open>
+    <summary>Staflinks</summary>
+    <h3 style="margin-top:8px">Staflinks</h3>
     <p class="sub">Zelfde soort link, zonder rugnummer. Standaard polo en zip; shirt, broekje, jassen en tas kun je extra aanvinken.</p>
     <div class="tablewrap">
       <table>
@@ -1165,11 +1198,12 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         </tbody>
       </table>
     </div>
-  </div>
+    </details>
+  </details>
   <?php endif; ?>
 
-  <div class="section" id="bestel">
-    <h3>Bestelling</h3>
+  <details class="section fold" id="bestel" open>
+    <summary class="fold-head"><h3>Bestelling</h3><span class="fold-meta"><?= (int) $orderPieces ?> stuks</span></summary>
     <p class="sub"><?= (int) $orderPieces ?> stuks<?= $orderTotal > 0 ? ' · ' . euro($orderTotal) . ' kleding + bedrukking' : '' ?> · artikelnummers, maten en print.</p>
     <p class="shop-rule"><b>Logo + bedrijfslogo:</b> jassen, shirt, keeperstenue, tas · <b>Initialen:</b> jassen, shirt, broekje, keeperstenue, tas · <b>Nummer:</b> shirt, keeperstenue</p>
     <details class="packfold">
@@ -1322,10 +1356,10 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     </details>
     <?php endif; ?>
     <?php endif; ?>
-  </div>
+  </details>
 
-  <div class="section" id="staf">
-    <h3>Staf</h3>
+  <details class="section fold" id="staf" open>
+    <summary class="fold-head"><h3>Staf</h3><span class="fold-meta"><?= count($staff) ?></span></summary>
     <p class="sub">Polo en quarter zip.<?= $canEdit ? ' Stuur een link zodat ze zelf hun maten invullen, of vul hier in.' : '' ?></p>
     <div class="cards">
       <?php foreach ($staff as $s): ?>
@@ -1386,10 +1420,10 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
       </article>
       <?php endforeach; ?>
     </div>
-  </div>
+  </details>
 
-  <div class="section" id="catalogus">
-    <h3>Catalogus · Stanno</h3>
+  <details class="section fold" id="catalogus" open>
+    <summary class="fold-head"><h3>Catalogus · Stanno</h3></summary>
     <p class="sub">Artikelnummers en prijzen. <?= $canEdit ? 'Pas een regel aan of verwijder hem. Nieuw artikel onderaan.' : '' ?></p>
     <?php if ($canEdit): ?>
     <details class="shop-more" id="packageDefaults">
@@ -1506,7 +1540,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
       </div>
     </details>
     <?php endif; ?>
-  </div>
+  </details>
 
   <?php if ($canEdit):
     $cmsPlayers = array_values(array_filter($players, static fn($p) => playerOnScoutTeam14($p, $portal)));
@@ -1521,8 +1555,8 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         return $html;
     };
   ?>
-  <div class="section" id="beheer">
-    <h3>Beheer</h3>
+  <details class="section fold" id="beheer" open>
+    <summary class="fold-head"><h3>Beheer</h3></summary>
     <p class="sub">CMS: seizoen, staf, catalogus. Spelers zijn alleen de huidige 14-2 selectie uit de scout-app.</p>
 
     <div class="parent-defaults">
@@ -1535,6 +1569,8 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
       </div>
     </div>
 
+    <details class="shop-more" open>
+    <summary>Spelers</summary>
     <h4 class="line">Spelers</h4>
     <div class="parent-defaults">
       <p class="hint">Alleen namen uit de scout-app 14-2. Wie daar niet in staat, verdwijnt uit dit overzicht.</p>
@@ -1591,7 +1627,10 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         </tbody>
       </table>
     </div>
+    </details>
 
+    <details class="shop-more" open>
+    <summary>Staf</summary>
     <h4 class="line">Staf</h4>
     <div class="parent-defaults">
       <div class="cms-grid" id="newStaffForm">
@@ -1642,6 +1681,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         </tbody>
       </table>
     </div>
+    </details>
 
     <?php if ($inactiveTypes): ?>
     <h4 class="line">Verwijderde artikelen</h4>
@@ -1666,7 +1706,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     <h4 class="line">Verwijderde artikelen</h4>
     <p class="sub">Geen verwijderde catalogusartikelen.</p>
     <?php endif; ?>
-  </div>
+  </details>
   <?php endif; ?>
 </div>
 <div id="pinModal" class="modal hidden">
@@ -1703,6 +1743,40 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     btn.addEventListener('click', ()=>apply(btn.getAttribute('data-theme-set')));
   });
   apply(theme());
+})();
+(function(){
+  const heavy=['ouders','catalogus','beheer','staf'];
+  function openFor(el){
+    let n=el;
+    while(n){
+      if(n.tagName==='DETAILS') n.open=true;
+      n=n.parentElement;
+    }
+  }
+  function openHash(){
+    const id=location.hash.replace('#','');
+    if(!id) return;
+    const el=document.getElementById(id);
+    if(el) openFor(el);
+  }
+  if(window.matchMedia('(max-width:720px)').matches){
+    heavy.forEach(id=>{
+      const el=document.getElementById(id);
+      if(el && el.tagName==='DETAILS' && location.hash.replace('#','')!==id) el.open=false;
+    });
+  }
+  openHash();
+  window.addEventListener('hashchange', openHash);
+  document.addEventListener('click', e=>{
+    const a=e.target.closest?.('a[href^="#"]');
+    if(!a) return;
+    const id=a.getAttribute('href').slice(1);
+    const el=id ? document.getElementById(id) : null;
+    if(el) openFor(el);
+  });
+  window.addEventListener('beforeprint', ()=>{
+    document.querySelectorAll('details.fold').forEach(d=>{ d.open=true; });
+  });
 })();
 const TEAM = {
   csrf: <?= json_encode($csrf) ?>,

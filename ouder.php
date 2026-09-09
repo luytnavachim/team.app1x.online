@@ -156,12 +156,16 @@ body{
 .toast.show{opacity:1}
 .line{margin:16px 0 8px;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--dim)}
 .err{color:var(--miss);font-size:13px;font-weight:700;min-height:18px;margin:8px 0 0}
-.packshot-wrap{margin:0 0 16px;text-align:center}
-.packshot{
-  display:block;margin:0 auto;width:100%;max-width:180px;height:auto;
-  aspect-ratio:1 / 1;object-fit:contain;background:transparent;
+.packshot-wrap{
+  margin:0 0 16px;text-align:center;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:14px 14px 12px;
 }
-.packcap{margin:6px 0 0;font-size:12px;font-weight:600;color:var(--muted)}
+.packshot{
+  display:block;margin:0 auto;width:100%;max-width:420px;height:auto;
+  aspect-ratio:1 / 1;object-fit:contain;background:#111;border-radius:12px;
+}
+.packcap{margin:8px 0 0;font-size:12px;font-weight:600;color:var(--muted)}
 @media(max-width:420px){
   .row{flex-wrap:wrap}
   .size-select{width:100%;max-width:none}

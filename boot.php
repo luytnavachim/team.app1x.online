@@ -790,11 +790,11 @@ function playerInitials(array $p): string {
             $tail .= mb_strtoupper($ch, 'UTF-8');
         }
     }
-    $full = $head . $mids . $tail;
-    if (mb_strlen($full, 'UTF-8') <= 3) {
-        return $full;
+    $full = $head . $tail;
+    if ($full === '' && $mids !== '') {
+        $full = mb_strtoupper($mids, 'UTF-8');
     }
-    return mb_substr($head . $tail, 0, 3, 'UTF-8');
+    return mb_substr($full, 0, 2, 'UTF-8');
 }
 
 function kitSize(array $p, int $tid): string {

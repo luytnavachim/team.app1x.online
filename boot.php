@@ -293,6 +293,10 @@ function packageTypeIds(): array {
     return $ids !== [] ? $ids : [13, 14, 15];
 }
 
+function staffShirtTypeId(): int {
+    return 23;
+}
+
 function isKeeperKitType(array $t): bool {
     $hay = strtolower(trim(
         (string) ($t['display_name'] ?? '') . ' ' .
@@ -640,6 +644,71 @@ function ensurePackageTypes(mysqli $db): void {
     seedTypePrintDefaults($db);
 }
 
+function remapStaffShirtTypeIds(array $ids, int $staffShirtId): array {
+    $out = [];
+    foreach ($ids as $tid) {
+        $tid = (int) $tid;
+        if ($tid === 1) {
+            $tid = $staffShirtId;
+        }
+        if ($tid > 0) {
+            $out[$tid] = $tid;
+        }
+    }
+    return array_values($out);
+}
+
+function ensureStaffShirtType(mysqli $db): void {
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    ensureTypePrintColumns($db);
+    ensureTypeMetaColumns($db);
+    $id = staffShirtTypeId();
+    $name = 'staff_shirt';
+    $display = 'Staf shirt';
+    $src = $db->query('SELECT article_number, color, brand, price, price_small, price_large FROM clothing_types WHERE id=1 LIMIT 1');
+    $row = $src ? $src->fetch_assoc() : null;
+    $article = (string) ($row['article_number'] ?? '410014');
+    $color = (string) ($row['color'] ?? 'Zwart');
+    $brand = (string) ($row['brand'] ?? 'Stanno');
+    if ($brand === '') {
+        $brand = 'Stanno';
+    }
+    $small = isset($row['price_small']) && $row['price_small'] !== null && $row['price_small'] !== '' ? (float) $row['price_small'] : 16.85;
+    $large = isset($row['price_large']) && $row['price_large'] !== null && $row['price_large'] !== '' ? (float) $row['price_large'] : 18.26;
+    $price = isset($row['price']) && $row['price'] !== null && $row['price'] !== '' ? (float) $row['price'] : $large;
+    $desc = 'Shirt voor kader 14-2';
+    $kind = 'body';
+    $group = 'extra';
+    $place = 'Rohda Raalte logo · bedrijfslogo · initialen';
+    $found = null;
+    $sel = $db->prepare('SELECT id FROM clothing_types WHERE id=? OR name=? LIMIT 1');
+    $sel->bind_param('is', $id, $name);
+    $sel->execute();
+    $found = $sel->get_result()->fetch_assoc();
+    if ($found) {
+        $fid = (int) $found['id'];
+        $upd = $db->prepare('UPDATE clothing_types SET name=?, display_name=?, description=?, size_kind=?, order_group=?, print_rohda=1, print_initials=1, print_sponsor=1, print_name_back=0, print_place=?, active=1, updated_at=NOW() WHERE id=?');
+        $upd->bind_param('ssssssi', $name, $display, $desc, $kind, $group, $place, $fid);
+        $upd->execute();
+        seedPriceIfEmpty($db, $fid, $small, $large);
+        $id = $fid;
+    } else {
+        $ins = $db->prepare('INSERT INTO clothing_types (id, name, display_name, article_number, description, color, brand, price_small, price_large, price, size_kind, order_group, print_rohda, print_initials, print_sponsor, print_name_back, print_place, active, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,1,1,0,?,1,NOW(),NOW())');
+        $ins->bind_param('issssssdddsss', $id, $name, $display, $article, $desc, $color, $brand, $small, $large, $price, $kind, $group, $place);
+        $ins->execute();
+    }
+
+    $mv = $db->prepare('UPDATE staff_clothing SET clothing_type_id=? WHERE clothing_type_id=1');
+    $mv->bind_param('i', $id);
+    $mv->execute();
+
+    saveParentFormSettings(loadParentFormSettings(true));
+}
+
 function ensureParentTokenColumn(mysqli $db): void {
     static $done = false;
     if ($done) {
@@ -687,7 +756,7 @@ function parentTypeChoices(string $kind): array {
         return array_values(array_unique(array_merge(keeperCoreTypeIds(), [13, 14, 15, 11, 12, 10, 4, 7])));
     }
     if ($kind === 'staff') {
-        return [1, 4, 11, 12, 13, 14, 15];
+        return [staffShirtTypeId(), 4, 11, 12, 13, 14, 15];
     }
     return [1, 4, 13, 14, 15, 3, 7, 11, 12];
 }
@@ -703,6 +772,7 @@ function allParentTypeIds(): array {
 function shortTypeName(int $tid, array $types = []): string {
     return match ($tid) {
         1 => 'Shirt',
+        23 => 'Staf shirt',
         4 => 'Broek',
         3 => 'Sokken',
         7 => 'Grip',
@@ -942,7 +1012,10 @@ function loadParentFormSettings(bool $reload = false): array {
     }
     $settings['field'] = $field !== [] ? $field : $def['field'];
     $settings['keeper'] = $keeper !== [] ? $keeper : $def['keeper'];
-    $staff = normalizeParentTypeIds($raw['staff'] ?? $def['staff'], parentTypeChoices('staff'));
+    $staff = normalizeParentTypeIds(
+        remapStaffShirtTypeIds($raw['staff'] ?? $def['staff'], staffShirtTypeId()),
+        parentTypeChoices('staff')
+    );
     $settings['staff'] = $staff !== [] ? $staff : $def['staff'];
     $players = [];
     foreach (($raw['players'] ?? []) as $pid => $ids) {
@@ -971,7 +1044,7 @@ function loadParentFormSettings(bool $reload = false): array {
         if ($sid < 1) {
             continue;
         }
-        $norm = normalizeParentTypeIds($ids, parentTypeChoices('staff'));
+        $norm = normalizeParentTypeIds(remapStaffShirtTypeIds($ids, staffShirtTypeId()), parentTypeChoices('staff'));
         if ($norm !== []) {
             $staffMembers[$sid] = $norm;
         }
@@ -988,7 +1061,7 @@ function saveParentFormSettings(array $settings): void {
     }
     $field = normalizeParentTypeIds($settings['field'] ?? [], parentTypeChoices('field'));
     $keeper = normalizeParentTypeIds($settings['keeper'] ?? [], parentTypeChoices('keeper'));
-    $staff = normalizeParentTypeIds($settings['staff'] ?? [], parentTypeChoices('staff'));
+    $staff = normalizeParentTypeIds(remapStaffShirtTypeIds($settings['staff'] ?? [], staffShirtTypeId()), parentTypeChoices('staff'));
     $def = defaultParentFormSettings();
     $players = [];
     foreach (($settings['players'] ?? []) as $pid => $ids) {
@@ -1007,7 +1080,7 @@ function saveParentFormSettings(array $settings): void {
         if ($sid < 1 || !is_array($ids)) {
             continue;
         }
-        $norm = normalizeParentTypeIds($ids, parentTypeChoices('staff'));
+        $norm = normalizeParentTypeIds(remapStaffShirtTypeIds($ids, staffShirtTypeId()), parentTypeChoices('staff'));
         if ($norm !== []) {
             $staffMembers[$sid] = $norm;
         }
@@ -2054,6 +2127,7 @@ ensureParentTokenColumn($mysqli);
 ensureParentSavedAtColumn($mysqli);
 ensureStaffFillColumns($mysqli);
 ensurePackageTypes($mysqli);
+ensureStaffShirtType($mysqli);
 startTeamSession();
 $canEdit = canEdit();
 $csrf = csrfToken();

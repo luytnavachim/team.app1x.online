@@ -799,18 +799,13 @@ tr.archived td{opacity:.55}
   box-shadow:0 8px 26px rgba(0,0,0,.4);
 }
 .toast.show{opacity:1}
+.packshot-wrap{margin:0 0 18px;text-align:center}
 .packshot{
-  width:100%;max-width:420px;margin:8px auto 0;display:block;
+  width:100%;max-width:520px;margin:0 auto;display:block;
   aspect-ratio:1 / 1;object-fit:contain;object-position:center;
   border:0;border-radius:0;background:transparent;padding:0;
 }
-.packfold{margin:0 0 14px;border:0;padding:0;background:transparent}
-.packfold > summary{
-  cursor:pointer;font-weight:800;font-size:12.5px;color:var(--muted);list-style:none;
-  padding:8px 0;
-}
-.packfold > summary::-webkit-details-marker{display:none}
-.packfold[open] > summary{color:var(--ink)}
+.packcap{margin:8px 0 0;font-size:12.5px;font-weight:600;color:var(--muted)}
 .brandbits{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:0 0 14px}
 @media(max-width:760px){.brandbits{grid-template-columns:repeat(2,1fr)}}
 .shop-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:14px 0 18px}
@@ -861,7 +856,7 @@ details.shop-more > summary{cursor:pointer;font-weight:800;font-size:13px;color:
 details.shop-more > summary::-webkit-details-marker{display:none}
 details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 @media print{
-  details.shop-more,#printPrices,.packfold{display:none !important}
+  details.shop-more,#printPrices{display:none !important}
   .shop-card{break-inside:avoid;box-shadow:none}
 }
 .place{font-size:11px;color:var(--dim);font-weight:600;margin:2px 0 0}
@@ -893,8 +888,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         --warn:#a16207;--warnbg:#fef3c7;--na:#71717a;--nabg:#fafafa}
   html{color-scheme:light}
   body{background:#fff;color:#111}
-  .navwrap,.filters,.actions,.note,.toast,.modal,.theme-switch,#parentAlert,.assign,.addrow,.money,.cat-input,#printPrices,.parent-defaults,.packfold > summary,#beheer{display:none !important}
-  .packfold{display:block}
+  .navwrap,.filters,.actions,.note,.toast,.modal,.theme-switch,#parentAlert,.assign,.addrow,.money,.cat-input,#printPrices,.parent-defaults,#beheer{display:none !important}
   .packshot{max-width:360px}
   .featured,.card{break-inside:avoid;border:1px solid #d4d4d8}
   .section{border:1px solid #d4d4d8}
@@ -961,6 +955,11 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
       <b><?= count($parentFilled) ?>/<?= count($active) ?></b><span>ouders ingevuld</span>
       <div class="progress"><i style="width:<?= count($active) ? round(100 * count($parentFilled) / count($active)) : 0 ?>%"></i></div>
     </a>
+  </div>
+
+  <div class="packshot-wrap">
+    <img class="packshot" src="pakket-14-2.png" width="1023" height="1022" alt="Pakket 14-2: shirt, jassen, broekje, tas en sokken">
+    <p class="packcap">Pakket 14-2 · shirt, jassen, broekje, tas en sokken</p>
   </div>
 
   <div class="section" id="spelers">
@@ -1178,10 +1177,6 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     <h3>Bestelling</h3>
     <p class="sub"><?= (int) $orderPieces ?> stuks<?= $orderTotal > 0 ? ' · ' . euro($orderTotal) . ' kleding + bedrukking' : '' ?> · artikelnummers, maten en print.</p>
     <p class="shop-rule"><b>Logo + bedrijfslogo:</b> jassen, shirt, keeperstenue, tas · <b>Initialen:</b> jassen, shirt, broekje, keeperstenue, tas · <b>Nummer:</b> shirt, keeperstenue</p>
-    <details class="packfold">
-      <summary>Toon pakketfoto</summary>
-      <img class="packshot" src="pakket-14-2.png" width="1023" height="1022" alt="Pakket 14-2: shirt, jassen, broekje, tas en sokken">
-    </details>
 
     <div class="actions">
       <a class="btn dark" href="?csv=bestel">Excel-bestellijst</a>

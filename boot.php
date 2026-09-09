@@ -687,7 +687,7 @@ function parentTypeChoices(string $kind): array {
         return array_values(array_unique(array_merge(keeperCoreTypeIds(), [13, 14, 15, 11, 12, 10, 4, 7])));
     }
     if ($kind === 'staff') {
-        return [11, 12, 13, 14, 15];
+        return [1, 4, 11, 12, 13, 14, 15];
     }
     return [1, 4, 13, 14, 15, 3, 7, 11, 12];
 }

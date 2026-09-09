@@ -1128,7 +1128,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     </div>
 
     <h3 style="margin-top:22px">Staflinks</h3>
-    <p class="sub">Zelfde soort link, zonder rugnummer. Standaard polo en zip; pas hieronder per persoon aan.</p>
+    <p class="sub">Zelfde soort link, zonder rugnummer. Standaard polo en zip; shirt, broekje, jassen en tas kun je extra aanvinken.</p>
     <div class="tablewrap">
       <table>
         <thead>

@@ -751,26 +751,52 @@ function parentFormPath(): string {
     return __DIR__ . '/.data/parent-form.json';
 }
 
-function parentTypeChoices(string $kind): array {
-    if ($kind === 'keeper') {
-        return array_values(array_unique(array_merge(keeperCoreTypeIds(), [13, 14, 15, 11, 12, 10, 4, 7])));
+function parentFillableTypeIds(?array $types = null): array {
+    $types = $types ?? rememberTypes();
+    if ($types === []) {
+        global $mysqli;
+        if (isset($mysqli) && $mysqli instanceof mysqli) {
+            $types = loadTypes($mysqli);
+        }
     }
-    if ($kind === 'staff') {
-        return [staffShirtTypeId(), 4, 11, 12, 13, 14, 15];
+    $ids = [];
+    foreach ($types as $tid => $t) {
+        if (!is_array($t) || !typeIsActive($t) || isPrintCatalogType($t)) {
+            continue;
+        }
+        $id = (int) ($t['id'] ?? $tid);
+        if ($id > 0) {
+            $ids[$id] = $id;
+        }
     }
-    return [1, 4, 13, 14, 15, 3, 7, 11, 12];
+    if ($ids === []) {
+        return [1, 4, 13, 14, 15, 3, 7, 11, 12, staffShirtTypeId(), 9, 10, 19];
+    }
+    $preferred = [1, 23, 9, 19, 4, 13, 14, 15, 3, 10, 7, 11, 12];
+    $out = [];
+    foreach ($preferred as $id) {
+        if (isset($ids[$id])) {
+            $out[] = $id;
+            unset($ids[$id]);
+        }
+    }
+    ksort($ids);
+    foreach ($ids as $id) {
+        $out[] = $id;
+    }
+    return $out;
+}
+
+function parentTypeChoices(string $kind = 'field'): array {
+    return parentFillableTypeIds();
 }
 
 function allParentTypeIds(): array {
-    return array_values(array_unique(array_merge(
-        parentTypeChoices('field'),
-        parentTypeChoices('keeper'),
-        [9, 10, 19]
-    )));
+    return parentFillableTypeIds();
 }
 
 function shortTypeName(int $tid, array $types = []): string {
-    return match ($tid) {
+    $known = match ($tid) {
         1 => 'Shirt',
         23 => 'Staf shirt',
         4 => 'Broek',
@@ -784,8 +810,20 @@ function shortTypeName(int $tid, array $types = []): string {
         13 => 'Field Jack (regenjas)',
         14 => 'Prime Padded Jacket (Winterjas)',
         15 => 'Pro Bag Prime (multifunctionele tas)',
-        default => (string) ($types[$tid]['display_name'] ?? $tid),
+        default => '',
     };
+    if ($known !== '') {
+        return $known;
+    }
+    if ($types === []) {
+        $types = rememberTypes();
+    }
+    $t = $types[$tid] ?? [];
+    $label = trim((string) ($t['display_name'] ?? ''));
+    if ($label === '') {
+        $label = trim((string) ($t['name'] ?? ''));
+    }
+    return $label !== '' ? $label : (string) $tid;
 }
 
 function typeIsActive(array $t): bool {

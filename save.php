@@ -145,6 +145,7 @@ if ($action === 'parent_form') {
     if ($tokenCsrf === '' || !hash_equals(csrfToken(), $tokenCsrf)) {
         jsonOut(['ok' => false, 'error' => 'Sessie verlopen. Vernieuw de pagina.'], 403);
     }
+    loadTypes($mysqli);
     $settings = loadParentFormSettings();
     $scope = (string) ($body['scope'] ?? '');
     if ($scope === 'defaults') {

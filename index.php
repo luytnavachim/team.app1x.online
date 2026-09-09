@@ -86,7 +86,7 @@ function parentChecksHtml(string $scope, array $choices, array $selected, int $p
     $html = '<div class="checks" data-parent-scope="'.h($scope).'" data-id="'.$playerId.'" data-default="'.h(implode(',', $defaultIds)).'">';
     foreach ($choices as $tid) {
         $on = in_array($tid, $selected, true) ? ' checked' : '';
-        $html .= '<label><input type="checkbox" value="'.$tid.'"'.$on.'> '.h(shortTypeName($tid)).'</label>';
+        $html .= '<label><input type="checkbox" value="'.$tid.'"'.$on.'> '.h(shortTypeName($tid, rememberTypes())).'</label>';
     }
     $html .= '</div>';
     return $html;
@@ -1107,7 +1107,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     <details class="shop-more" id="parentDefaultsWrap">
       <summary>Wat ouders invullen</summary>
     <div class="parent-defaults" id="parentDefaults" style="margin:0;border:0;padding:4px 0 0;background:transparent">
-      <p class="hint">Standaard voor veldspelers en keepers. Per speler kun je hieronder afwijken. Ouders moeten elk item invullen: maat of n.v.t.</p>
+      <p class="hint">Standaard voor veldspelers, keepers en staf. Elk catalogusartikel staat hier; een nieuw item komt automatisch bij. Per speler kun je hieronder afwijken. Ouders moeten elk aangevinkt item invullen: maat of n.v.t.</p>
       <div class="line">Veldspelers</div>
       <?= parentChecksHtml('field', parentTypeChoices('field'), $parentForm['field']) ?>
       <div class="line">Keepers</div>

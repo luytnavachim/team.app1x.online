@@ -39,23 +39,30 @@ if ($action === 'parent_link' || $action === 'parent_rotate') {
         jsonOut(['ok' => false, 'error' => 'Sessie verlopen. Vernieuw de pagina.'], 403);
     }
     $id = (int) ($body['id'] ?? 0);
+    $who = (string) ($body['who'] ?? 'player');
     try {
-        $token = playerParentToken($mysqli, $id, $action === 'parent_rotate');
+        if ($who === 'staff') {
+            $token = staffFillToken($mysqli, $id, $action === 'parent_rotate');
+            $st = $mysqli->prepare('SELECT first_name, last_name FROM staff_members WHERE id=? LIMIT 1');
+        } else {
+            $token = playerParentToken($mysqli, $id, $action === 'parent_rotate');
+            $st = $mysqli->prepare('SELECT first_name, last_name FROM players WHERE id=? LIMIT 1');
+        }
     } catch (Throwable $e) {
         jsonOut(['ok' => false, 'error' => $e->getMessage()], 400);
     }
-    $st = $mysqli->prepare('SELECT first_name, last_name FROM players WHERE id=? LIMIT 1');
     $st->bind_param('i', $id);
     $st->execute();
     $p = $st->get_result()->fetch_assoc() ?: ['first_name' => '', 'last_name' => ''];
     $name = trim(($p['first_name'] ?? '') . ' ' . ($p['last_name'] ?? ''));
     $url = parentLinkUrl($token);
+    $message = $who === 'staff' ? staffFillMessage($name, $url) : parentMessage($name, $url);
     jsonOut([
         'ok' => true,
         'url' => $url,
         'name' => $name,
-        'wa' => parentWhatsAppUrl($name, $url),
-        'message' => parentMessage($name, $url),
+        'wa' => fillWhatsAppUrl($message),
+        'message' => $message,
     ]);
 }
 
@@ -65,8 +72,8 @@ if ($action === 'parent_save') {
         jsonOut(['ok' => false, 'error' => 'Te veel pogingen. Probeer na ' . $until . ' opnieuw.'], 429);
     }
     $parentToken = (string) ($body['token'] ?? '');
-    $player = findPlayerByParentToken($mysqli, $parentToken);
-    if (!$player) {
+    $found = findFillPersonByToken($mysqli, $parentToken);
+    if (!$found) {
         registerParentSave();
         jsonOut(['ok' => false, 'error' => 'Deze link is ongeldig of verlopen.'], 403);
     }
@@ -78,16 +85,21 @@ if ($action === 'parent_save') {
     if (!is_array($items) || $items === []) {
         jsonOut(['ok' => false, 'error' => 'Niets om op te slaan.'], 400);
     }
-    $allowed = array_fill_keys(parentAllowedTypeIds($player), true);
+    $who = (string) $found['who'];
+    $person = $found['person'];
+    $allowedIds = $who === 'staff' ? staffAllowedTypeIds($person) : parentAllowedTypeIds($person);
+    $allowed = array_fill_keys($allowedIds, true);
     if ($allowed === []) {
-        jsonOut(['ok' => false, 'error' => 'Er staat niets klaar om in te vullen. Vraag de staf.'], 400);
+        jsonOut(['ok' => false, 'error' => 'Er staat niets klaar om in te vullen. Vraag de trainer of manager.'], 400);
     }
     $types = loadTypes($mysqli);
     $saved = 0;
     $jerseySaved = null;
     $mysqli->begin_transaction();
     try {
-        $jerseySaved = setPlayerJerseyNumber($mysqli, (int) $player['id'], $body['jersey_number'] ?? '');
+        if ($who === 'player') {
+            $jerseySaved = setPlayerJerseyNumber($mysqli, (int) $person['id'], $body['jersey_number'] ?? '');
+        }
         foreach ($allowed as $tid => $_) {
             if (!array_key_exists((string) $tid, $items) && !array_key_exists($tid, $items)) {
                 throw new RuntimeException('Vul alle maten in of kies n.v.t.');
@@ -96,20 +108,24 @@ if ($action === 'parent_save') {
             $parsed = parseItemInput($raw);
             $size = (string) $parsed['size'];
             if ($size === skipSizeToken()) {
-                applyPersonItemChoice($mysqli, $types, 'player', (int) $player['id'], (int) $tid, ['want' => false, 'size' => skipSizeToken()], 'pending');
+                applyPersonItemChoice($mysqli, $types, $who, (int) $person['id'], (int) $tid, ['want' => false, 'size' => skipSizeToken()], 'pending');
                 continue;
             }
             if (sanitizeSize($size) === '') {
                 throw new RuntimeException('Vul alle maten in of kies n.v.t.');
             }
-            if (!typeAllowedForPlayer($player, (int) $tid)) {
+            if ($who === 'player' && !typeAllowedForPlayer($person, (int) $tid)) {
                 continue;
             }
-            upsertPersonItem($mysqli, $types, 'player', (int) $player['id'], (int) $tid, $size, 'pending');
+            upsertPersonItem($mysqli, $types, $who, (int) $person['id'], (int) $tid, $size, 'pending');
             $saved++;
         }
-        $pid = (int) $player['id'];
-        $stamp = $mysqli->prepare('UPDATE players SET parent_saved_at=NOW() WHERE id=?');
+        $pid = (int) $person['id'];
+        if ($who === 'staff') {
+            $stamp = $mysqli->prepare('UPDATE staff_members SET parent_saved_at=NOW() WHERE id=?');
+        } else {
+            $stamp = $mysqli->prepare('UPDATE players SET parent_saved_at=NOW() WHERE id=?');
+        }
         $stamp->bind_param('i', $pid);
         $stamp->execute();
         $mysqli->commit();
@@ -141,8 +157,33 @@ if ($action === 'parent_form') {
         if (isset($body['keeper']) && is_array($body['keeper'])) {
             $settings['keeper'] = $body['keeper'];
         }
+        if (isset($body['staff']) && is_array($body['staff'])) {
+            $settings['staff'] = $body['staff'];
+        }
         saveParentFormSettings($settings);
         jsonOut(['ok' => true, 'settings' => loadParentFormSettings()]);
+    }
+    if ($scope === 'staff') {
+        $id = (int) ($body['id'] ?? 0);
+        if ($id < 1) {
+            jsonOut(['ok' => false, 'error' => 'Staf ontbreekt.'], 400);
+        }
+        $st = $mysqli->prepare("SELECT id FROM staff_members WHERE id=? AND status='active' LIMIT 1");
+        $st->bind_param('i', $id);
+        $st->execute();
+        if (!$st->get_result()->fetch_assoc()) {
+            jsonOut(['ok' => false, 'error' => 'Staf niet gevonden.'], 400);
+        }
+        $reset = !empty($body['reset']);
+        $typesIn = is_array($body['types'] ?? null) ? $body['types'] : [];
+        if ($reset || $typesIn === []) {
+            unset($settings['staff_members'][$id]);
+        } else {
+            $settings['staff_members'][$id] = $typesIn;
+        }
+        saveParentFormSettings($settings);
+        $s = ['id' => $id];
+        jsonOut(['ok' => true, 'types' => staffAllowedTypeIds($s), 'custom' => staffUsesCustomTypes($s)]);
     }
     if ($scope === 'player') {
         $id = (int) ($body['id'] ?? 0);

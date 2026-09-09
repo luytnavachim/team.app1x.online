@@ -666,6 +666,14 @@ function parentMessage(string $name, string $url): string {
     return "Hoi, voor de kleding van 14-2 kun je de maten van {$name} invullen via deze link:\n{$url}";
 }
 
+function staffFillMessage(string $name, string $url): string {
+    return "Hoi {$name}, voor je kleding van 14-2 kun je je maten invullen via deze link:\n{$url}";
+}
+
+function fillWhatsAppUrl(string $message): string {
+    return 'https://wa.me/?text=' . rawurlencode($message);
+}
+
 function parentWhatsAppUrl(string $name, string $url): string {
     return 'https://wa.me/?text=' . rawurlencode(parentMessage($name, $url));
 }
@@ -677,6 +685,9 @@ function parentFormPath(): string {
 function parentTypeChoices(string $kind): array {
     if ($kind === 'keeper') {
         return array_values(array_unique(array_merge(keeperCoreTypeIds(), [13, 14, 15, 11, 12, 10, 4, 7])));
+    }
+    if ($kind === 'staff') {
+        return [11, 12, 13, 14, 15];
     }
     return [1, 4, 13, 14, 15, 3, 7, 11, 12];
 }
@@ -852,7 +863,9 @@ function defaultParentFormSettings(): array {
         'note' => '',
         'field' => [1, 4, 13, 14, 3, 7],
         'keeper' => array_values(array_unique(array_merge(keeperCoreTypeIds(), [13, 14]))),
+        'staff' => [11, 12],
         'players' => [],
+        'staff_members' => [],
         'v' => 2,
     ];
 }
@@ -929,6 +942,8 @@ function loadParentFormSettings(bool $reload = false): array {
     }
     $settings['field'] = $field !== [] ? $field : $def['field'];
     $settings['keeper'] = $keeper !== [] ? $keeper : $def['keeper'];
+    $staff = normalizeParentTypeIds($raw['staff'] ?? $def['staff'], parentTypeChoices('staff'));
+    $settings['staff'] = $staff !== [] ? $staff : $def['staff'];
     $players = [];
     foreach (($raw['players'] ?? []) as $pid => $ids) {
         if (!is_array($ids)) {
@@ -947,6 +962,21 @@ function loadParentFormSettings(bool $reload = false): array {
         }
     }
     $settings['players'] = $players;
+    $staffMembers = [];
+    foreach (($raw['staff_members'] ?? []) as $sid => $ids) {
+        if (!is_array($ids)) {
+            continue;
+        }
+        $sid = (int) $sid;
+        if ($sid < 1) {
+            continue;
+        }
+        $norm = normalizeParentTypeIds($ids, parentTypeChoices('staff'));
+        if ($norm !== []) {
+            $staffMembers[$sid] = $norm;
+        }
+    }
+    $settings['staff_members'] = $staffMembers;
     $settings['v'] = 2;
     return $cached = $settings;
 }
@@ -958,6 +988,7 @@ function saveParentFormSettings(array $settings): void {
     }
     $field = normalizeParentTypeIds($settings['field'] ?? [], parentTypeChoices('field'));
     $keeper = normalizeParentTypeIds($settings['keeper'] ?? [], parentTypeChoices('keeper'));
+    $staff = normalizeParentTypeIds($settings['staff'] ?? [], parentTypeChoices('staff'));
     $def = defaultParentFormSettings();
     $players = [];
     foreach (($settings['players'] ?? []) as $pid => $ids) {
@@ -970,11 +1001,24 @@ function saveParentFormSettings(array $settings): void {
             $players[$pid] = $norm;
         }
     }
+    $staffMembers = [];
+    foreach (($settings['staff_members'] ?? []) as $sid => $ids) {
+        $sid = (int) $sid;
+        if ($sid < 1 || !is_array($ids)) {
+            continue;
+        }
+        $norm = normalizeParentTypeIds($ids, parentTypeChoices('staff'));
+        if ($norm !== []) {
+            $staffMembers[$sid] = $norm;
+        }
+    }
     $clean = [
         'note' => mb_substr(trim((string) ($settings['note'] ?? '')), 0, 280),
         'field' => $field !== [] ? $field : $def['field'],
         'keeper' => $keeper !== [] ? $keeper : $def['keeper'],
+        'staff' => $staff !== [] ? $staff : $def['staff'],
         'players' => $players,
+        'staff_members' => $staffMembers,
         'v' => 2,
     ];
     file_put_contents(parentFormPath(), json_encode($clean, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
@@ -998,6 +1042,24 @@ function parentAllowedTypeIds(array $p): array {
 function parentUsesCustomTypes(array $p): bool {
     $settings = loadParentFormSettings();
     return isset($settings['players'][(int) ($p['id'] ?? 0)]);
+}
+
+function staffDefaultTypeIds(): array {
+    return loadParentFormSettings()['staff'];
+}
+
+function staffAllowedTypeIds(array $s): array {
+    $settings = loadParentFormSettings();
+    $sid = (int) ($s['id'] ?? 0);
+    if ($sid > 0 && isset($settings['staff_members'][$sid])) {
+        return $settings['staff_members'][$sid];
+    }
+    return staffDefaultTypeIds();
+}
+
+function staffUsesCustomTypes(array $s): bool {
+    $settings = loadParentFormSettings();
+    return isset($settings['staff_members'][(int) ($s['id'] ?? 0)]);
 }
 
 function ensureParentSavedAtColumn(mysqli $db): void {
@@ -1055,6 +1117,94 @@ function playerParentToken(mysqli $db, int $playerId, bool $rotate = false): str
         }
     }
     throw new RuntimeException('Kon geen ouderlink maken');
+}
+
+function ensureStaffFillColumns(mysqli $db): void {
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    $r = $db->query("SHOW COLUMNS FROM staff_members LIKE 'parent_token'");
+    if (!$r || $r->num_rows < 1) {
+        $db->query('ALTER TABLE staff_members ADD COLUMN parent_token CHAR(48) NULL DEFAULT NULL AFTER email');
+        $db->query('ALTER TABLE staff_members ADD UNIQUE KEY staff_parent_token (parent_token)');
+    }
+    $r = $db->query("SHOW COLUMNS FROM staff_members LIKE 'parent_saved_at'");
+    if (!$r || $r->num_rows < 1) {
+        $db->query('ALTER TABLE staff_members ADD COLUMN parent_saved_at DATETIME NULL DEFAULT NULL AFTER parent_token');
+    }
+}
+
+function fillTokenInUse(mysqli $db, string $token): bool {
+    $st = $db->prepare('SELECT 1 FROM players WHERE parent_token=? LIMIT 1');
+    $st->bind_param('s', $token);
+    $st->execute();
+    if ($st->get_result()->fetch_row()) {
+        return true;
+    }
+    $st = $db->prepare('SELECT 1 FROM staff_members WHERE parent_token=? LIMIT 1');
+    $st->bind_param('s', $token);
+    $st->execute();
+    return (bool) $st->get_result()->fetch_row();
+}
+
+function findStaffByFillToken(mysqli $db, string $token): ?array {
+    $token = strtolower(trim($token));
+    if (!preg_match('/^[a-f0-9]{48}$/', $token)) {
+        return null;
+    }
+    ensureStaffFillColumns($db);
+    $st = $db->prepare("SELECT * FROM staff_members WHERE parent_token=? AND status='active' LIMIT 1");
+    $st->bind_param('s', $token);
+    $st->execute();
+    $row = $st->get_result()->fetch_assoc();
+    if (!$row) {
+        return null;
+    }
+    $row['id'] = (int) $row['id'];
+    return $row;
+}
+
+function findFillPersonByToken(mysqli $db, string $token): ?array {
+    $player = findPlayerByParentToken($db, $token);
+    if ($player) {
+        return ['who' => 'player', 'person' => $player];
+    }
+    $staff = findStaffByFillToken($db, $token);
+    if ($staff) {
+        return ['who' => 'staff', 'person' => $staff];
+    }
+    return null;
+}
+
+function staffFillToken(mysqli $db, int $staffId, bool $rotate = false): string {
+    ensureStaffFillColumns($db);
+    $chk = $db->prepare("SELECT id, parent_token FROM staff_members WHERE id=? AND status='active' LIMIT 1");
+    $chk->bind_param('i', $staffId);
+    $chk->execute();
+    $row = $chk->get_result()->fetch_assoc();
+    if (!$row) {
+        throw new RuntimeException('Staf niet gevonden');
+    }
+    if (!$rotate && !empty($row['parent_token'])) {
+        return (string) $row['parent_token'];
+    }
+    for ($i = 0; $i < 8; $i++) {
+        $token = newParentToken();
+        if (fillTokenInUse($db, $token)) {
+            continue;
+        }
+        $upd = $db->prepare('UPDATE staff_members SET parent_token=?, updated_at=NOW() WHERE id=?');
+        $upd->bind_param('si', $token, $staffId);
+        if ($upd->execute()) {
+            return $token;
+        }
+        if ((int) $db->errno !== 1062) {
+            throw new RuntimeException('Kon geen staflink maken');
+        }
+    }
+    throw new RuntimeException('Kon geen staflink maken');
 }
 
 function parentSaveBlocked(?string &$untilHuman = null): bool {
@@ -1902,6 +2052,7 @@ function orderListRows(array $shopByType, int $orderPieces, array $gaps = [], ?D
 
 ensureParentTokenColumn($mysqli);
 ensureParentSavedAtColumn($mysqli);
+ensureStaffFillColumns($mysqli);
 ensurePackageTypes($mysqli);
 startTeamSession();
 $canEdit = canEdit();

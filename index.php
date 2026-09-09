@@ -201,6 +201,26 @@ if ($canEdit) {
     }
 }
 
+$staffLinks = [];
+if ($canEdit) {
+    foreach ($staff as $ls) {
+        $tok = staffFillToken($mysqli, (int) $ls['id']);
+        $url = parentLinkUrl($tok);
+        $nm = fullName($ls);
+        $msg = staffFillMessage($nm, $url);
+        $staffLinks[(int) $ls['id']] = [
+            'name' => $nm,
+            'role' => (string) ($ls['role'] ?? 'staf'),
+            'url' => $url,
+            'wa' => fillWhatsAppUrl($msg),
+            'types' => staffAllowedTypeIds($ls),
+            'custom' => staffUsesCustomTypes($ls),
+            'saved' => $ls['parent_saved_at'] ?? null,
+            'staff' => $ls,
+        ];
+    }
+}
+
 $gaps = [];
 $addGap = static function (array $person, int $tid, string $whoLabel) use (&$gaps, $types): void {
     $t = $types[$tid] ?? null;
@@ -1061,6 +1081,8 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
       <?= parentChecksHtml('field', parentTypeChoices('field'), $parentForm['field']) ?>
       <div class="line">Keepers</div>
       <?= parentChecksHtml('keeper', parentTypeChoices('keeper'), $parentForm['keeper']) ?>
+      <div class="line">Staf</div>
+      <?= parentChecksHtml('staff', parentTypeChoices('staff'), $parentForm['staff']) ?>
       <label class="hint" for="parentNote">Tekst bovenaan het ouderformulier (optioneel)</label>
       <textarea class="note-input" id="parentNote" maxlength="280" placeholder="Bijvoorbeeld: alleen de nieuwe set voor 26/27, geen polo."><?= h($parentForm['note']) ?></textarea>
     </div>
@@ -1097,6 +1119,45 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
                 <a class="btn" href="<?= h($pl['wa']) ?>" target="_blank" rel="noopener">WhatsApp</a>
                 <a class="btn" href="<?= h($pl['url']) ?>" target="_blank" rel="noopener">Bekijk</a>
                 <button type="button" class="btn parent-rotate" data-id="<?= (int) $pid ?>">Nieuwe link</button>
+              </div>
+            </td>
+          </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="margin-top:22px">Staflinks</h3>
+    <p class="sub">Zelfde soort link, zonder rugnummer. Standaard polo en zip; pas hieronder per persoon aan.</p>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th class="name">Staf</th>
+            <th>Status</th>
+            <th class="name">Ziet</th>
+            <th>Link</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($staffLinks as $sid => $sl):
+              $savedAt = $sl['saved'] ? date('d-m H:i', strtotime((string) $sl['saved'])) : '';
+          ?>
+          <tr<?= $savedAt !== '' ? ' class="parent-done"' : '' ?>>
+            <td class="name"><?= h($sl['name']) ?><div class="tiny"><?= h($sl['role']) ?><?= $sl['custom'] ? ' · aangepast' : '' ?></div></td>
+            <td class="<?= $savedAt !== '' ? 'ok' : 'no' ?>"><?= $savedAt !== '' ? 'ingevuld '.$savedAt : 'nog niet' ?></td>
+            <td class="left">
+              <?= parentChecksHtml('staff-one', parentTypeChoices('staff'), $sl['types'], (int) $sid, $parentForm['staff']) ?>
+              <?php if ($sl['custom']): ?>
+                <button type="button" class="btn parent-reset" data-id="<?= (int) $sid ?>" data-who="staff">Standaard</button>
+              <?php endif; ?>
+            </td>
+            <td class="left">
+              <div class="actions" style="margin:0">
+                <button type="button" class="btn dark parent-copy" data-url="<?= h($sl['url']) ?>">Kopiëren</button>
+                <a class="btn" href="<?= h($sl['wa']) ?>" target="_blank" rel="noopener">WhatsApp</a>
+                <a class="btn" href="<?= h($sl['url']) ?>" target="_blank" rel="noopener">Bekijk</a>
+                <button type="button" class="btn parent-rotate" data-id="<?= (int) $sid ?>" data-who="staff">Nieuwe link</button>
               </div>
             </td>
           </tr>
@@ -1265,7 +1326,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <div class="section" id="staf">
     <h3>Staf</h3>
-    <p class="sub">Polo en quarter zip uit de 13-2 administratie.<?= $canEdit ? ' Vul ontbrekende maten in en sla op.' : '' ?></p>
+    <p class="sub">Polo en quarter zip.<?= $canEdit ? ' Stuur een link zodat ze zelf hun maten invullen, of vul hier in.' : '' ?></p>
     <div class="cards">
       <?php foreach ($staff as $s): ?>
       <article class="card" id="card-s-<?= (int) $s['id'] ?>">
@@ -1315,6 +1376,10 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             <div class="actions">
               <button type="button" class="btn dark save-one" data-who="staff" data-id="<?= (int) $s['id'] ?>">Opslaan</button>
               <button type="button" class="btn save-one" data-who="staff" data-id="<?= (int) $s['id'] ?>" data-mode="active">In bezit</button>
+              <?php if (isset($staffLinks[(int) $s['id']])): $sl = $staffLinks[(int) $s['id']]; ?>
+              <button type="button" class="btn parent-copy" data-url="<?= h($sl['url']) ?>">Link staf</button>
+              <a class="btn" href="<?= h($sl['wa']) ?>" target="_blank" rel="noopener">WhatsApp</a>
+              <?php endif; ?>
             </div>
           <?php endif; ?>
         </div>
@@ -1827,8 +1892,8 @@ document.querySelectorAll('.parent-copy').forEach(btn=>{
 });
 document.querySelectorAll('.parent-rotate').forEach(btn=>{
   btn.addEventListener('click', async ()=>{
-    if(!confirm('De oude ouderlink stopt dan met werken. Nieuwe link maken?')) return;
-    const out=await api({action:'parent_rotate', csrf:TEAM.csrf, id:+btn.dataset.id});
+    if(!confirm('De oude link stopt dan met werken. Nieuwe link maken?')) return;
+    const out=await api({action:'parent_rotate', csrf:TEAM.csrf, id:+btn.dataset.id, who:btn.dataset.who||'player'});
     if(!out.ok){ toast(out.error||'Mislukt'); return; }
     if(await copyText(out.url||'')) toast('Nieuwe link gekopieerd');
     location.reload();
@@ -1843,14 +1908,17 @@ function typesKey(list){
 async function saveParentDefaults(){
   const fieldEl=document.querySelector('[data-parent-scope="field"]');
   const keeperEl=document.querySelector('[data-parent-scope="keeper"]');
+  const staffEl=document.querySelector('[data-parent-scope="staff"]');
   if(!fieldEl||!keeperEl) return;
   const field=checkedTypes(fieldEl);
   const keeper=checkedTypes(keeperEl);
+  const staff=staffEl ? checkedTypes(staffEl) : [];
   if(field.length<1||keeper.length<1){ toast('Kies minstens één item'); return; }
+  if(staffEl && staff.length<1){ toast('Kies minstens één staf-item'); return; }
   const note=document.getElementById('parentNote')?.value||'';
-  const out=await api({action:'parent_form', csrf:TEAM.csrf, scope:'defaults', field, keeper, note});
+  const out=await api({action:'parent_form', csrf:TEAM.csrf, scope:'defaults', field, keeper, staff, note});
   if(!out.ok){ toast(out.error||'Mislukt'); return; }
-  toast('Ouderformulier opgeslagen');
+  toast('Formulier opgeslagen');
 }
 document.getElementById('parentDefaults')?.addEventListener('change', e=>{
   if(e.target.id==='parentNote') return;
@@ -1872,9 +1940,21 @@ document.querySelectorAll('[data-parent-scope="player"]').forEach(box=>{
     toast(out.custom ? 'Aangepast voor deze speler' : 'Standaard voor deze speler');
   });
 });
+document.querySelectorAll('[data-parent-scope="staff-one"]').forEach(box=>{
+  box.addEventListener('change', async ()=>{
+    const types=checkedTypes(box);
+    if(types.length<1){ toast('Kies minstens één item'); return; }
+    const def=(box.dataset.default||'').split(',').filter(Boolean).map(Number);
+    const reset=typesKey(types)===typesKey(def);
+    const out=await api({action:'parent_form', csrf:TEAM.csrf, scope:'staff', id:+box.dataset.id, types, reset:reset});
+    if(!out.ok){ toast(out.error||'Mislukt'); return; }
+    toast(out.custom ? 'Aangepast voor deze staf' : 'Standaard voor deze staf');
+  });
+});
 document.querySelectorAll('.parent-reset').forEach(btn=>{
   btn.addEventListener('click', async ()=>{
-    const out=await api({action:'parent_form', csrf:TEAM.csrf, scope:'player', id:+btn.dataset.id, reset:true});
+    const who=btn.dataset.who||'player';
+    const out=await api({action:'parent_form', csrf:TEAM.csrf, scope:who, id:+btn.dataset.id, reset:true});
     if(!out.ok){ toast(out.error||'Mislukt'); return; }
     location.reload();
   });

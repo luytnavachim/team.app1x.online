@@ -6,30 +6,43 @@ require __DIR__ . '/boot.php';
 header('Referrer-Policy: no-referrer');
 
 $token = strtolower(trim((string) ($_GET['t'] ?? '')));
-$player = findPlayerByParentToken($mysqli, $token);
-if (!$player) {
+$found = findFillPersonByToken($mysqli, $token);
+$who = (string) ($found['who'] ?? '');
+$person = $found['person'] ?? null;
+if (!$person) {
     http_response_code(404);
 }
 
 $types = loadTypes($mysqli);
 $formSettings = loadParentFormSettings();
-$need = $player ? parentAllowedTypeIds($player) : [];
-$typeOrder = $need;
+$typeOrder = [];
+if ($person && $who === 'player') {
+    $typeOrder = parentAllowedTypeIds($person);
+} elseif ($person && $who === 'staff') {
+    $typeOrder = staffAllowedTypeIds($person);
+}
 
-if ($player) {
-    $player['items'] = [];
-    $st = $mysqli->prepare('SELECT * FROM player_clothing WHERE player_id=?');
-    $pid = (int) $player['id'];
+if ($person) {
+    $person['items'] = [];
+    if ($who === 'staff') {
+        $st = $mysqli->prepare('SELECT * FROM staff_clothing WHERE staff_member_id=?');
+    } else {
+        $st = $mysqli->prepare('SELECT * FROM player_clothing WHERE player_id=?');
+    }
+    $pid = (int) $person['id'];
     $st->bind_param('i', $pid);
     $st->execute();
     $res = $st->get_result();
     while ($row = $res->fetch_assoc()) {
-        $player['items'][(int) $row['clothing_type_id']][] = $row;
+        $person['items'][(int) $row['clothing_type_id']][] = $row;
     }
 }
 
-$name = $player ? fullName($player) : '';
-$ini = $player ? playerInitials($player) : '';
+$player = $who === 'player' ? $person : null;
+$name = $person ? fullName($person) : '';
+$ini = $person ? playerInitials($person) : '';
+$isStaff = $who === 'staff';
+$roleLabel = $isStaff ? trim((string) ($person['role'] ?? 'staf')) : '';
 $posLabel = [
     'attacker' => 'aanval',
     'midfielder' => 'middenveld',
@@ -42,7 +55,7 @@ $posLabel = [
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title><?= $player ? 'Maten · ' . h($name) : 'Link ongeldig' ?> · Kitroom</title>
+<title><?= $person ? 'Maten · ' . h($name) : 'Link ongeldig' ?> · Kitroom</title>
 <meta name="theme-color" content="#090A0C">
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
@@ -168,14 +181,18 @@ body{
     </div>
   </header>
 
-  <?php if (!$player): ?>
+  <?php if (!$person): ?>
     <div class="section">
       <h2>Link ongeldig</h2>
-      <p class="sub">Deze ouderlink werkt niet meer. Vraag de trainer of manager om een nieuwe link.</p>
+      <p class="sub">Deze link werkt niet meer. Vraag de trainer of manager om een nieuwe link.</p>
     </div>
   <?php else: ?>
     <p class="note">
+      <?php if ($isStaff): ?>
+      Vul bij <b><?= h($name) ?></b><?= $ini !== '' ? ' <b>(' . h($ini) . ')</b>' : '' ?> <b>elk item</b> in. Krijg je het: kies de maat. Krijg je het niet: kies <b>n.v.t.</b> Polo, zip en jacks: 164, S, M, L, XL of XXL.<?= $ini !== '' ? ' Initialen op de kleding: <b>' . h($ini) . '</b>.' : '' ?>
+      <?php else: ?>
       Vul bij <b><?= h($name) ?></b><?= $ini !== '' ? ' <b>(' . h($ini) . ')</b>' : '' ?> <b>elk item</b> in, of hij het nu wel of niet krijgt. Krijgt hij het: kies de maat. Krijgt hij het niet: kies <b>n.v.t.</b> Shirt, broek en jacks: 164, S, M, L, XL of XXL. Sokken: 36-40 of 41-44. Kies ook een <b>rugnummer</b> en druk op opslaan. Een nummer dat al door een andere speler is gekozen, kun je niet meer kiezen.<?= $ini !== '' ? ' Initialen op de kleding: <b>' . h($ini) . '</b>.' : '' ?>
+      <?php endif; ?>
       <?php if ($formSettings['note'] !== ''): ?> <?= h($formSettings['note']) ?><?php endif; ?>
     </p>
     <div class="packshot-wrap">
@@ -190,23 +207,25 @@ body{
     <?php else: ?>
     <div class="section">
       <h2><?= h($name) ?><?php if ($ini !== ''): ?> <span class="ini"><?= h($ini) ?></span><?php endif; ?></h2>
-      <p class="sub"><?= h($posLabel[$player['position'] ?? ''] ?? 'speler') ?><?= normalizeJerseyNumber($player['jersey_number'] ?? '') ? ' · #' . h((string) normalizeJerseyNumber($player['jersey_number'])) : '' ?><?= $ini !== '' ? ' · initialen ' . h($ini) : '' ?></p>
+      <p class="sub"><?php if ($isStaff): ?><?= h($roleLabel !== '' ? $roleLabel : 'staf') ?><?php else: ?><?= h($posLabel[$person['position'] ?? ''] ?? 'speler') ?><?= normalizeJerseyNumber($person['jersey_number'] ?? '') ? ' · #' . h((string) normalizeJerseyNumber($person['jersey_number'])) : '' ?><?php endif; ?><?= $ini !== '' ? ' · initialen ' . h($ini) : '' ?></p>
       <form id="parentForm">
         <div class="kit">
+          <?php if (!$isStaff): ?>
           <div class="row wait">
             <span>Rugnummer <small style="font-weight:600;opacity:.8">(uniek)</small></span>
-            <?= jerseySelectHtml($mysqli, $player, ['id' => 'jerseySelect', 'required' => true, 'class' => 'size-select']) ?>
+            <?= jerseySelectHtml($mysqli, $person, ['id' => 'jerseySelect', 'required' => true, 'class' => 'size-select']) ?>
           </div>
+          <?php endif; ?>
           <?php foreach ($typeOrder as $tid):
             if (!isset($types[$tid])) continue;
             $t = $types[$tid];
-            $it = itemFor($player, $tid);
+            $it = itemFor($person, $tid);
             $pending = isPendingItem($it);
             $cls = $it ? ($pending ? 'wait' : 'ok') : 'no';
           ?>
           <div class="row <?= $cls ?>">
             <span><?= h($t['display_name']) ?><?= $pending ? ' · bestellen' : '' ?></span>
-            <?= sizeSelect($tid, (string) ($it['size'] ?? ''), 'player', (int) $player['id'], false, true) ?>
+            <?= sizeSelect($tid, (string) ($it['size'] ?? ''), $who, (int) $person['id'], false, true) ?>
           </div>
           <?php endforeach; ?>
         </div>
@@ -240,8 +259,8 @@ body{
   });
   apply(theme());
 })();
-<?php if ($player): ?>
-const PARENT = { csrf: <?= json_encode($csrf) ?>, token: <?= json_encode($token) ?> };
+<?php if ($person): ?>
+const PARENT = { csrf: <?= json_encode($csrf) ?>, token: <?= json_encode($token) ?>, staff: <?= $isStaff ? 'true' : 'false' ?> };
 function toast(msg){
   const el=document.getElementById('toast');
   el.textContent=msg;
@@ -263,7 +282,7 @@ document.getElementById('parentForm')?.addEventListener('submit', async e=>{
   const btn=document.getElementById('saveBtn');
   err.textContent='';
   const jersey=document.getElementById('jerseySelect')?.value || '';
-  if(!jersey){ err.textContent='Kies een rugnummer.'; return; }
+  if(!PARENT.staff && !jersey){ err.textContent='Kies een rugnummer.'; return; }
   const items={};
   document.querySelectorAll('.size-select[data-tid]').forEach(s=>{ items[s.dataset.tid]=s.value; });
   btn.disabled=true;

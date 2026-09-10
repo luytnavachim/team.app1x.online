@@ -1478,6 +1478,92 @@ function isPrintCatalogType(array $t): bool {
         || typePrints($t, 'print_staff_text');
 }
 
+function printKindKeys(): array {
+    return ['rohda', 'initials', 'sponsor', 'sponsor_back', 'sponsor_padded', 'sponsor_jacket', 'sponsor_bag', 'name_back', 'staff_text'];
+}
+
+/** @return array<string, string> */
+function printKindLabels(): array {
+    return [
+        'rohda' => 'Rohda-logo',
+        'initials' => 'Initialen',
+        'sponsor' => 'Sponsor shirts voorkant',
+        'sponsor_back' => 'Sponsor shirts achterkant',
+        'sponsor_padded' => 'Sponsorlogo',
+        'sponsor_jacket' => 'Sponsor field jack',
+        'sponsor_bag' => 'Sponsor tas',
+        'name_back' => 'Nummer achterop',
+        'staff_text' => 'Tekst staf',
+    ];
+}
+
+/**
+ * Stukprijs van alle prints die op dit artikel staan (1 jas / 1 shirt).
+ *
+ * @param array<string, mixed> $shop
+ * @param array<string, ?float> $printPrices
+ * @return array{unit:float,parts:list<array{key:string,label:string,unit:float}>,missing:list<string>}
+ */
+function shopPiecePrintUnit(array $shop, array $printPrices): array {
+    $parts = [];
+    $missing = [];
+    $sum = 0.0;
+    foreach (printKindLabels() as $key => $label) {
+        if ((int) ($shop[$key] ?? 0) < 1) {
+            continue;
+        }
+        $unit = $printPrices[$key] ?? null;
+        if ($unit === null) {
+            $missing[] = $label;
+            continue;
+        }
+        $unit = round((float) $unit, 2);
+        $parts[] = ['key' => $key, 'label' => $label, 'unit' => $unit];
+        $sum += $unit;
+    }
+    return [
+        'unit' => round($sum, 2),
+        'parts' => $parts,
+        'missing' => $missing,
+    ];
+}
+
+/**
+ * Kleding + bedrukking voor één shopkaart.
+ *
+ * @param array<string, mixed> $shop
+ * @param array<string, ?float> $printPrices
+ * @return array{garment:float,print:float,total:float,print_missing:int,piece_print:float,print_parts:list<array{key:string,label:string,unit:float}>,print_missing_labels:list<string>}
+ */
+function shopTypeCostBreakdown(array $shop, array $printPrices): array {
+    $garment = round((float) ($shop['cost'] ?? 0), 2);
+    $print = 0.0;
+    $missing = 0;
+    foreach (printKindKeys() as $key) {
+        $n = (int) ($shop[$key] ?? 0);
+        if ($n < 1) {
+            continue;
+        }
+        $unit = $printPrices[$key] ?? null;
+        if ($unit === null) {
+            $missing += $n;
+            continue;
+        }
+        $print += $unit * $n;
+    }
+    $print = round($print, 2);
+    $piece = shopPiecePrintUnit($shop, $printPrices);
+    return [
+        'garment' => $garment,
+        'print' => $print,
+        'total' => round($garment + $print, 2),
+        'print_missing' => $missing,
+        'piece_print' => $piece['unit'],
+        'print_parts' => $piece['parts'],
+        'print_missing_labels' => $piece['missing'],
+    ];
+}
+
 /** Stukprijs per bedrukking uit de catalogus. */
 function catalogPrintPrices(array $types): array {
     $map = [

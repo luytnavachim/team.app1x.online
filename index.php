@@ -327,7 +327,7 @@ $orderTotal = $orderCost + $printCost;
 
 // Overzicht voor de drukker: per product maten + bedrukking-aantallen
 $sizeRank = static function (string $size): array {
-    $order = ['140', '152', '164', 'S', 'M', 'L', 'XL', 'XXL', '31-35', '36-40', '41-44', '45-47', 'één maat', 'maat onbekend', 'onbekend'];
+    $order = ['116', '128', '140', '152', '164', 'S', 'M', 'L', 'XL', 'XXL', '2XL', 'XXXL', '3XL', 'JR', 'SR', '25/29', '30/35', '36/40', '41/44', '45/48', '31-35', '36-40', '41-44', '45-47', 'één maat', 'maat onbekend', 'onbekend'];
     $i = array_search($size, $order, true);
     return [$i === false ? 999 : $i, $size];
 };
@@ -1426,7 +1426,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <details class="section fold" id="catalogus" open>
     <summary class="fold-head"><h3>Catalogus · Stanno</h3></summary>
-    <p class="sub">Artikelnummers en prijzen. <?= $canEdit ? 'Pas een regel aan of verwijder hem. Nieuw artikel onderaan.' : '' ?></p>
+    <p class="sub">Artikelnummers, prijzen en maten zoals Stanno die voert. <?= $canEdit ? 'Pas een regel aan of verwijder hem. Nieuw artikel onderaan.' : '' ?></p>
     <?php if ($canEdit): ?>
     <details class="shop-more" id="packageDefaults">
       <summary>Pakket-sjabloon</summary>
@@ -1474,9 +1474,11 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               <div class="cat-name">
                 <input class="cat-input" data-tid="<?= $tid ?>" data-field="display_name" value="<?= h((string) $t['display_name']) ?>" aria-label="Naam">
                 <input class="cat-input" data-tid="<?= $tid ?>" data-field="print_place" value="<?= h((string) ($t['print_place'] ?? '')) ?>" placeholder="Plaats bedrukking…">
+                <input class="cat-input" data-tid="<?= $tid ?>" data-field="sizes" value="<?= h(formatSizeList(sizeOptions($tid))) ?>" placeholder="Maten, kommagescheiden" aria-label="Maten">
               </div>
               <?php else: ?>
               <?= h($t['display_name']) ?><?php if (!empty($t['print_place'])): ?><div class="place"><?= h((string) $t['print_place']) ?></div><?php endif; ?>
+              <div class="place"><?= h(formatSizeList(sizeOptions($tid))) ?></div>
               <?php endif; ?>
             </td>
             <td><?php if ($canEdit): ?><input class="cat-input" data-tid="<?= $tid ?>" data-field="article_number" value="<?= h((string) $t['article_number']) ?>"><?php else: ?><?= h((string) $t['article_number']) ?><?php endif; ?></td>
@@ -1522,9 +1524,10 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         <label>Merk <input class="cat-input" id="newBrand" value="Stanno"></label>
         <label>164 / JR <input class="cat-input" id="newSmall" inputmode="decimal" placeholder="35,50"></label>
         <label>S–XL / SR <input class="cat-input" id="newLarge" inputmode="decimal" placeholder="37,50"></label>
-        <label>Maten
+        <label>Maten <input class="cat-input" id="newSizes" placeholder="leeg = Stanno-maten van het artikelnummer"></label>
+        <label>Maatgroep
           <select class="cat-input" id="newKind">
-            <option value="body">164–XXL</option>
+            <option value="body">Shirt / jas</option>
             <option value="socks">Sokken</option>
             <option value="onesize">Eén maat</option>
           </select>
@@ -1903,7 +1906,8 @@ document.addEventListener('change', e=>{
   if(!sel || sel.dataset.jersey) return;
   const tid=sel.dataset.tid, who=sel.dataset.who, id=sel.dataset.id;
   document.querySelectorAll(`.size-select[data-who="${who}"][data-id="${id}"][data-copy-from="${tid}"]`).forEach(t=>{
-    if(!t.value) t.value=sel.value;
+    const val=sel.value;
+    if(!t.value && [...t.options].some(o=>o.value===val)) t.value=val;
     const row=t.closest('.kit-row');
     const want=row?.querySelector('.want-check');
     if(want && !want.checked && sel.value){ want.checked=true; row.classList.remove('off'); }
@@ -2154,6 +2158,7 @@ document.getElementById('addTypeBtn')?.addEventListener('click', async ()=>{
     price_small: document.getElementById('newSmall')?.value||'',
     price_large: document.getElementById('newLarge')?.value||'',
     size_kind: document.getElementById('newKind')?.value||'body',
+    sizes: document.getElementById('newSizes')?.value||'',
     order_group: document.getElementById('newGroup')?.value||'extra',
     print_place: document.getElementById('newPlace')?.value||''
   }, prints));

@@ -410,7 +410,7 @@ function typeSizeKind(array $t): string {
     }
     $id = (int) ($t['id'] ?? 0);
     return match ($id) {
-        3, 7, 10 => 'socks',
+        3, 7, 10, 24 => 'socks',
         15 => 'onesize',
         default => 'body',
     };
@@ -440,21 +440,115 @@ function sizeOptionsForKind(string $kind): array {
 }
 
 function bodySizes(): array {
-    return ['164', 'S', 'M', 'L', 'XL', 'XXL'];
+    return ['116', '128', '140', '152', '164', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
 }
 
 function sockSizes(): array {
-    return ['31-35', '36-40', '41-44', '45-47'];
+    return ['25/29', '30/35', '36/40', '41/44', '45/48'];
+}
+
+function stannoSizeChart(): array {
+    $jr3xl = ['116', '128', '140', '152', '164', 'S', 'M', 'L', 'XL', '2XL', '3XL'];
+    $jr2xl = ['116', '128', '140', '152', '164', 'S', 'M', 'L', 'XL', '2XL'];
+    $socks = ['25/29', '30/35', '36/40', '41/44', '45/48'];
+    return [
+        '410014' => $jr3xl,
+        '420004' => $jr3xl,
+        '408038' => $jr3xl,
+        '463003' => ['116', '128', '140', '152', '164', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'],
+        '454002' => $jr2xl,
+        '456004' => ['128', '140', '152', '164', 'S', 'M', 'L', 'XL', '2XL', '3XL'],
+        '415007' => ['128', '140', '152', '164', 'S', 'M', 'L', 'XL', '2XL'],
+        '425105' => $jr2xl,
+        '440001' => $socks,
+        '440125' => $socks,
+        '444007' => ['36/40', '41/44', '45/48'],
+        '444004' => ['JR', 'SR'],
+        '484837' => ['één maat'],
+        '484838' => ['één maat'],
+    ];
+}
+
+function articleSizeKey(string $article): string {
+    $article = trim($article);
+    if (preg_match('/^(\d{6})/', $article, $m)) {
+        return $m[1];
+    }
+    return $article;
+}
+
+function stannoSizesForArticle(string $article): array {
+    $key = articleSizeKey($article);
+    return stannoSizeChart()[$key] ?? [];
+}
+
+function parseSizeList(mixed $raw): array {
+    if (is_array($raw)) {
+        $parts = $raw;
+    } else {
+        $parts = preg_split('/\s*,\s*/', str_replace(['·', ';', '|'], ',', trim((string) $raw))) ?: [];
+    }
+    $out = [];
+    foreach ($parts as $part) {
+        $size = normalizeSizeLabel((string) $part);
+        if ($size !== '' && !in_array($size, $out, true)) {
+            $out[] = $size;
+        }
+    }
+    return $out;
+}
+
+function formatSizeList(array $sizes): string {
+    return implode(', ', $sizes);
+}
+
+function normalizeSizeLabel(string $size): string {
+    $size = trim($size);
+    if ($size === '') {
+        return '';
+    }
+    $compact = mb_strtolower(str_replace([' ', '–', '—'], ['', '-', '-'], $size), 'UTF-8');
+    $map = [
+        '36-40' => '36/40', '36/40' => '36/40',
+        '41-44' => '41/44', '41/44' => '41/44',
+        '45-47' => '45/48', '45-48' => '45/48', '45/47' => '45/48', '45/48' => '45/48',
+        '31-35' => '30/35', '30-35' => '30/35', '30/35' => '30/35', '31/35' => '30/35',
+        '25-29' => '25/29', '25/29' => '25/29',
+        '2xl' => '2XL', 'xxl' => 'XXL',
+        '3xl' => '3XL', 'xxxl' => 'XXXL',
+        'eenmaat' => 'één maat', 'éénmaat' => 'één maat', 'onesize' => 'één maat',
+        'jr' => 'JR', 'sr' => 'SR',
+    ];
+    if (isset($map[$compact])) {
+        return $map[$compact];
+    }
+    if (preg_match('/^(116|128|140|152|164)$/', $size)) {
+        return $size;
+    }
+    $up = strtoupper($size);
+    if (in_array($up, ['S', 'M', 'L', 'XL', 'XXL', 'XXXL', '2XL', '3XL', 'JR', 'SR'], true)) {
+        return $up;
+    }
+    return $size;
 }
 
 function sizeOptions(int $tid): array {
     $types = rememberTypes();
     if (isset($types[$tid])) {
+        $list = parseSizeList((string) ($types[$tid]['sizes'] ?? ''));
+        if ($list !== []) {
+            return $list;
+        }
+        $fromArt = stannoSizesForArticle((string) ($types[$tid]['article_number'] ?? ''));
+        if ($fromArt !== []) {
+            return $fromArt;
+        }
         return sizeOptionsForKind(typeSizeKind($types[$tid]));
     }
     return match ($tid) {
         3, 7, 10 => sockSizes(),
         15 => ['één maat'],
+        24 => ['JR', 'SR'],
         default => bodySizes(),
     };
 }
@@ -473,7 +567,7 @@ function isYouthPriceSize(string $size): bool {
     if ($size === '') {
         return true;
     }
-    $small = ['XS', 'XXS', 'XXXS', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '140', '152', '164', '36-40', '31-35'];
+    $small = ['XS', 'XXS', 'XXXS', '32', '33', '34', '35', '36', '37', '38', '39', '40', '41', '42', '116', '128', '140', '152', '164', 'JR', '25/29', '30/35', '36/40', '25-29', '30-35', '31-35', '36-40'];
     return in_array($size, $small, true) || (bool) preg_match('/^(1[2-6]4|140|152|176)$/', $size);
 }
 
@@ -503,6 +597,7 @@ function ensureTypeMetaColumns(mysqli $db): void {
     $cols = [
         'size_kind' => "VARCHAR(20) NOT NULL DEFAULT 'body'",
         'order_group' => "VARCHAR(20) NOT NULL DEFAULT 'extra'",
+        'sizes' => 'VARCHAR(255) NULL DEFAULT NULL',
     ];
     foreach ($cols as $name => $ddl) {
         $r = $db->query("SHOW COLUMNS FROM clothing_types LIKE '{$name}'");
@@ -585,6 +680,83 @@ function seedTypePrintDefaults(mysqli $db): void {
         $st->bind_param('iiiisi', $r[0], $r[1], $r[2], $r[3], $r[4], $id);
         $st->execute();
     }
+}
+
+function seedStannoTypeSizes(mysqli $db): void {
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    $r = $db->query("SHOW COLUMNS FROM clothing_types LIKE 'sizes'");
+    if (!$r || $r->num_rows === 0) {
+        return;
+    }
+    $res = $db->query('SELECT id, article_number, sizes, size_kind FROM clothing_types');
+    if (!$res) {
+        return;
+    }
+    $upd = $db->prepare('UPDATE clothing_types SET sizes=?, size_kind=? WHERE id=?');
+    while ($row = $res->fetch_assoc()) {
+        $id = (int) ($row['id'] ?? 0);
+        if ($id < 1) {
+            continue;
+        }
+        $current = parseSizeList((string) ($row['sizes'] ?? ''));
+        $fromArt = stannoSizesForArticle((string) ($row['article_number'] ?? ''));
+        $sizes = $current !== [] ? $current : $fromArt;
+        if ($sizes === []) {
+            $sizes = sizeOptionsForKind((string) ($row['size_kind'] ?? 'body'));
+        }
+        $kind = (string) ($row['size_kind'] ?? 'body');
+        if ($sizes === ['één maat']) {
+            $kind = 'onesize';
+        } elseif ($sizes === ['JR', 'SR'] || preg_match('/^\d+\/\d+$/', $sizes[0] ?? '')) {
+            $kind = 'socks';
+        } elseif (in_array($kind, ['body', 'socks', 'onesize'], true) === false) {
+            $kind = 'body';
+        } elseif ($fromArt !== [] && $kind === 'onesize' && $sizes !== ['één maat']) {
+            $kind = ($sizes === ['JR', 'SR'] || preg_match('/^\d+\/\d+$/', $sizes[0] ?? '')) ? 'socks' : 'body';
+        }
+        $sizesStr = formatSizeList($sizes);
+        if ($sizesStr === (string) ($row['sizes'] ?? '') && $kind === (string) ($row['size_kind'] ?? '')) {
+            continue;
+        }
+        $upd->bind_param('ssi', $sizesStr, $kind, $id);
+        $upd->execute();
+    }
+}
+
+function migrateAssignedSizeAliases(mysqli $db): void {
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    $map = [
+        '36-40' => '36/40',
+        '41-44' => '41/44',
+        '45-47' => '45/48',
+        '45-48' => '45/48',
+        '31-35' => '30/35',
+        '30-35' => '30/35',
+        '25-29' => '25/29',
+    ];
+    foreach (['player_clothing', 'staff_clothing'] as $table) {
+        foreach ($map as $from => $to) {
+            $st = $db->prepare("UPDATE {$table} SET size=?, updated_at=NOW() WHERE size=?");
+            $st->bind_param('ss', $to, $from);
+            $st->execute();
+        }
+    }
+    $youth = "'116','128','140','152','164'";
+    $db->query("UPDATE player_clothing pc
+        LEFT JOIN player_clothing sh ON sh.player_id=pc.player_id AND sh.clothing_type_id=1
+        SET pc.size=IF(sh.size IN ({$youth}), 'JR', 'SR'), pc.updated_at=NOW()
+        WHERE pc.clothing_type_id=24 AND pc.size IN ('één maat','een maat','onesize')");
+    $db->query("UPDATE staff_clothing sc
+        SET sc.size='SR', sc.updated_at=NOW()
+        WHERE sc.clothing_type_id=24 AND sc.size IN ('één maat','een maat','onesize')");
 }
 
 function seedPriceIfEmpty(mysqli $db, int $id, float $small, float $large): void {
@@ -1618,13 +1790,20 @@ function assignPackageToPerson(
             continue;
         }
         $kind = typeSizeKind($types[$tid]);
-        $opts = sizeOptionsForKind($kind);
-        if ($kind === 'onesize') {
+        $opts = sizeOptions($tid);
+        if ($opts === ['één maat'] || ($kind === 'onesize' && count($opts) === 1)) {
             $size = $opts[0] ?? 'één maat';
-        } elseif ($kind === 'socks') {
-            $size = in_array($socks, $opts, true) ? $socks : '';
+        } elseif (in_array('JR', $opts, true) && in_array('SR', $opts, true)) {
+            $size = isYouthPriceSize($body) ? 'JR' : 'SR';
+            if (!in_array($size, $opts, true)) {
+                $size = '';
+            }
+        } elseif ($kind === 'socks' || preg_match('/^\d+\/\d+$/', $opts[0] ?? '')) {
+            $mapped = normalizeSizeLabel($socks);
+            $size = in_array($mapped, $opts, true) ? $mapped : (in_array($socks, $opts, true) ? $socks : '');
         } else {
-            $size = in_array($body, $opts, true) ? $body : '';
+            $mapped = normalizeSizeLabel($body);
+            $size = in_array($mapped, $opts, true) ? $mapped : (in_array($body, $opts, true) ? $body : '');
         }
         if ($size === '' || $size === 'onbekend') {
             $skipped[] = shortTypeName($tid, $types);
@@ -2044,7 +2223,7 @@ function sendXlsxDownload(string $filename, array $rows): void {
 }
 
 function kitSizeRank(string $size): array {
-    $order = ['140', '152', '164', 'S', 'M', 'L', 'XL', 'XXL', '31-35', '36-40', '41-44', '45-47', 'één maat', 'maat onbekend', 'onbekend'];
+    $order = ['116', '128', '140', '152', '164', 'S', 'M', 'L', 'XL', 'XXL', '2XL', 'XXXL', '3XL', 'JR', 'SR', '25/29', '30/35', '36/40', '41/44', '45/48', '31-35', '36-40', '41-44', '45-47', 'één maat', 'maat onbekend', 'onbekend'];
     $i = array_search($size, $order, true);
     return [$i === false ? 999 : $i, $size];
 }
@@ -2204,6 +2383,8 @@ ensureParentSavedAtColumn($mysqli);
 ensureStaffFillColumns($mysqli);
 ensurePackageTypes($mysqli);
 ensureStaffShirtType($mysqli);
+seedStannoTypeSizes($mysqli);
+migrateAssignedSizeAliases($mysqli);
 startTeamSession();
 $canEdit = canEdit();
 $csrf = csrfToken();

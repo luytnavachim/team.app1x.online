@@ -302,7 +302,9 @@ if ($action === 'save_type') {
         : (string) ($types[$id]['print_place'] ?? '');
     $upd = $mysqli->prepare("UPDATE clothing_types SET display_name=?, article_number=?, color=?, brand=?, price_small=NULLIF(?, ''), price_large=NULLIF(?, ''), price=NULLIF(?, ''), size_kind=?, order_group=?, print_rohda=?, print_initials=?, print_sponsor=?, print_name_back=?, print_place=?, updated_at=NOW() WHERE id=?");
     $upd->bind_param('sssssssssiiiisi', $display, $article, $color, $brand, $smallS, $largeS, $stdS, $sizeKind, $orderGroup, $printRohda, $printIni, $printSp, $printName, $printPlace, $id);
-    $upd->execute();
+    if (!$upd->execute()) {
+        jsonOut(['ok' => false, 'error' => 'Kon artikel niet opslaan.'], 400);
+    }
     jsonOut([
         'ok' => true,
         'saved' => 1,

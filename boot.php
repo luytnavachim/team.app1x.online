@@ -541,10 +541,11 @@ function ensureTypeMetaColumns(mysqli $db): void {
     }
 }
 
-function ensureTypePrintColumns(mysqli $db): void {
+function ensureTypePrintColumns(mysqli $db): bool {
     static $done = false;
+    static $added = false;
     if ($done) {
-        return;
+        return $added;
     }
     $done = true;
     $cols = [
@@ -560,7 +561,9 @@ function ensureTypePrintColumns(mysqli $db): void {
             continue;
         }
         $db->query("ALTER TABLE clothing_types ADD COLUMN {$name} {$ddl}");
+        $added = true;
     }
+    return $added;
 }
 
 function seedTypePrintDefaults(mysqli $db): void {
@@ -607,7 +610,7 @@ function ensurePackageTypes(mysqli $db): void {
         return;
     }
     $done = true;
-    ensureTypePrintColumns($db);
+    $printColsAdded = ensureTypePrintColumns($db);
     ensureTypeMetaColumns($db);
     $rows = [
         13 => ['field_jack', 'Field Jack (regenjas)', '454002', 'Regenjack pakket 14-2', 35.50, 37.50],
@@ -641,7 +644,9 @@ function ensurePackageTypes(mysqli $db): void {
         $ins->bind_param('issssssddd', $id, $name, $display, $article, $desc, $color, $brand, $small, $large, $large);
         $ins->execute();
     }
-    seedTypePrintDefaults($db);
+    if ($printColsAdded) {
+        seedTypePrintDefaults($db);
+    }
 }
 
 function remapStaffShirtTypeIds(array $ids, int $staffShirtId): array {
@@ -691,8 +696,8 @@ function ensureStaffShirtType(mysqli $db): void {
     $found = $sel->get_result()->fetch_assoc();
     if ($found) {
         $fid = (int) $found['id'];
-        $upd = $db->prepare('UPDATE clothing_types SET name=?, display_name=?, description=?, size_kind=?, order_group=?, print_rohda=1, print_initials=1, print_sponsor=1, print_name_back=0, print_place=?, active=1, updated_at=NOW() WHERE id=?');
-        $upd->bind_param('ssssssi', $name, $display, $desc, $kind, $group, $place, $fid);
+        $upd = $db->prepare('UPDATE clothing_types SET name=?, display_name=?, description=?, size_kind=?, order_group=?, active=1, updated_at=NOW() WHERE id=?');
+        $upd->bind_param('sssssi', $name, $display, $desc, $kind, $group, $fid);
         $upd->execute();
         seedPriceIfEmpty($db, $fid, $small, $large);
         $id = $fid;

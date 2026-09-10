@@ -1478,6 +1478,42 @@ function isPrintCatalogType(array $t): bool {
         || typePrints($t, 'print_staff_text');
 }
 
+function printKindKeys(): array {
+    return ['rohda', 'initials', 'sponsor', 'sponsor_back', 'sponsor_padded', 'sponsor_jacket', 'sponsor_bag', 'name_back', 'staff_text'];
+}
+
+/**
+ * Kleding + bedrukking voor één shopkaart.
+ *
+ * @param array<string, mixed> $shop
+ * @param array<string, ?float> $printPrices
+ * @return array{garment:float,print:float,total:float,print_missing:int}
+ */
+function shopTypeCostBreakdown(array $shop, array $printPrices): array {
+    $garment = round((float) ($shop['cost'] ?? 0), 2);
+    $print = 0.0;
+    $missing = 0;
+    foreach (printKindKeys() as $key) {
+        $n = (int) ($shop[$key] ?? 0);
+        if ($n < 1) {
+            continue;
+        }
+        $unit = $printPrices[$key] ?? null;
+        if ($unit === null) {
+            $missing += $n;
+            continue;
+        }
+        $print += $unit * $n;
+    }
+    $print = round($print, 2);
+    return [
+        'garment' => $garment,
+        'print' => $print,
+        'total' => round($garment + $print, 2),
+        'print_missing' => $missing,
+    ];
+}
+
 /** Stukprijs per bedrukking uit de catalogus. */
 function catalogPrintPrices(array $types): array {
     $map = [

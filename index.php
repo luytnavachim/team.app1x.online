@@ -450,6 +450,7 @@ foreach ($shopByType as &$shopRow) {
         usort($line['numbers'], static fn($a, $b) => ((int) $a) <=> ((int) $b));
     }
     unset($line);
+    $shopRow['costs'] = shopTypeCostBreakdown($shopRow, $printPrices);
 }
 unset($shopRow);
 uksort($shopByType, static function ($a, $b) use ($types) {
@@ -909,6 +910,7 @@ tr.archived td{opacity:.55}
 .shop-card .total span{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-top:2px}
 .shop-card .total .shop-eur{color:var(--ink);font-size:13px;font-weight:800;margin-top:4px}
 .shop-card .total .shop-eur.vat-hint{color:var(--muted);font-size:11px;font-weight:700;margin-top:2px}
+.shop-card .total .shop-split{color:var(--muted);font-size:10.5px;font-weight:700;margin-top:4px;max-width:11em;margin-left:auto}
 .size-grid{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}
 .size-pill{
   display:inline-flex;align-items:baseline;gap:8px;min-width:84px;
@@ -1351,7 +1353,17 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               ?>
             </div>
           </div>
-          <div class="total"><?= (int) $shop['count'] ?><span>stuks</span><?php if ($canEdit && ($shop['cost'] ?? 0) > 0): ?><span class="shop-eur"><?= euro((float) $shop['cost']) ?></span><span class="shop-eur vat-hint"><?= euroIncl((float) $shop['cost']) ?></span><?php endif; ?></div>
+          <?php $costs = $shop['costs'] ?? shopTypeCostBreakdown($shop, $printPrices); ?>
+          <div class="total">
+            <?= (int) $shop['count'] ?><span>stuks</span>
+            <?php if ($canEdit && $costs['total'] > 0): ?>
+            <span class="shop-eur"><?= euro($costs['total']) ?></span>
+            <span class="shop-eur vat-hint"><?= euroIncl($costs['total']) ?></span>
+            <?php if ($costs['print'] > 0 || $costs['print_missing'] > 0): ?>
+            <span class="shop-split">kleding <?= euro($costs['garment']) ?><?php if ($costs['print'] > 0): ?> · print <?= euro($costs['print']) ?><?php endif; ?><?php if ($costs['print_missing'] > 0): ?> · print onvolledig<?php endif; ?></span>
+            <?php endif; ?>
+            <?php endif; ?>
+          </div>
         </div>
         <div class="size-grid">
           <?php foreach ($shop['sizes'] as $sz => $cnt): ?>

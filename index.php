@@ -256,7 +256,7 @@ foreach ($staff as $s) {
     }
 }
 $orderGroups = [];
-$orderBrand = ['rohda' => 0, 'initials' => 0, 'sponsor' => 0, 'sponsor_back' => 0, 'name_back' => 0];
+$orderBrand = ['rohda' => 0, 'initials' => 0, 'sponsor' => 0, 'sponsor_back' => 0, 'name_back' => 0, 'staff_text' => 0];
 foreach ($gaps as $g) {
     $key = $g['tid'] . '|' . ($g['size'] !== '' ? $g['size'] : 'onbekend');
     $t = $g['type'];
@@ -278,6 +278,7 @@ foreach ($gaps as $g) {
             'sponsor' => typePrints($t, 'print_sponsor'),
             'sponsor_back' => typePrints($t, 'print_sponsor_back'),
             'name_back' => typePrints($t, 'print_name_back'),
+            'staff_text' => typePrints($t, 'print_staff_text'),
         ];
     }
     $orderGroups[$key]['count']++;
@@ -298,6 +299,9 @@ foreach ($gaps as $g) {
     if ($orderGroups[$key]['name_back']) {
         $orderBrand['name_back']++;
     }
+    if ($orderGroups[$key]['staff_text']) {
+        $orderBrand['staff_text']++;
+    }
 }
 usort($orderGroups, static fn($a, $b) => [$a['tid'], $a['size']] <=> [$b['tid'], $b['size']]);
 usort($gaps, static fn($a, $b) => [$a['tid'], $a['who'], $a['size']] <=> [$b['tid'], $b['who'], $b['size']]);
@@ -317,6 +321,7 @@ $printLines = [
     'sponsor' => 'Sponsor voorkant',
     'sponsor_back' => 'Sponsor achterkant',
     'name_back' => 'Nummer achterop',
+    'staff_text' => 'Tekst staf',
 ];
 $printRows = [];
 foreach ($printLines as $key => $label) {
@@ -354,6 +359,7 @@ foreach ($orderGroups as $g) {
             'sponsor' => 0,
             'sponsor_back' => 0,
             'name_back' => 0,
+            'staff_text' => 0,
             'numbers' => [],
             'letters' => [],
             'size_lines' => [],
@@ -377,6 +383,9 @@ foreach ($orderGroups as $g) {
     }
     if ($g['name_back']) {
         $shopByType[$tid]['name_back'] += (int) $g['count'];
+    }
+    if (!empty($g['staff_text'])) {
+        $shopByType[$tid]['staff_text'] += (int) $g['count'];
     }
     if ($g['price'] !== null) {
         $shopByType[$tid]['cost'] += $g['price'] * $g['count'];
@@ -864,6 +873,7 @@ tr.archived td{opacity:.55}
 .shop-card .meta{margin:3px 0 0;font-size:12px;color:var(--muted);font-weight:600}
 .shop-card .total{font-size:22px;font-weight:800;color:var(--accent-text);line-height:1;text-align:right;flex:0 0 auto}
 .shop-card .total span{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-top:2px}
+.shop-card .total .shop-eur{color:var(--ink);font-size:13px;font-weight:800;margin-top:4px}
 .size-grid{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}
 .size-pill{
   display:inline-flex;align-items:baseline;gap:8px;min-width:84px;
@@ -1106,13 +1116,14 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               $cls = $it ? ($pending ? 'wait' : 'ok') : 'extra';
               $val = $it ? (string) $it['size'] : '—';
               $tag = $pending ? ' · bestellen' : ($owned ? ' · in bezit' : '');
+              $unit = ($canEdit && $pending) ? priceFor($t, (string) ($it['size'] ?? '')) : null;
             ?>
             <div class="row <?= $cls ?> kit-row<?= $it ? '' : ' off' ?>" data-who="player" data-id="<?= (int) $p['id'] ?>" data-tid="<?= $tid ?>">
               <label class="want">
                 <?php if ($canEdit): ?>
                 <input type="checkbox" class="want-check"<?= $it ? ' checked' : '' ?>>
                 <?php endif; ?>
-                <?= h(shortTypeName($tid, $types)) ?><?= $tag ?>
+                <?= h(shortTypeName($tid, $types)) ?><?= $tag ?><?php if ($unit !== null): ?> · <?= euro($unit) ?><?php endif; ?>
               </label>
               <?php if ($canEdit): ?>
                 <?= sizeSelect($tid, (string) ($it['size'] ?? ''), 'player', (int) $p['id']) ?>
@@ -1305,7 +1316,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               ?>
             </div>
           </div>
-          <div class="total"><?= (int) $shop['count'] ?><span>stuks</span></div>
+          <div class="total"><?= (int) $shop['count'] ?><span>stuks</span><?php if ($canEdit && ($shop['cost'] ?? 0) > 0): ?><span class="shop-eur"><?= euro((float) $shop['cost']) ?></span><?php endif; ?></div>
         </div>
         <div class="size-grid">
           <?php foreach ($shop['sizes'] as $sz => $cnt): ?>
@@ -1315,13 +1326,14 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
           </div>
           <?php endforeach; ?>
         </div>
-        <?php if ($shop['rohda'] || $shop['initials'] || $shop['sponsor'] || $shop['sponsor_back'] || $shop['name_back']): ?>
+        <?php if ($shop['rohda'] || $shop['initials'] || $shop['sponsor'] || $shop['sponsor_back'] || $shop['name_back'] || !empty($shop['staff_text'])): ?>
         <div class="print-row">
           <?php if ($shop['rohda']): ?><i>Rohda logo <b><?= (int) $shop['rohda'] ?></b></i><?php endif; ?>
           <?php if ($shop['initials']): ?><i>Initialen <b><?= (int) $shop['initials'] ?></b></i><?php endif; ?>
           <?php if ($shop['sponsor']): ?><i>Sponsor voorkant <b><?= (int) $shop['sponsor'] ?></b></i><?php endif; ?>
           <?php if ($shop['sponsor_back']): ?><i>Sponsor achterkant <b><?= (int) $shop['sponsor_back'] ?></b></i><?php endif; ?>
           <?php if ($shop['name_back']): ?><i>Nummer achterop <b><?= (int) $shop['name_back'] ?></b></i><?php endif; ?>
+          <?php if (!empty($shop['staff_text'])): ?><i>Tekst staf <b><?= (int) $shop['staff_text'] ?></b></i><?php endif; ?>
         </div>
         <?php endif; ?>
         <?php foreach (($shop['size_lines'] ?? []) as $sz => $line):
@@ -1432,13 +1444,14 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               $pending = isPendingItem($it);
               $owned = isIssued($it);
               $cls = $owned ? 'ok' : ($pending ? 'wait' : 'extra');
+              $unit = ($canEdit && $pending) ? priceFor($types[$tid], (string) ($it['size'] ?? '')) : null;
           ?>
             <div class="row <?= $cls ?> kit-row<?= $it ? '' : ' off' ?>" data-who="staff" data-id="<?= (int) $s['id'] ?>" data-tid="<?= $tid ?>">
               <label class="want">
                 <?php if ($canEdit): ?>
                 <input type="checkbox" class="want-check"<?= $it ? ' checked' : '' ?>>
                 <?php endif; ?>
-                <?= h(shortTypeName($tid, $types)) ?><?= $pending ? ' · bestellen' : ($owned ? ' · in bezit' : '') ?>
+                <?= h(shortTypeName($tid, $types)) ?><?= $pending ? ' · bestellen' : ($owned ? ' · in bezit' : '') ?><?php if ($unit !== null): ?> · <?= euro($unit) ?><?php endif; ?>
               </label>
               <?php if ($canEdit): ?>
                 <?= sizeSelect($tid, (string) ($it['size'] ?? ''), 'staff', (int) $s['id']) ?>
@@ -1517,6 +1530,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             if (typePrints($t, 'print_sponsor')) $tags[] = 'sponsor voorkant';
             if (typePrints($t, 'print_sponsor_back')) $tags[] = 'sponsor achterkant';
             if (typePrints($t, 'print_name_back')) $tags[] = 'nummer';
+            if (typePrints($t, 'print_staff_text')) $tags[] = 'tekst staf';
           ?>
           <tr data-type-id="<?= $tid ?>">
             <td class="name">
@@ -1546,6 +1560,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
                 <label><input type="checkbox" data-print="print_sponsor"<?= typePrints($t, 'print_sponsor') ? ' checked' : '' ?>> Sponsor voorkant</label>
                 <label><input type="checkbox" data-print="print_sponsor_back"<?= typePrints($t, 'print_sponsor_back') ? ' checked' : '' ?>> Sponsor achterkant</label>
                 <label><input type="checkbox" data-print="print_name_back"<?= typePrints($t, 'print_name_back') ? ' checked' : '' ?>> Nummer</label>
+                <label><input type="checkbox" data-print="print_staff_text"<?= typePrints($t, 'print_staff_text') ? ' checked' : '' ?>> Tekst staf</label>
               </div>
               <?php else: ?>
               <div class="print-tags"><?php foreach ($tags as $tag): ?><i><?= h($tag) ?></i><?php endforeach; ?><?php if (!$tags): ?><span class="muted">geen</span><?php endif; ?></div>
@@ -1600,6 +1615,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         <label><input type="checkbox" value="print_sponsor"> Sponsor voorkant</label>
         <label><input type="checkbox" value="print_sponsor_back"> Sponsor achterkant</label>
         <label><input type="checkbox" value="print_name_back"> Nummer</label>
+        <label><input type="checkbox" value="print_staff_text"> Tekst staf</label>
       </div>
       <div class="actions">
         <button type="button" class="btn dark" id="addTypeBtn">Artikel toevoegen</button>

@@ -2465,7 +2465,7 @@ function makeKitroomBackup(mysqli $db): array {
         throw new RuntimeException('Kon backupmap niet maken.');
     }
     $stamp = new DateTimeImmutable('now', new DateTimeZone('Europe/Amsterdam'));
-    $filename = 'kitroom-14-2-' . $stamp->format('Y-m-d-H.i') . '.zip';
+    $filename = 'kitroom-14-2-' . $stamp->format('Y-m-d-H-i') . '.zip';
     $path = $dir . '/' . $filename;
     $zip = new ZipArchive();
     if ($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {

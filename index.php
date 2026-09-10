@@ -819,7 +819,7 @@ tr.archived td{opacity:.55}
   display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 16px;
 }
 .kit-design figure{
-  margin:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+  margin:0;background:var(--raise);border:1px solid var(--line);border-radius:var(--r-lg);
   padding:12px 12px 10px;min-width:0;
 }
 .kit-design img{
@@ -1025,11 +1025,11 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <section class="kit-design" id="design">
     <figure>
-      <img src="speler-kit.png" width="1254" height="1254" alt="Spelerstenue 14-2: shirt, broekje, jassen, tas en sokken">
+            <img src="speler-kit.png" width="1145" height="1037" alt="Spelerstenue 14-2: shirt, broekje, jassen, tas en sokken">
       <figcaption>Speler</figcaption>
     </figure>
     <figure>
-      <img src="kader-kit.png" width="901" height="1746" alt="Kadertenue 14-2: polo, shirt, jas en broekje">
+            <img src="kader-kit.png" width="837" height="1469" alt="Kadertenue 14-2: polo, shirt, jas en broekje">
       <figcaption>Kader</figcaption>
     </figure>
   </section>
@@ -2261,50 +2261,11 @@ document.getElementById('seasonSave')?.addEventListener('click', async ()=>{
   const season=document.getElementById('seasonInput')?.value||'';
   await cmsOk(await api({action:'save_kit', csrf:TEAM.csrf, season}), 'Seizoen opgeslagen');
 });
-document.getElementById('backupBtn')?.addEventListener('click', async ()=>{
+document.getElementById('backupBtn')?.addEventListener('click', ()=>{
   const btn=document.getElementById('backupBtn');
-  if(!btn) return;
-  btn.disabled=true;
-  try{
-    const res=await fetch('save.php', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({action:'backup', csrf:TEAM.csrf}),
-      credentials:'same-origin'
-    });
-    const type=res.headers.get('content-type')||'';
-    if(type.includes('application/json')){
-      let data={};
-      try{ data=await res.json(); }catch(e){ data={error:'Backup mislukt'}; }
-      toast(data.error||'Backup mislukt');
-      return;
-    }
-    const blob=await res.blob();
-    if(!blob || blob.size<32){ toast('Backup mislukt'); return; }
-    const dispo=res.headers.get('content-disposition')||'';
-    const m=dispo.match(/filename="([^"]+)"/);
-    const name=m?m[1]:'kitroom-backup.zip';
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    a.href=url;
-    a.download=name;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    toast('Backup gedownload');
-    const list=document.getElementById('backupList');
-    if(list){
-      const now=new Date();
-      const pad=n=>String(n).padStart(2,'0');
-      const stamp=pad(now.getDate())+'-'+pad(now.getMonth()+1)+'-'+now.getFullYear()+' '+pad(now.getHours())+':'+pad(now.getMinutes());
-      list.innerHTML=stamp+' · '+name+' ('+Math.max(1, Math.round(blob.size/1024))+' kB)<br>'+list.innerHTML;
-    }
-  }catch(e){
-    toast('Backup mislukt');
-  } finally {
-    btn.disabled=false;
-  }
+  if(btn) btn.disabled=true;
+  location.href='save.php?action=backup&csrf='+encodeURIComponent(TEAM.csrf);
+  setTimeout(()=>{ if(btn) btn.disabled=false; }, 2000);
 });
 document.getElementById('npAdd')?.addEventListener('click', async ()=>{
   await cmsOk(await api({

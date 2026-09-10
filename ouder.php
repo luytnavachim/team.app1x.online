@@ -165,7 +165,7 @@ body{
   display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 16px;
 }
 .kit-design figure{
-  margin:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  margin:0;background:var(--raise);border:1px solid var(--line);border-radius:var(--r);
   padding:10px 10px 8px;min-width:0;
 }
 .kit-design img{
@@ -218,11 +218,11 @@ body{
     </p>
     <section class="kit-design">
       <figure>
-        <img src="speler-kit.png" width="1254" height="1254" alt="Spelerstenue 14-2: shirt, broekje, jassen, tas en sokken">
+        <img src="speler-kit.png" width="1145" height="1037" alt="Spelerstenue 14-2: shirt, broekje, jassen, tas en sokken">
         <figcaption>Speler</figcaption>
       </figure>
       <figure>
-        <img src="kader-kit.png" width="901" height="1746" alt="Kadertenue 14-2: polo, shirt, jas en broekje">
+        <img src="kader-kit.png" width="837" height="1469" alt="Kadertenue 14-2: polo, shirt, jas en broekje">
         <figcaption>Kader</figcaption>
       </figure>
     </section>

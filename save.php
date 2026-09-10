@@ -1,9 +1,6 @@
 <?php
 declare(strict_types=1);
 
-header('Content-Type: application/json; charset=utf-8');
-header('Cache-Control: no-store');
-
 require __DIR__ . '/boot.php';
 
 $raw = file_get_contents('php://input');
@@ -14,8 +11,40 @@ if (!is_array($body)) {
 $action = (string) ($body['action'] ?? $_GET['action'] ?? '');
 
 function jsonOut(array $data, int $code = 200): void {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
     http_response_code($code);
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+function requireEditor(array $body): void {
+    if (!canEdit()) {
+        jsonOut(['ok' => false, 'error' => 'Niet ingelogd.'], 401);
+    }
+    $token = (string) ($body['csrf'] ?? $_GET['csrf'] ?? '');
+    if ($token === '' || !hash_equals(csrfToken(), $token)) {
+        jsonOut(['ok' => false, 'error' => 'Sessie verlopen. Vernieuw de pagina.'], 403);
+    }
+}
+
+if ($action === 'backup') {
+    $csrfBody = is_array($body) ? $body : [];
+    if (empty($csrfBody['csrf']) && isset($_GET['csrf'])) {
+        $csrfBody['csrf'] = (string) $_GET['csrf'];
+    }
+    requireEditor($csrfBody);
+    try {
+        $made = makeKitroomBackup($mysqli);
+    } catch (Throwable $e) {
+        jsonOut(['ok' => false, 'error' => $e->getMessage() !== '' ? $e->getMessage() : 'Kon backup niet maken.'], 500);
+    }
+    header('Content-Type: application/zip');
+    header('Content-Disposition: attachment; filename="' . $made['filename'] . '"');
+    header('X-Content-Type-Options: nosniff');
+    header('Cache-Control: no-store');
+    header('Content-Length: ' . (string) filesize($made['path']));
+    readfile($made['path']);
     exit;
 }
 
@@ -604,16 +633,6 @@ if ($action === 'save_kit') {
     jsonOut(['ok' => true, 'settings' => loadKitSettings()]);
 }
 
-function requireEditor(array $body): void {
-    if (!canEdit()) {
-        jsonOut(['ok' => false, 'error' => 'Niet ingelogd.'], 401);
-    }
-    $token = (string) ($body['csrf'] ?? '');
-    if ($token === '' || !hash_equals(csrfToken(), $token)) {
-        jsonOut(['ok' => false, 'error' => 'Sessie verlopen. Vernieuw de pagina.'], 403);
-    }
-}
-
 if ($action === 'save_player') {
     requireEditor($body);
     $id = (int) ($body['id'] ?? 0);
@@ -739,22 +758,6 @@ if ($action === 'restore_type') {
     $upd->bind_param('i', $id);
     $upd->execute();
     jsonOut(['ok' => true]);
-}
-
-if ($action === 'backup') {
-    requireEditor($body);
-    try {
-        $made = makeKitroomBackup($mysqli);
-    } catch (Throwable $e) {
-        jsonOut(['ok' => false, 'error' => $e->getMessage() !== '' ? $e->getMessage() : 'Kon backup niet maken.'], 500);
-    }
-    header_remove('Content-Type');
-    header('Content-Type: application/zip');
-    header('Content-Disposition: attachment; filename="' . $made['filename'] . '"');
-    header('X-Content-Type-Options: nosniff');
-    header('Content-Length: ' . (string) filesize($made['path']));
-    readfile($made['path']);
-    exit;
 }
 
 jsonOut(['ok' => false, 'error' => 'Onbekende actie.'], 400);

@@ -2377,6 +2377,123 @@ function orderListRows(array $shopByType, int $orderPieces, array $gaps = [], ?D
     return $rows;
 }
 
+function kitroomBackupDir(): string {
+    return __DIR__ . '/.data/backups';
+}
+
+function sqlBackupIdent(string $name): string {
+    if (!preg_match('/^[A-Za-z0-9_]+$/', $name)) {
+        throw new RuntimeException('Ongeldige tabelnaam in backup.');
+    }
+    return '`' . $name . '`';
+}
+
+function sqlBackupDump(mysqli $db): string {
+    $sql = "-- Kitroom 14-2 backup\n-- " . (new DateTimeImmutable('now', new DateTimeZone('Europe/Amsterdam')))->format('d-m-Y H:i') . "\nSET NAMES utf8mb4;\nSET FOREIGN_KEY_CHECKS=0;\n\n";
+    $tables = [];
+    $res = $db->query('SHOW TABLES');
+    if (!$res) {
+        throw new RuntimeException('Kon tabellen niet lezen.');
+    }
+    while ($row = $res->fetch_row()) {
+        $tables[] = (string) $row[0];
+    }
+    foreach ($tables as $table) {
+        $ident = sqlBackupIdent($table);
+        $createRes = $db->query('SHOW CREATE TABLE ' . $ident);
+        $create = $createRes ? $createRes->fetch_assoc() : null;
+        $createSql = (string) ($create['Create Table'] ?? '');
+        if ($createSql === '') {
+            throw new RuntimeException('Kon tabelstructuur niet lezen.');
+        }
+        $sql .= 'DROP TABLE IF EXISTS ' . $ident . ";\n" . $createSql . ";\n\n";
+        $data = $db->query('SELECT * FROM ' . $ident);
+        if (!$data) {
+            continue;
+        }
+        while ($row = $data->fetch_assoc()) {
+            $cols = [];
+            $vals = [];
+            foreach ($row as $col => $val) {
+                $cols[] = sqlBackupIdent((string) $col);
+                if ($val === null) {
+                    $vals[] = 'NULL';
+                } else {
+                    $vals[] = "'" . $db->real_escape_string((string) $val) . "'";
+                }
+            }
+            $sql .= 'INSERT INTO ' . $ident . ' (' . implode(',', $cols) . ') VALUES (' . implode(',', $vals) . ");\n";
+        }
+        $sql .= "\n";
+    }
+    $sql .= "SET FOREIGN_KEY_CHECKS=1;\n";
+    return $sql;
+}
+
+function pruneKitroomBackups(string $dir, int $keep = 15): void {
+    $files = glob($dir . '/kitroom-14-2-*.zip') ?: [];
+    usort($files, static fn($a, $b) => (filemtime($b) ?: 0) <=> (filemtime($a) ?: 0));
+    foreach (array_slice($files, $keep) as $old) {
+        @unlink($old);
+    }
+}
+
+function listKitroomBackups(int $limit = 5): array {
+    $dir = kitroomBackupDir();
+    if (!is_dir($dir)) {
+        return [];
+    }
+    $files = glob($dir . '/kitroom-14-2-*.zip') ?: [];
+    usort($files, static fn($a, $b) => (filemtime($b) ?: 0) <=> (filemtime($a) ?: 0));
+    $out = [];
+    foreach (array_slice($files, 0, $limit) as $path) {
+        $out[] = [
+            'file' => basename($path),
+            'at' => date('d-m-Y H:i', filemtime($path) ?: time()),
+            'kb' => max(1, (int) round((filesize($path) ?: 0) / 1024)),
+        ];
+    }
+    return $out;
+}
+
+function makeKitroomBackup(mysqli $db): array {
+    if (!class_exists('ZipArchive')) {
+        throw new RuntimeException('Zip is niet beschikbaar op de server.');
+    }
+    $dir = kitroomBackupDir();
+    if (!is_dir($dir) && !@mkdir($dir, 0750, true) && !is_dir($dir)) {
+        throw new RuntimeException('Kon backupmap niet maken.');
+    }
+    $stamp = new DateTimeImmutable('now', new DateTimeZone('Europe/Amsterdam'));
+    $filename = 'kitroom-14-2-' . $stamp->format('Y-m-d-H.i') . '.zip';
+    $path = $dir . '/' . $filename;
+    $zip = new ZipArchive();
+    if ($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+        throw new RuntimeException('Kon backupbestand niet maken.');
+    }
+    $zip->addFromString('kitroom.sql', sqlBackupDump($db));
+    $dataDir = __DIR__ . '/.data';
+    foreach (['kit-settings.json', 'parent-form.json'] as $name) {
+        $file = $dataDir . '/' . $name;
+        if (is_readable($file)) {
+            $zip->addFile($file, $name);
+        }
+    }
+    $zip->addFromString(
+        'leesmij.txt',
+        "Kitroom 14-2 backup\n"
+        . 'Datum: ' . $stamp->format('d-m-Y H:i') . "\n"
+        . "Inhoud: kitroom.sql (database) plus kit-settings.json en parent-form.json.\n"
+        . "Pincode en databasewachtwoord zitten niet in dit bestand.\n"
+    );
+    $zip->close();
+    if (!is_file($path) || filesize($path) < 32) {
+        @unlink($path);
+        throw new RuntimeException('Backupbestand is leeg.');
+    }
+    pruneKitroomBackups($dir);
+    return ['path' => $path, 'filename' => $filename];
+}
 
 ensureParentTokenColumn($mysqli);
 ensureParentSavedAtColumn($mysqli);

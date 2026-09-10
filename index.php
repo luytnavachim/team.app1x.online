@@ -1598,6 +1598,22 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
       </div>
     </div>
 
+    <div class="parent-defaults">
+      <h4>Backup</h4>
+      <p class="hint">Kopie van de database en instellingen. Wordt gedownload en blijft op de server (laatste 15).</p>
+      <div class="actions" style="margin:0">
+        <button type="button" class="btn dark" id="backupBtn">Backup maken</button>
+      </div>
+      <?php
+        $recentBackups = listKitroomBackups(5);
+        if ($recentBackups):
+      ?>
+      <p class="hint" id="backupList"><?php foreach ($recentBackups as $b): ?><?= h($b['at']) ?> · <?= h($b['file']) ?> (<?= (int) $b['kb'] ?> kB)<br><?php endforeach; ?></p>
+      <?php else: ?>
+      <p class="hint" id="backupList">Nog geen backup op de server.</p>
+      <?php endif; ?>
+    </div>
+
     <details class="shop-more">
     <summary>Spelers</summary>
     <h4 class="line">Spelers</h4>
@@ -2215,6 +2231,51 @@ async function cmsOk(out, okMsg){
 document.getElementById('seasonSave')?.addEventListener('click', async ()=>{
   const season=document.getElementById('seasonInput')?.value||'';
   await cmsOk(await api({action:'save_kit', csrf:TEAM.csrf, season}), 'Seizoen opgeslagen');
+});
+document.getElementById('backupBtn')?.addEventListener('click', async ()=>{
+  const btn=document.getElementById('backupBtn');
+  if(!btn) return;
+  btn.disabled=true;
+  try{
+    const res=await fetch('save.php', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({action:'backup', csrf:TEAM.csrf}),
+      credentials:'same-origin'
+    });
+    const type=res.headers.get('content-type')||'';
+    if(type.includes('application/json')){
+      let data={};
+      try{ data=await res.json(); }catch(e){ data={error:'Backup mislukt'}; }
+      toast(data.error||'Backup mislukt');
+      return;
+    }
+    const blob=await res.blob();
+    if(!blob || blob.size<32){ toast('Backup mislukt'); return; }
+    const dispo=res.headers.get('content-disposition')||'';
+    const m=dispo.match(/filename="([^"]+)"/);
+    const name=m?m[1]:'kitroom-backup.zip';
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download=name;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast('Backup gedownload');
+    const list=document.getElementById('backupList');
+    if(list){
+      const now=new Date();
+      const pad=n=>String(n).padStart(2,'0');
+      const stamp=pad(now.getDate())+'-'+pad(now.getMonth()+1)+'-'+now.getFullYear()+' '+pad(now.getHours())+':'+pad(now.getMinutes());
+      list.innerHTML=stamp+' · '+name+' ('+Math.max(1, Math.round(blob.size/1024))+' kB)<br>'+list.innerHTML;
+    }
+  }catch(e){
+    toast('Backup mislukt');
+  } finally {
+    btn.disabled=false;
+  }
 });
 document.getElementById('npAdd')?.addEventListener('click', async ()=>{
   await cmsOk(await api({

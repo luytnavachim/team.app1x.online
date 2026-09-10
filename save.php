@@ -741,4 +741,20 @@ if ($action === 'restore_type') {
     jsonOut(['ok' => true]);
 }
 
+if ($action === 'backup') {
+    requireEditor($body);
+    try {
+        $made = makeKitroomBackup($mysqli);
+    } catch (Throwable $e) {
+        jsonOut(['ok' => false, 'error' => $e->getMessage() !== '' ? $e->getMessage() : 'Kon backup niet maken.'], 500);
+    }
+    header_remove('Content-Type');
+    header('Content-Type: application/zip');
+    header('Content-Disposition: attachment; filename="' . $made['filename'] . '"');
+    header('X-Content-Type-Options: nosniff');
+    header('Content-Length: ' . (string) filesize($made['path']));
+    readfile($made['path']);
+    exit;
+}
+
 jsonOut(['ok' => false, 'error' => 'Onbekende actie.'], 400);

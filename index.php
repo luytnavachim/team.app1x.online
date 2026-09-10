@@ -990,7 +990,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     </a>
   </div>
 
-  <details class="section fold" id="spelers" open>
+  <details class="section fold" id="spelers">
     <summary class="fold-head"><h3>Spelers</h3><span class="fold-meta"><?= count($active) ?></span></summary>
     <p class="sub"><?= $canEdit ? 'Vink wat hij krijgt en kies de maat. <b>Pakket</b> zet de set in één keer.' : 'Overzicht van maten en rugnummers.' ?></p>
     <div class="filters" id="playerFilters">
@@ -1103,7 +1103,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   <?php if ($canEdit):
     $parentForm = loadParentFormSettings();
   ?>
-  <details class="section fold" id="ouders" open>
+  <details class="section fold" id="ouders">
     <summary class="fold-head"><h3>Ouderlinks</h3><span class="fold-meta"><?= count($parentFilled) ?>/<?= count($active) ?></span></summary>
     <p class="sub">Kopieer de link of stuur hem via WhatsApp. Een nieuwe link maakt de oude ongeldig.</p>
     <details class="shop-more" id="parentDefaultsWrap">
@@ -1160,7 +1160,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
       </table>
     </div>
 
-    <details class="shop-more" open>
+    <details class="shop-more">
     <summary>Staflinks</summary>
     <h3 style="margin-top:8px">Staflinks</h3>
     <p class="sub">Zelfde soort link, zonder rugnummer. Standaard polo en zip; shirt, broekje, jassen en tas kun je extra aanvinken.</p>
@@ -1204,7 +1204,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   </details>
   <?php endif; ?>
 
-  <details class="section fold" id="bestel" open>
+  <details class="section fold" id="bestel">
     <summary class="fold-head"><h3>Bestelling</h3><span class="fold-meta"><?= (int) $orderPieces ?> stuks</span></summary>
     <p class="sub"><?= (int) $orderPieces ?> stuks<?= $orderTotal > 0 ? ' · ' . euro($orderTotal) . ' kleding + bedrukking' : '' ?> · artikelnummers, maten en print.</p>
     <p class="shop-rule"><b>Logo + bedrijfslogo:</b> jassen, shirt, keeperstenue, tas · <b>Initialen:</b> jassen, shirt, broekje, keeperstenue, tas · <b>Nummer:</b> shirt, keeperstenue</p>
@@ -1360,7 +1360,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     <?php endif; ?>
   </details>
 
-  <details class="section fold" id="staf" open>
+  <details class="section fold" id="staf">
     <summary class="fold-head"><h3>Staf</h3><span class="fold-meta"><?= count($staff) ?></span></summary>
     <p class="sub">Polo en quarter zip.<?= $canEdit ? ' Stuur een link zodat ze zelf hun maten invullen, of vul hier in.' : '' ?></p>
     <div class="cards">
@@ -1424,7 +1424,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     </div>
   </details>
 
-  <details class="section fold" id="catalogus" open>
+  <details class="section fold" id="catalogus">
     <summary class="fold-head"><h3>Catalogus · Stanno</h3></summary>
     <p class="sub">Artikelnummers, prijzen en maten zoals Stanno die voert. <?= $canEdit ? 'Pas een regel aan of verwijder hem. Nieuw artikel onderaan.' : '' ?></p>
     <?php if ($canEdit): ?>
@@ -1567,7 +1567,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         return $html;
     };
   ?>
-  <details class="section fold" id="beheer" open>
+  <details class="section fold" id="beheer">
     <summary class="fold-head"><h3>Beheer</h3></summary>
     <p class="sub">CMS: seizoen, staf, catalogus. Spelers zijn alleen de huidige 14-2 selectie uit de scout-app.</p>
 
@@ -1581,7 +1581,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
       </div>
     </div>
 
-    <details class="shop-more" open>
+    <details class="shop-more">
     <summary>Spelers</summary>
     <h4 class="line">Spelers</h4>
     <div class="parent-defaults">
@@ -1641,7 +1641,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     </div>
     </details>
 
-    <details class="shop-more" open>
+    <details class="shop-more">
     <summary>Staf</summary>
     <h4 class="line">Staf</h4>
     <div class="parent-defaults">
@@ -1757,7 +1757,6 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   apply(theme());
 })();
 (function(){
-  const heavy=['ouders','catalogus','beheer','staf'];
   function openFor(el){
     let n=el;
     while(n){
@@ -1770,12 +1769,6 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     if(!id) return;
     const el=document.getElementById(id);
     if(el) openFor(el);
-  }
-  if(window.matchMedia('(max-width:720px)').matches){
-    heavy.forEach(id=>{
-      const el=document.getElementById(id);
-      if(el && el.tagName==='DETAILS' && location.hash.replace('#','')!==id) el.open=false;
-    });
   }
   openHash();
   window.addEventListener('hashchange', openHash);

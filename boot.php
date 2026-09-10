@@ -27,6 +27,29 @@ function euro(?float $n): string {
     return '€ ' . number_format($n, 2, ',', '.');
 }
 
+function vatRate(): float {
+    return 0.21;
+}
+
+function withVat(?float $n): ?float {
+    if ($n === null) {
+        return null;
+    }
+    return round($n * (1 + vatRate()), 2);
+}
+
+function euroIncl(?float $n): string {
+    $v = withVat($n);
+    return $v === null ? '—' : euro($v) . ' incl. btw';
+}
+
+function euroPair(?float $n): string {
+    if ($n === null) {
+        return '—';
+    }
+    return euro($n) . ' · ' . euro(withVat($n)) . ' incl.';
+}
+
 function normName(string $s): string {
     $s = mb_strtolower(trim($s), 'UTF-8');
     $map = ['à'=>'a','á'=>'a','ä'=>'a','â'=>'a','è'=>'e','é'=>'e','ë'=>'e','ê'=>'e','ì'=>'i','í'=>'i','ï'=>'i','ò'=>'o','ó'=>'o','ö'=>'o','ù'=>'u','ú'=>'u','ü'=>'u','ñ'=>'n','ç'=>'c','ÿ'=>'y'];
@@ -2117,7 +2140,11 @@ function isPendingItem(?array $it): bool {
 
 function moneyInput(int $tid, string $field, ?float $value, string $extra = ''): string {
     $val = $value === null ? '' : number_format($value, 2, ',', '');
-    return '<input class="money" inputmode="decimal" data-tid="'.$tid.'" data-field="'.h($field).'" value="'.h($val).'" placeholder="—"'.$extra.'>';
+    $input = '<input class="money" inputmode="decimal" data-tid="'.$tid.'" data-field="'.h($field).'" value="'.h($val).'" placeholder="—"'.$extra.'>';
+    if ($value === null) {
+        return $input;
+    }
+    return '<span class="money-wrap">'.$input.'<small class="vat-hint">'.euro(withVat($value)).' incl.</small></span>';
 }
 
 function sizeSelect(int $tid, string $current, string $who, int $id, bool $na = false, bool $allowSkip = false): string {

@@ -767,6 +767,9 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
   font-family:inherit;text-align:right;
 }
 .money:hover,.money:focus{border-color:var(--accent)}
+.money-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.vat-hint{display:block;font-size:10.5px;font-weight:700;color:var(--muted);letter-spacing:.1px;white-space:nowrap}
+.stat .incl{color:var(--ink);font-weight:800;font-size:13px}
 .cat-input{
   width:100%;min-width:88px;border:1px solid var(--line2);border-radius:8px;padding:5px 8px;
   font-weight:700;font-size:12.5px;background:var(--raise);color:var(--ink);font-family:inherit;
@@ -874,6 +877,7 @@ tr.archived td{opacity:.55}
 .shop-card .total{font-size:22px;font-weight:800;color:var(--accent-text);line-height:1;text-align:right;flex:0 0 auto}
 .shop-card .total span{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-top:2px}
 .shop-card .total .shop-eur{color:var(--ink);font-size:13px;font-weight:800;margin-top:4px}
+.shop-card .total .shop-eur.vat-hint{color:var(--muted);font-size:11px;font-weight:700;margin-top:2px}
 .size-grid{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}
 .size-pill{
   display:inline-flex;align-items:baseline;gap:8px;min-width:84px;
@@ -1024,7 +1028,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     <a class="stat" href="#spelers"><b><?= count($active) ?></b><span>spelers</span></a>
     <a class="stat accent" href="#bestel"><b><?= (int) $orderPieces ?></b><span>stuks te bestellen</span></a>
     <?php if ($canEdit): ?>
-    <div class="stat"><b><?= euro($orderTotal) ?></b><span>richtprijs<?= $printCost > 0 ? ' · kleding + print' : '' ?></span></div>
+    <div class="stat"><b><?= euro($orderTotal) ?></b><span class="incl"><?= euroIncl($orderTotal) ?></span><span>richtprijs excl. btw<?= $printCost > 0 ? ' · kleding + print' : '' ?></span></div>
     <?php endif; ?>
     <?php if ($canEdit): ?>
     <a class="stat accent" href="#ouders">
@@ -1123,7 +1127,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
                 <?php if ($canEdit): ?>
                 <input type="checkbox" class="want-check"<?= $it ? ' checked' : '' ?>>
                 <?php endif; ?>
-                <?= h(shortTypeName($tid, $types)) ?><?= $tag ?><?php if ($unit !== null): ?> · <?= euro($unit) ?><?php endif; ?>
+                <?= h(shortTypeName($tid, $types)) ?><?= $tag ?><?php if ($unit !== null): ?> · <?= euroPair($unit) ?><?php endif; ?>
               </label>
               <?php if ($canEdit): ?>
                 <?= sizeSelect($tid, (string) ($it['size'] ?? ''), 'player', (int) $p['id']) ?>
@@ -1265,7 +1269,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <details class="section fold" id="bestel">
     <summary class="fold-head"><h3>Bestelling</h3><span class="fold-meta"><?= (int) $orderPieces ?> stuks</span></summary>
-    <p class="sub"><?= (int) $orderPieces ?> stuks<?php if ($canEdit && $orderTotal > 0): ?> · <?= euro($orderTotal) ?> kleding + bedrukking<?php endif; ?> · artikelnummers, maten en print.</p>
+    <p class="sub"><?= (int) $orderPieces ?> stuks<?php if ($canEdit && $orderTotal > 0): ?> · <?= euro($orderTotal) ?> excl. · <?= euroIncl($orderTotal) ?><?php endif; ?> · artikelnummers, maten en print.</p>
     <p class="shop-rule"><b>Rohda-logo:</b> jassen, shirt, keeperstenue, tas · <b>Sponsor voorkant:</b> shirt, keeperstenue, winterjas, tas · <b>Sponsor achterkant:</b> shirt, keeperstenue, field jack · <b>Initialen:</b> jassen, shirt, broekje, keeperstenue, tas · <b>Nummer:</b> shirt, keeperstenue</p>
 
     <div class="actions">
@@ -1286,9 +1290,9 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         <?php foreach ($printRows as $row): ?>
         <div class="stat<?= ($row['unit'] !== null && $row['count'] > 0) ? ' accent' : '' ?>">
           <b><?= (int) $row['count'] ?></b>
-          <span><?= h($row['label']) ?><?php if ($canEdit && $row['unit'] !== null): ?> · <?= euro($row['unit']) ?> p.st.<?php endif; ?></span>
+          <span><?= h($row['label']) ?><?php if ($canEdit && $row['unit'] !== null): ?> · <?= euro($row['unit']) ?> / <?= euro(withVat($row['unit'])) ?> incl. p.st.<?php endif; ?></span>
           <?php if ($canEdit): ?>
-          <?php if ($row['sum'] !== null): ?><span><?= euro($row['sum']) ?></span><?php elseif ($row['count'] > 0 && $row['unit'] === null): ?><span>geen prijs in catalogus</span><?php endif; ?>
+          <?php if ($row['sum'] !== null): ?><span><?= euro($row['sum']) ?></span><span class="vat-hint"><?= euroIncl($row['sum']) ?></span><?php elseif ($row['count'] > 0 && $row['unit'] === null): ?><span>geen prijs in catalogus</span><?php endif; ?>
           <?php endif; ?>
         </div>
         <?php endforeach; ?>
@@ -1316,7 +1320,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               ?>
             </div>
           </div>
-          <div class="total"><?= (int) $shop['count'] ?><span>stuks</span><?php if ($canEdit && ($shop['cost'] ?? 0) > 0): ?><span class="shop-eur"><?= euro((float) $shop['cost']) ?></span><?php endif; ?></div>
+          <div class="total"><?= (int) $shop['count'] ?><span>stuks</span><?php if ($canEdit && ($shop['cost'] ?? 0) > 0): ?><span class="shop-eur"><?= euro((float) $shop['cost']) ?></span><span class="shop-eur vat-hint"><?= euroIncl((float) $shop['cost']) ?></span><?php endif; ?></div>
         </div>
         <div class="size-grid">
           <?php foreach ($shop['sizes'] as $sz => $cnt): ?>
@@ -1383,7 +1387,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               <td class="<?= $g['size'] === 'maat onbekend' ? 'no' : 'ok' ?>"><?= h($g['size']) ?></td>
               <td><b><?= (int) $g['count'] ?></b></td>
               <td><?= moneyInput($tid, $field, $shown) ?></td>
-              <td><?= $g['price'] !== null ? euro($g['price'] * $g['count']) : '—' ?></td>
+              <td><?= $g['price'] !== null ? euroPair($g['price'] * $g['count']) : '—' ?></td>
             </tr>
             <?php endforeach; ?>
             <tr>
@@ -1391,7 +1395,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               <td></td>
               <td><b><?= (int) $orderPieces ?></b></td>
               <td></td>
-              <td><b><?= euro($orderCost) ?></b></td>
+              <td><b><?= euroPair($orderCost) ?></b></td>
             </tr>
             <?php foreach ($printRows as $row):
               if ($row['count'] < 1) continue;
@@ -1400,8 +1404,8 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               <td class="name"><?= h($row['label']) ?></td>
               <td class="ok">applicatie</td>
               <td><b><?= (int) $row['count'] ?></b></td>
-              <td><?= $row['unit'] !== null ? euro($row['unit']) : '—' ?></td>
-              <td><?= $row['sum'] !== null ? euro($row['sum']) : '—' ?></td>
+              <td><?= $row['unit'] !== null ? euroPair($row['unit']) : '—' ?></td>
+              <td><?= $row['sum'] !== null ? euroPair($row['sum']) : '—' ?></td>
             </tr>
             <?php endforeach; ?>
             <tr>
@@ -1409,7 +1413,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               <td></td>
               <td></td>
               <td></td>
-              <td><b><?= euro($orderTotal) ?></b></td>
+              <td><b><?= euroPair($orderTotal) ?></b></td>
             </tr>
           </tbody>
         </table>
@@ -1451,7 +1455,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
                 <?php if ($canEdit): ?>
                 <input type="checkbox" class="want-check"<?= $it ? ' checked' : '' ?>>
                 <?php endif; ?>
-                <?= h(shortTypeName($tid, $types)) ?><?= $pending ? ' · bestellen' : ($owned ? ' · in bezit' : '') ?><?php if ($unit !== null): ?> · <?= euro($unit) ?><?php endif; ?>
+                <?= h(shortTypeName($tid, $types)) ?><?= $pending ? ' · bestellen' : ($owned ? ' · in bezit' : '') ?><?php if ($unit !== null): ?> · <?= euroPair($unit) ?><?php endif; ?>
               </label>
               <?php if ($canEdit): ?>
                 <?= sizeSelect($tid, (string) ($it['size'] ?? ''), 'staff', (int) $s['id']) ?>
@@ -1486,7 +1490,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <details class="section fold" id="catalogus">
     <summary class="fold-head"><h3>Catalogus · Stanno</h3></summary>
-    <p class="sub">Artikelnummers<?= $canEdit ? ', prijzen' : '' ?> en maten zoals Stanno die voert. <?= $canEdit ? 'Pas een regel aan of verwijder hem. Nieuw artikel onderaan.' : '' ?></p>
+    <p class="sub">Artikelnummers<?= $canEdit ? ', prijzen excl. btw (incl. 21% eronder)' : '' ?> en maten zoals Stanno die voert. <?= $canEdit ? 'Pas een regel aan of verwijder hem. Nieuw artikel onderaan.' : '' ?></p>
     <?php if ($canEdit): ?>
     <details class="shop-more" id="packageDefaults">
       <summary>Pakket-sjabloon</summary>

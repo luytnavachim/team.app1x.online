@@ -1007,7 +1007,7 @@ function normalizeParentTypeIds(array $ids, array $allowed): array {
 function defaultParentFormSettings(): array {
     return [
         'note' => '',
-        'field' => [1, 4, 13, 14, 3, 7],
+        'field' => [1, 4, 13, 14, 24, 7],
         'keeper' => array_values(array_unique(array_merge(keeperCoreTypeIds(), [13, 14]))),
         'staff' => [11, 12],
         'players' => [],

@@ -200,7 +200,7 @@ body{
       <?php if ($isStaff): ?>
       Vul bij <b><?= h($name) ?></b><?= $ini !== '' ? ' <b>(' . h($ini) . ')</b>' : '' ?> <b>elk item</b> in. Krijg je het: kies de maat. Krijg je het niet: kies <b>n.v.t.</b> Shirt, broek, polo, zip en jacks: 164, S, M, L, XL of XXL.<?= $ini !== '' ? ' Initialen op de kleding: <b>' . h($ini) . '</b>.' : '' ?>
       <?php else: ?>
-      Vul bij <b><?= h($name) ?></b><?= $ini !== '' ? ' <b>(' . h($ini) . ')</b>' : '' ?> <b>elk item</b> in, of hij het nu wel of niet krijgt. Krijgt hij het: kies de maat. Krijgt hij het niet: kies <b>n.v.t.</b> Shirt, broek en jacks: 164, S, M, L, XL of XXL. Sokken: 36-40 of 41-44. Kies ook een <b>rugnummer</b> en druk op opslaan. Een nummer dat al door een andere speler is gekozen, kun je niet meer kiezen.<?= $ini !== '' ? ' Initialen op de kleding: <b>' . h($ini) . '</b>.' : '' ?>
+      Vul bij <b><?= h($name) ?></b><?= $ini !== '' ? ' <b>(' . h($ini) . ')</b>' : '' ?> <b>elk item</b> in, of hij het nu wel of niet krijgt. Krijgt hij het: kies de maat. Krijgt hij het niet: kies <b>n.v.t.</b> Shirt, broek en jacks: 164, S, M, L, XL of XXL. Grip- en keepersokken: 36-40 of 41-44. Footless sock: één maat. Kies ook een <b>rugnummer</b> en druk op opslaan. Een nummer dat al door een andere speler is gekozen, kun je niet meer kiezen.<?= $ini !== '' ? ' Initialen op de kleding: <b>' . h($ini) . '</b>.' : '' ?>
       <?php endif; ?>
       <?php if ($formSettings['note'] !== ''): ?> <?= h($formSettings['note']) ?><?php endif; ?>
     </p>

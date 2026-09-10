@@ -15,7 +15,7 @@ $types = loadTypes($mysqli);
 cleanupMismatchedPlayerKit($mysqli);
 $typeAssigned = clothingTypeAssignmentCounts($mysqli);
 
-$FIELD_CORE = [1, 4, 3, 7];
+$FIELD_CORE = [1, 4, 24, 7];
 $KEEPER_CORE = keeperCoreTypeIds($types);
 $PACKAGE_CORE = packageTypeIds();
 $KEEPER_ONLY = keeperOnlyTypeIds($types);

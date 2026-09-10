@@ -622,6 +622,7 @@ details.fold > summary.fold-head::after{
 }
 details.fold:not([open]) > summary.fold-head{padding-bottom:0}
 details.fold:not([open]) > summary.fold-head::after{content:'▸';transform:none}
+details.fold:not([open]) > *:not(summary){display:none !important}
 details.fold[open] > summary.fold-head{margin-bottom:2px;border-bottom:1px solid var(--line)}
 .section .sub{margin:0 0 14px;font-size:12.5px;color:var(--muted);font-weight:500}
 .section .sub b{color:var(--ink);font-weight:700}
@@ -1764,14 +1765,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
       n=n.parentElement;
     }
   }
-  function openHash(){
-    const id=location.hash.replace('#','');
-    if(!id) return;
-    const el=document.getElementById(id);
-    if(el) openFor(el);
-  }
-  openHash();
-  window.addEventListener('hashchange', openHash);
+  document.querySelectorAll('details').forEach(d=>{ d.open=false; });
   document.addEventListener('click', e=>{
     const a=e.target.closest?.('a[href^="#"]');
     if(!a) return;

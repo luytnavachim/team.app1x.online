@@ -910,7 +910,10 @@ tr.archived td{opacity:.55}
 .shop-card .total span{display:block;font-size:11px;font-weight:700;color:var(--muted);margin-top:2px}
 .shop-card .total .shop-eur{color:var(--ink);font-size:13px;font-weight:800;margin-top:4px}
 .shop-card .total .shop-eur.vat-hint{color:var(--muted);font-size:11px;font-weight:700;margin-top:2px}
-.shop-card .total .shop-split{color:var(--muted);font-size:10.5px;font-weight:700;margin-top:4px;max-width:11em;margin-left:auto}
+.shop-card .total .shop-split{color:var(--muted);font-size:10.5px;font-weight:700;margin-top:4px;max-width:12em;margin-left:auto}
+.shop-piece{margin:0 0 10px;font-size:12.5px;font-weight:700;color:var(--ink);line-height:1.45}
+.shop-piece b{font-weight:800}
+.shop-piece .vat-hint{font-weight:700;margin-top:2px}
 .size-grid{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}
 .size-pill{
   display:inline-flex;align-items:baseline;gap:8px;min-width:84px;
@@ -1353,7 +1356,13 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               ?>
             </div>
           </div>
-          <?php $costs = $shop['costs'] ?? shopTypeCostBreakdown($shop, $printPrices); ?>
+          <?php
+            $costs = $shop['costs'] ?? shopTypeCostBreakdown($shop, $printPrices);
+            $typeRow = $types[(int) $shop['tid']] ?? [];
+            $jrGarment = priceFor($typeRow, '164');
+            $srGarment = priceFor($typeRow, 'S');
+            $piecePrint = (float) ($costs['piece_print'] ?? 0);
+          ?>
           <div class="total">
             <?= (int) $shop['count'] ?><span>stuks</span>
             <?php if ($canEdit && $costs['total'] > 0): ?>
@@ -1365,6 +1374,34 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             <?php endif; ?>
           </div>
         </div>
+        <?php if ($canEdit && ($piecePrint > 0 || !empty($costs['print_parts']) || !empty($costs['print_missing_labels']))): ?>
+        <div class="shop-piece">
+          <?php if ($jrGarment !== null && $srGarment !== null && abs($jrGarment - $srGarment) >= 0.005): ?>
+          <div>164 / JR <b><?= euro($jrGarment + $piecePrint) ?></b> p.st. · <?= euroIncl($jrGarment + $piecePrint) ?></div>
+          <div>S–XL / SR <b><?= euro($srGarment + $piecePrint) ?></b> p.st. · <?= euroIncl($srGarment + $piecePrint) ?></div>
+          <?php elseif ($srGarment !== null || $jrGarment !== null): ?>
+          <?php $one = $srGarment ?? $jrGarment; ?>
+          <div>p.st. <b><?= euro($one + $piecePrint) ?></b> · <?= euroIncl($one + $piecePrint) ?></div>
+          <?php endif; ?>
+          <?php if (!empty($costs['print_parts'])): ?>
+          <div class="vat-hint"><?php
+            $bits = [];
+            if ($jrGarment !== null && $srGarment !== null && abs($jrGarment - $srGarment) >= 0.005) {
+                $bits[] = 'jas ' . euro($jrGarment) . ' / ' . euro($srGarment);
+            } elseif (($srGarment ?? $jrGarment) !== null) {
+                $bits[] = 'jas ' . euro($srGarment ?? $jrGarment);
+            }
+            foreach ($costs['print_parts'] as $part) {
+                $bits[] = $part['label'] . ' ' . euro($part['unit']);
+            }
+            echo h(implode(' + ', $bits));
+          ?></div>
+          <?php endif; ?>
+          <?php if (!empty($costs['print_missing_labels'])): ?>
+          <div class="vat-hint">Nog geen catalogusprijs: <?= h(implode(', ', $costs['print_missing_labels'])) ?></div>
+          <?php endif; ?>
+        </div>
+        <?php endif; ?>
         <div class="size-grid">
           <?php foreach ($shop['sizes'] as $sz => $cnt): ?>
           <div class="size-pill">
@@ -1375,15 +1412,15 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         </div>
         <?php if ($shop['rohda'] || $shop['initials'] || $shop['sponsor'] || $shop['sponsor_back'] || !empty($shop['sponsor_padded']) || !empty($shop['sponsor_jacket']) || !empty($shop['sponsor_bag']) || $shop['name_back'] || !empty($shop['staff_text'])): ?>
         <div class="print-row">
-          <?php if ($shop['rohda']): ?><i>Rohda logo <b><?= (int) $shop['rohda'] ?></b></i><?php endif; ?>
-          <?php if ($shop['initials']): ?><i>Initialen <b><?= (int) $shop['initials'] ?></b></i><?php endif; ?>
-          <?php if ($shop['sponsor']): ?><i>Sponsor shirts voorkant <b><?= (int) $shop['sponsor'] ?></b></i><?php endif; ?>
-          <?php if ($shop['sponsor_back']): ?><i>Sponsor shirts achterkant <b><?= (int) $shop['sponsor_back'] ?></b></i><?php endif; ?>
-          <?php if (!empty($shop['sponsor_padded'])): ?><i>Sponsor padded <b><?= (int) $shop['sponsor_padded'] ?></b></i><?php endif; ?>
-          <?php if (!empty($shop['sponsor_jacket'])): ?><i>Sponsor field jack achterkant <b><?= (int) $shop['sponsor_jacket'] ?></b></i><?php endif; ?>
-          <?php if (!empty($shop['sponsor_bag'])): ?><i>Sponsor tas <b><?= (int) $shop['sponsor_bag'] ?></b></i><?php endif; ?>
-          <?php if ($shop['name_back']): ?><i>Nummer achterop <b><?= (int) $shop['name_back'] ?></b></i><?php endif; ?>
-          <?php if (!empty($shop['staff_text'])): ?><i>Tekst staf <b><?= (int) $shop['staff_text'] ?></b></i><?php endif; ?>
+          <?php if ($shop['rohda']): ?><i>Rohda logo <b><?= (int) $shop['rohda'] ?></b><?php if ($canEdit && ($printPrices['rohda'] ?? null) !== null): ?> · <?= euro((float) $printPrices['rohda']) ?><?php endif; ?></i><?php endif; ?>
+          <?php if ($shop['initials']): ?><i>Initialen <b><?= (int) $shop['initials'] ?></b><?php if ($canEdit && ($printPrices['initials'] ?? null) !== null): ?> · <?= euro((float) $printPrices['initials']) ?><?php endif; ?></i><?php endif; ?>
+          <?php if ($shop['sponsor']): ?><i>Sponsor shirts voorkant <b><?= (int) $shop['sponsor'] ?></b><?php if ($canEdit && ($printPrices['sponsor'] ?? null) !== null): ?> · <?= euro((float) $printPrices['sponsor']) ?><?php endif; ?></i><?php endif; ?>
+          <?php if ($shop['sponsor_back']): ?><i>Sponsor shirts achterkant <b><?= (int) $shop['sponsor_back'] ?></b><?php if ($canEdit && ($printPrices['sponsor_back'] ?? null) !== null): ?> · <?= euro((float) $printPrices['sponsor_back']) ?><?php endif; ?></i><?php endif; ?>
+          <?php if (!empty($shop['sponsor_padded'])): ?><i>Sponsorlogo <b><?= (int) $shop['sponsor_padded'] ?></b><?php if ($canEdit && ($printPrices['sponsor_padded'] ?? null) !== null): ?> · <?= euro((float) $printPrices['sponsor_padded']) ?><?php endif; ?></i><?php endif; ?>
+          <?php if (!empty($shop['sponsor_jacket'])): ?><i>Sponsor field jack achterkant <b><?= (int) $shop['sponsor_jacket'] ?></b><?php if ($canEdit && ($printPrices['sponsor_jacket'] ?? null) !== null): ?> · <?= euro((float) $printPrices['sponsor_jacket']) ?><?php endif; ?></i><?php endif; ?>
+          <?php if (!empty($shop['sponsor_bag'])): ?><i>Sponsor tas <b><?= (int) $shop['sponsor_bag'] ?></b><?php if ($canEdit && ($printPrices['sponsor_bag'] ?? null) !== null): ?> · <?= euro((float) $printPrices['sponsor_bag']) ?><?php endif; ?></i><?php endif; ?>
+          <?php if ($shop['name_back']): ?><i>Nummer achterop <b><?= (int) $shop['name_back'] ?></b><?php if ($canEdit && ($printPrices['name_back'] ?? null) !== null): ?> · <?= euro((float) $printPrices['name_back']) ?><?php endif; ?></i><?php endif; ?>
+          <?php if (!empty($shop['staff_text'])): ?><i>Tekst staf <b><?= (int) $shop['staff_text'] ?></b><?php if ($canEdit && ($printPrices['staff_text'] ?? null) !== null): ?> · <?= euro((float) $printPrices['staff_text']) ?><?php endif; ?></i><?php endif; ?>
         </div>
         <?php endif; ?>
         <?php foreach (($shop['size_lines'] ?? []) as $sz => $line):

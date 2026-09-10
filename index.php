@@ -572,7 +572,8 @@ button.btn{font-family:inherit;cursor:pointer}
 
 /* ---------- stats ---------- */
 .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}
-@media(max-width:720px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+body:not(.editing) .stats{grid-template-columns:repeat(3,minmax(0,1fr))}
+@media(max-width:720px){.stats,body:not(.editing) .stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 13px;min-width:0}
 .stat b{display:block;font-size:clamp(18px,2.4vw,26px);line-height:1.1;font-weight:800;letter-spacing:-.8px;overflow-wrap:anywhere}
 .stat span{display:block;margin-top:4px;font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.2px;line-height:1.3}
@@ -970,7 +971,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
       <button type="button" class="btn" id="saveAllBtn">Alles opslaan</button>
       <button type="button" class="btn" id="logoutBtn">Klaar</button>
     <?php else: ?>
-      <button type="button" class="btn dark" id="editBtn">Maten invullen</button>
+      <button type="button" class="btn dark" id="editBtn">Beheer</button>
     <?php endif; ?>
   </nav>
   </div>
@@ -984,11 +985,20 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   <div class="stats">
     <a class="stat" href="#spelers"><b><?= count($active) ?></b><span>spelers</span></a>
     <a class="stat accent" href="#bestel"><b><?= (int) $orderPieces ?></b><span>stuks te bestellen</span></a>
+    <?php if ($canEdit): ?>
     <div class="stat"><b><?= euro($orderTotal) ?></b><span>richtprijs<?= $printCost > 0 ? ' · kleding + print' : '' ?></span></div>
+    <?php endif; ?>
+    <?php if ($canEdit): ?>
     <a class="stat accent" href="#ouders">
       <b><?= count($parentFilled) ?>/<?= count($active) ?></b><span>ouders ingevuld</span>
       <div class="progress"><i style="width:<?= count($active) ? round(100 * count($parentFilled) / count($active)) : 0 ?>%"></i></div>
     </a>
+    <?php else: ?>
+    <div class="stat">
+      <b><?= count($parentFilled) ?>/<?= count($active) ?></b><span>ouders ingevuld</span>
+      <div class="progress"><i style="width:<?= count($active) ? round(100 * count($parentFilled) / count($active)) : 0 ?>%"></i></div>
+    </div>
+    <?php endif; ?>
   </div>
 
   <details class="section fold" id="spelers">
@@ -1207,7 +1217,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <details class="section fold" id="bestel">
     <summary class="fold-head"><h3>Bestelling</h3><span class="fold-meta"><?= (int) $orderPieces ?> stuks</span></summary>
-    <p class="sub"><?= (int) $orderPieces ?> stuks<?= $orderTotal > 0 ? ' · ' . euro($orderTotal) . ' kleding + bedrukking' : '' ?> · artikelnummers, maten en print.</p>
+    <p class="sub"><?= (int) $orderPieces ?> stuks<?php if ($canEdit && $orderTotal > 0): ?> · <?= euro($orderTotal) ?> kleding + bedrukking<?php endif; ?> · artikelnummers, maten en print.</p>
     <p class="shop-rule"><b>Logo + bedrijfslogo:</b> jassen, shirt, keeperstenue, tas · <b>Initialen:</b> jassen, shirt, broekje, keeperstenue, tas · <b>Nummer:</b> shirt, keeperstenue</p>
     <details class="packfold">
       <summary>Toon pakketfoto</summary>
@@ -1232,8 +1242,10 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         <?php foreach ($printRows as $row): ?>
         <div class="stat<?= ($row['unit'] !== null && $row['count'] > 0) ? ' accent' : '' ?>">
           <b><?= (int) $row['count'] ?></b>
-          <span><?= h($row['label']) ?><?php if ($row['unit'] !== null): ?> · <?= euro($row['unit']) ?> p.st.<?php endif; ?></span>
+          <span><?= h($row['label']) ?><?php if ($canEdit && $row['unit'] !== null): ?> · <?= euro($row['unit']) ?> p.st.<?php endif; ?></span>
+          <?php if ($canEdit): ?>
           <?php if ($row['sum'] !== null): ?><span><?= euro($row['sum']) ?></span><?php elseif ($row['count'] > 0 && $row['unit'] === null): ?><span>geen prijs in catalogus</span><?php endif; ?>
+          <?php endif; ?>
         </div>
         <?php endforeach; ?>
       </div>
@@ -1427,7 +1439,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <details class="section fold" id="catalogus">
     <summary class="fold-head"><h3>Catalogus · Stanno</h3></summary>
-    <p class="sub">Artikelnummers, prijzen en maten zoals Stanno die voert. <?= $canEdit ? 'Pas een regel aan of verwijder hem. Nieuw artikel onderaan.' : '' ?></p>
+    <p class="sub">Artikelnummers<?= $canEdit ? ', prijzen' : '' ?> en maten zoals Stanno die voert. <?= $canEdit ? 'Pas een regel aan of verwijder hem. Nieuw artikel onderaan.' : '' ?></p>
     <?php if ($canEdit): ?>
     <details class="shop-more" id="packageDefaults">
       <summary>Pakket-sjabloon</summary>
@@ -1451,8 +1463,10 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             <th>Artikel</th>
             <th>Kleur</th>
             <th>Merk</th>
+            <?php if ($canEdit): ?>
             <th>164 / JR</th>
             <th>S–XL / SR</th>
+            <?php endif; ?>
             <th class="name">Bedrukking</th>
             <?php if ($canEdit): ?><th></th><?php endif; ?>
           </tr>
@@ -1485,8 +1499,10 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             <td><?php if ($canEdit): ?><input class="cat-input" data-tid="<?= $tid ?>" data-field="article_number" value="<?= h((string) $t['article_number']) ?>"><?php else: ?><?= h((string) $t['article_number']) ?><?php endif; ?></td>
             <td><?php if ($canEdit): ?><input class="cat-input" data-tid="<?= $tid ?>" data-field="color" value="<?= h((string) $t['color']) ?>"><?php else: ?><?= h((string) $t['color']) ?><?php endif; ?></td>
             <td><?php if ($canEdit): ?><input class="cat-input" data-tid="<?= $tid ?>" data-field="brand" value="<?= h((string) $t['brand']) ?>"><?php else: ?><?= h((string) $t['brand']) ?><?php endif; ?></td>
-            <td><?php if ($canEdit): ?><?= moneyInput($tid, 'price_small', $small) ?><?php else: ?><?= euro($small) ?><?php endif; ?></td>
-            <td><?php if ($canEdit): ?><?= moneyInput($tid, 'price_large', $large) ?><?php else: ?><?= euro($large) ?><?php endif; ?></td>
+            <?php if ($canEdit): ?>
+            <td><?= moneyInput($tid, 'price_small', $small) ?></td>
+            <td><?= moneyInput($tid, 'price_large', $large) ?></td>
+            <?php endif; ?>
             <td class="left">
               <?php if ($canEdit): ?>
               <div class="cat-prints" data-tid="<?= $tid ?>">
@@ -1724,8 +1740,8 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 </div>
 <div id="pinModal" class="modal hidden">
   <form class="modalbox" id="pinForm">
-    <h3>Maten invullen</h3>
-    <p>Pincode van de 14-2 teamapp</p>
+    <h3>Beheer</h3>
+    <p>Pincode van de 14-2 teamapp. Prijzen en bedragen zijn alleen hier zichtbaar.</p>
     <input id="pinInput" type="password" inputmode="numeric" maxlength="8" autocomplete="off" autofocus>
     <p class="err" id="pinErr"></p>
     <div class="actions">

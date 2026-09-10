@@ -829,6 +829,45 @@ function typeIsActive(array $t): bool {
     return !array_key_exists('active', $t) || (int) $t['active'] === 1;
 }
 
+function clothingTypeAssignmentCounts(mysqli $db): array {
+    $out = [];
+    $queries = [
+        'player' => 'SELECT clothing_type_id, COUNT(*) AS c FROM player_clothing GROUP BY clothing_type_id',
+        'staff' => 'SELECT clothing_type_id, COUNT(*) AS c FROM staff_clothing GROUP BY clothing_type_id',
+    ];
+    foreach ($queries as $who => $sql) {
+        $res = $db->query($sql);
+        if (!$res) {
+            continue;
+        }
+        while ($row = $res->fetch_assoc()) {
+            $id = (int) ($row['clothing_type_id'] ?? 0);
+            if ($id > 0) {
+                $out[$id][$who] = (int) ($row['c'] ?? 0);
+            }
+        }
+    }
+    return $out;
+}
+
+function assignedTypeDeleteError(int $players, int $staff): string {
+    $bits = [];
+    if ($players === 1) {
+        $bits[] = '1 speler';
+    } elseif ($players > 1) {
+        $bits[] = $players . ' spelers';
+    }
+    if ($staff === 1) {
+        $bits[] = '1 staflid';
+    } elseif ($staff > 1) {
+        $bits[] = $staff . ' stafleden';
+    }
+    if ($bits === []) {
+        return '';
+    }
+    return 'Dit artikel is nog toegekend aan ' . implode(' en ', $bits) . '. Haal het daar eerst weg.';
+}
+
 function normalizePlayerPosition(string $pos): string {
     $pos = strtolower(trim($pos));
     return in_array($pos, ['goalkeeper', 'defender', 'midfielder', 'attacker'], true) ? $pos : 'midfielder';

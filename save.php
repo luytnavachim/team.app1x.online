@@ -342,7 +342,10 @@ if ($action === 'delete_type') {
     $st->bind_param('i', $id);
     $st->execute();
     $sc = (int) ($st->get_result()->fetch_assoc()['c'] ?? 0);
-
+    $block = assignedTypeDeleteError($pc, $sc);
+    if ($block !== '') {
+        jsonOut(['ok' => false, 'error' => $block], 409);
+    }
     $mysqli->begin_transaction();
     try {
         $upd = $mysqli->prepare('UPDATE clothing_types SET active=0, updated_at=NOW() WHERE id=?');

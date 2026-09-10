@@ -13,6 +13,7 @@ $posOrder = ['goalkeeper', 'defender', 'midfielder', 'attacker'];
 
 $types = loadTypes($mysqli);
 cleanupMismatchedPlayerKit($mysqli);
+$typeAssigned = clothingTypeAssignmentCounts($mysqli);
 
 $FIELD_CORE = [1, 4, 3, 7];
 $KEEPER_CORE = keeperCoreTypeIds($types);
@@ -763,6 +764,7 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
 .cat-name{display:grid;gap:5px;min-width:160px}
 .cat-name .cat-input{width:100%;min-width:140px}
 .cat-del{border:0;background:transparent;color:var(--miss);font:inherit;font-size:11px;font-weight:800;cursor:pointer;padding:4px 2px;white-space:nowrap}
+.cat-used{display:block;font-size:11px;font-weight:700;color:var(--muted);white-space:nowrap}
 .cms-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:8px;align-items:end;margin:8px 0 14px}
 .cms-grid .btn{justify-self:start}
 .cms-grid label{display:grid;gap:4px;font-size:11px;font-weight:700;color:var(--dim)}
@@ -1495,7 +1497,14 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               <?php endif; ?>
             </td>
             <?php if ($canEdit): ?>
-            <td><button type="button" class="cat-del" data-tid="<?= $tid ?>" data-name="<?= h((string) $t['display_name']) ?>">Verwijderen</button></td>
+            <td><?php
+              $usedPlayers = (int) ($typeAssigned[$tid]['player'] ?? 0);
+              $usedStaff = (int) ($typeAssigned[$tid]['staff'] ?? 0);
+              $used = $usedPlayers + $usedStaff;
+              if ($used > 0):
+            ?><span class="cat-used" title="<?= h(assignedTypeDeleteError($usedPlayers, $usedStaff)) ?>">Toegekend · <?= (int) $used ?></span><?php else: ?>
+            <button type="button" class="cat-del" data-tid="<?= $tid ?>" data-name="<?= h((string) $t['display_name']) ?>">Verwijderen</button>
+            <?php endif; ?></td>
             <?php endif; ?>
           </tr>
           <?php endforeach; ?>
@@ -2182,7 +2191,7 @@ document.querySelectorAll('.cat-del[data-tid]').forEach(btn=>{
     const id=+btn.dataset.tid;
     const name=btn.dataset.name||'dit artikel';
     if(!id) return;
-    if(!confirm('“'+name+'” verwijderen uit de catalogus?\nBestaande toewijzingen bij spelers blijven staan, maar het artikel verdwijnt uit de lijst.')) return;
+    if(!confirm('“'+name+'” verwijderen uit de catalogus?')) return;
     const out=await api({action:'delete_type', csrf:TEAM.csrf, id});
     if(!out.ok){ toast(out.error||'Verwijderen mislukt'); return; }
     toast('Verwijderd');

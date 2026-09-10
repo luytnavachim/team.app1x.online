@@ -14,6 +14,12 @@ function h(?string $v): string {
     return htmlspecialchars((string) $v, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
+function assetUrl(string $file): string {
+    $path = __DIR__ . '/' . ltrim($file, '/');
+    $v = is_file($path) ? (string) filemtime($path) : (string) time();
+    return h($file) . '?v=' . $v;
+}
+
 function euro(?float $n): string {
     if ($n === null) {
         return '—';

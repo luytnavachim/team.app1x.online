@@ -1025,11 +1025,11 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <section class="kit-design" id="design">
     <figure>
-            <img src="speler-kit.png" width="1145" height="1037" alt="Spelerstenue 14-2: shirt, broekje, jassen, tas en sokken">
+            <img src="<?= assetUrl('speler-kit.png') ?>" width="1145" height="1037" alt="Spelerstenue 14-2: shirt, broekje, jassen, tas en sokken">
       <figcaption>Speler</figcaption>
     </figure>
     <figure>
-            <img src="kader-kit.png" width="837" height="1469" alt="Kadertenue 14-2: polo, shirt, jas en broekje">
+            <img src="<?= assetUrl('kader-kit.png') ?>" width="837" height="1469" alt="Kadertenue 14-2: polo, shirt, jas en broekje">
       <figcaption>Kader</figcaption>
     </figure>
   </section>

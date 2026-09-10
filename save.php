@@ -331,6 +331,9 @@ if ($action === 'save_type') {
     $printIni = array_key_exists('print_initials', $body) ? ((int) $body['print_initials'] ? 1 : 0) : (int) ($types[$id]['print_initials'] ?? 0);
     $printSp = array_key_exists('print_sponsor', $body) ? ((int) $body['print_sponsor'] ? 1 : 0) : (int) ($types[$id]['print_sponsor'] ?? 0);
     $printSpBack = array_key_exists('print_sponsor_back', $body) ? ((int) $body['print_sponsor_back'] ? 1 : 0) : (int) ($types[$id]['print_sponsor_back'] ?? 0);
+    $printSpPadded = array_key_exists('print_sponsor_padded', $body) ? ((int) $body['print_sponsor_padded'] ? 1 : 0) : (int) ($types[$id]['print_sponsor_padded'] ?? 0);
+    $printSpJacket = array_key_exists('print_sponsor_jacket', $body) ? ((int) $body['print_sponsor_jacket'] ? 1 : 0) : (int) ($types[$id]['print_sponsor_jacket'] ?? 0);
+    $printSpBag = array_key_exists('print_sponsor_bag', $body) ? ((int) $body['print_sponsor_bag'] ? 1 : 0) : (int) ($types[$id]['print_sponsor_bag'] ?? 0);
     $printName = array_key_exists('print_name_back', $body) ? ((int) $body['print_name_back'] ? 1 : 0) : (int) ($types[$id]['print_name_back'] ?? 0);
     $printStaffText = array_key_exists('print_staff_text', $body) ? ((int) $body['print_staff_text'] ? 1 : 0) : (int) ($types[$id]['print_staff_text'] ?? 0);
     $printPlace = array_key_exists('print_place', $body)
@@ -343,8 +346,8 @@ if ($action === 'save_type') {
         $sizesList = stannoSizesForArticle($article) ?: sizeOptionsForKind($sizeKind);
     }
     $sizes = formatSizeList($sizesList);
-    $upd = $mysqli->prepare("UPDATE clothing_types SET display_name=?, article_number=?, color=?, brand=?, price_small=NULLIF(?, ''), price_large=NULLIF(?, ''), price=NULLIF(?, ''), size_kind=?, sizes=?, order_group=?, print_rohda=?, print_initials=?, print_sponsor=?, print_sponsor_back=?, print_name_back=?, print_staff_text=?, print_place=?, updated_at=NOW() WHERE id=?");
-    $upd->bind_param('ssssssssssiiiiiisi', $display, $article, $color, $brand, $smallS, $largeS, $stdS, $sizeKind, $sizes, $orderGroup, $printRohda, $printIni, $printSp, $printSpBack, $printName, $printStaffText, $printPlace, $id);
+    $upd = $mysqli->prepare("UPDATE clothing_types SET display_name=?, article_number=?, color=?, brand=?, price_small=NULLIF(?, ''), price_large=NULLIF(?, ''), price=NULLIF(?, ''), size_kind=?, sizes=?, order_group=?, print_rohda=?, print_initials=?, print_sponsor=?, print_sponsor_back=?, print_sponsor_padded=?, print_sponsor_jacket=?, print_sponsor_bag=?, print_name_back=?, print_staff_text=?, print_place=?, updated_at=NOW() WHERE id=?");
+    $upd->bind_param('ssssssssssiiiiiiiiiisi', $display, $article, $color, $brand, $smallS, $largeS, $stdS, $sizeKind, $sizes, $orderGroup, $printRohda, $printIni, $printSp, $printSpBack, $printSpPadded, $printSpJacket, $printSpBag, $printName, $printStaffText, $printPlace, $id);
     if (!$upd->execute()) {
         jsonOut(['ok' => false, 'error' => 'Kon artikel niet opslaan.'], 400);
     }
@@ -587,6 +590,9 @@ if ($action === 'add_type') {
     $printIni = !empty($body['print_initials']) ? 1 : 0;
     $printSp = !empty($body['print_sponsor']) ? 1 : 0;
     $printSpBack = !empty($body['print_sponsor_back']) ? 1 : 0;
+    $printSpPadded = !empty($body['print_sponsor_padded']) ? 1 : 0;
+    $printSpJacket = !empty($body['print_sponsor_jacket']) ? 1 : 0;
+    $printSpBag = !empty($body['print_sponsor_bag']) ? 1 : 0;
     $printName = !empty($body['print_name_back']) ? 1 : 0;
     $printStaffText = !empty($body['print_staff_text']) ? 1 : 0;
     $printPlace = substr(trim((string) ($body['print_place'] ?? '')), 0, 255);
@@ -606,8 +612,8 @@ if ($action === 'add_type') {
             break;
         }
     }
-    $ins = $mysqli->prepare('INSERT INTO clothing_types (name, display_name, article_number, color, brand, price_small, price_large, price, size_kind, sizes, order_group, print_rohda, print_initials, print_sponsor, print_sponsor_back, print_name_back, print_staff_text, print_place, active, created_at, updated_at) VALUES (?,?,?,?,?,NULLIF(?,\'\'),NULLIF(?,\'\'),NULLIF(?,\'\'),?,?,?,?,?,?,?,?,?,?,1,NOW(),NOW())');
-    $ins->bind_param('sssssssssssiiiiiis', $name, $display, $article, $color, $brand, $smallS, $largeS, $stdS, $sizeKind, $sizes, $orderGroup, $printRohda, $printIni, $printSp, $printSpBack, $printName, $printStaffText, $printPlace);
+    $ins = $mysqli->prepare('INSERT INTO clothing_types (name, display_name, article_number, color, brand, price_small, price_large, price, size_kind, sizes, order_group, print_rohda, print_initials, print_sponsor, print_sponsor_back, print_sponsor_padded, print_sponsor_jacket, print_sponsor_bag, print_name_back, print_staff_text, print_place, active, created_at, updated_at) VALUES (?,?,?,?,?,NULLIF(?,\'\'),NULLIF(?,\'\'),NULLIF(?,\'\'),?,?,?,?,?,?,?,?,?,?,?,?,?,1,NOW(),NOW())');
+    $ins->bind_param('sssssssssssiiiiiiiiis', $name, $display, $article, $color, $brand, $smallS, $largeS, $stdS, $sizeKind, $sizes, $orderGroup, $printRohda, $printIni, $printSp, $printSpBack, $printSpPadded, $printSpJacket, $printSpBag, $printName, $printStaffText, $printPlace);
     if (!$ins->execute()) {
         jsonOut(['ok' => false, 'error' => 'Kon artikel niet toevoegen.'], 400);
     }

@@ -256,7 +256,7 @@ foreach ($staff as $s) {
     }
 }
 $orderGroups = [];
-$orderBrand = ['rohda' => 0, 'initials' => 0, 'sponsor' => 0, 'name_back' => 0];
+$orderBrand = ['rohda' => 0, 'initials' => 0, 'sponsor' => 0, 'sponsor_back' => 0, 'name_back' => 0];
 foreach ($gaps as $g) {
     $key = $g['tid'] . '|' . ($g['size'] !== '' ? $g['size'] : 'onbekend');
     $t = $g['type'];
@@ -276,6 +276,7 @@ foreach ($gaps as $g) {
             'rohda' => typePrints($t, 'print_rohda'),
             'initials' => typePrints($t, 'print_initials'),
             'sponsor' => typePrints($t, 'print_sponsor'),
+            'sponsor_back' => typePrints($t, 'print_sponsor_back'),
             'name_back' => typePrints($t, 'print_name_back'),
         ];
     }
@@ -290,6 +291,9 @@ foreach ($gaps as $g) {
     }
     if ($orderGroups[$key]['sponsor']) {
         $orderBrand['sponsor']++;
+    }
+    if ($orderGroups[$key]['sponsor_back']) {
+        $orderBrand['sponsor_back']++;
     }
     if ($orderGroups[$key]['name_back']) {
         $orderBrand['name_back']++;
@@ -310,7 +314,8 @@ $printCost = 0.0;
 $printLines = [
     'rohda' => 'Rohda Raalte logo',
     'initials' => 'Initialen',
-    'sponsor' => 'Bedrijfslogo',
+    'sponsor' => 'Sponsor voorkant',
+    'sponsor_back' => 'Sponsor achterkant',
     'name_back' => 'Nummer achterop',
 ];
 $printRows = [];
@@ -347,6 +352,7 @@ foreach ($orderGroups as $g) {
             'rohda' => 0,
             'initials' => 0,
             'sponsor' => 0,
+            'sponsor_back' => 0,
             'name_back' => 0,
             'numbers' => [],
             'letters' => [],
@@ -365,6 +371,9 @@ foreach ($orderGroups as $g) {
     }
     if ($g['sponsor']) {
         $shopByType[$tid]['sponsor'] += (int) $g['count'];
+    }
+    if ($g['sponsor_back']) {
+        $shopByType[$tid]['sponsor_back'] += (int) $g['count'];
     }
     if ($g['name_back']) {
         $shopByType[$tid]['name_back'] += (int) $g['count'];
@@ -876,7 +885,7 @@ tr.archived td{opacity:.55}
   padding:14px 16px;margin:0 0 16px;
 }
 .shop-prints h4{margin:0 0 10px;font-size:14px;font-weight:800}
-.shop-prints-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.shop-prints-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
 .shop-prints-grid .stat{padding:11px 12px;background:var(--raise)}
 .shop-prints-grid .stat b{font-size:clamp(18px,2.2vw,24px)}
 @media(max-width:760px){.shop-prints-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
@@ -1246,7 +1255,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   <details class="section fold" id="bestel">
     <summary class="fold-head"><h3>Bestelling</h3><span class="fold-meta"><?= (int) $orderPieces ?> stuks</span></summary>
     <p class="sub"><?= (int) $orderPieces ?> stuks<?php if ($canEdit && $orderTotal > 0): ?> · <?= euro($orderTotal) ?> kleding + bedrukking<?php endif; ?> · artikelnummers, maten en print.</p>
-    <p class="shop-rule"><b>Logo + bedrijfslogo:</b> jassen, shirt, keeperstenue, tas · <b>Initialen:</b> jassen, shirt, broekje, keeperstenue, tas · <b>Nummer:</b> shirt, keeperstenue</p>
+    <p class="shop-rule"><b>Rohda-logo:</b> jassen, shirt, keeperstenue, tas · <b>Sponsor voorkant:</b> shirt, keeperstenue, winterjas, tas · <b>Sponsor achterkant:</b> shirt, keeperstenue, field jack · <b>Initialen:</b> jassen, shirt, broekje, keeperstenue, tas · <b>Nummer:</b> shirt, keeperstenue</p>
 
     <div class="actions">
       <a class="btn dark" href="?csv=bestel">Excel-bestellijst</a>
@@ -1306,11 +1315,12 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
           </div>
           <?php endforeach; ?>
         </div>
-        <?php if ($shop['rohda'] || $shop['initials'] || $shop['sponsor'] || $shop['name_back']): ?>
+        <?php if ($shop['rohda'] || $shop['initials'] || $shop['sponsor'] || $shop['sponsor_back'] || $shop['name_back']): ?>
         <div class="print-row">
           <?php if ($shop['rohda']): ?><i>Rohda logo <b><?= (int) $shop['rohda'] ?></b></i><?php endif; ?>
           <?php if ($shop['initials']): ?><i>Initialen <b><?= (int) $shop['initials'] ?></b></i><?php endif; ?>
-          <?php if ($shop['sponsor']): ?><i>Bedrijfslogo <b><?= (int) $shop['sponsor'] ?></b></i><?php endif; ?>
+          <?php if ($shop['sponsor']): ?><i>Sponsor voorkant <b><?= (int) $shop['sponsor'] ?></b></i><?php endif; ?>
+          <?php if ($shop['sponsor_back']): ?><i>Sponsor achterkant <b><?= (int) $shop['sponsor_back'] ?></b></i><?php endif; ?>
           <?php if ($shop['name_back']): ?><i>Nummer achterop <b><?= (int) $shop['name_back'] ?></b></i><?php endif; ?>
         </div>
         <?php endif; ?>
@@ -1333,7 +1343,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     </div>
 
     <?php if ($canEdit): ?>
-    <p class="shop-rule">Printprijzen komen uit de catalogus (Rohda Logo, Logo Sponser, Initialen<?= ($printPrices['name_back'] ?? null) === null ? '; nummer: nog geen catalogusprijs' : '' ?>).</p>
+    <p class="shop-rule">Printprijzen komen uit de catalogus (Rohda Logo, Logo Sponsor voorkant/achterkant, Initialen<?= ($printPrices['name_back'] ?? null) === null ? '; nummer: nog geen catalogusprijs' : '' ?>).</p>
     <details class="shop-more">
       <summary>Prijsregels (intern)</summary>
       <div class="tablewrap">
@@ -1504,7 +1514,8 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             $tags = [];
             if (typePrints($t, 'print_rohda')) $tags[] = 'Rohda';
             if (typePrints($t, 'print_initials')) $tags[] = 'initialen';
-            if (typePrints($t, 'print_sponsor')) $tags[] = 'sponsorblok';
+            if (typePrints($t, 'print_sponsor')) $tags[] = 'sponsor voorkant';
+            if (typePrints($t, 'print_sponsor_back')) $tags[] = 'sponsor achterkant';
             if (typePrints($t, 'print_name_back')) $tags[] = 'nummer';
           ?>
           <tr data-type-id="<?= $tid ?>">
@@ -1532,7 +1543,8 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               <div class="cat-prints" data-tid="<?= $tid ?>">
                 <label><input type="checkbox" data-print="print_rohda"<?= typePrints($t, 'print_rohda') ? ' checked' : '' ?>> Rohda</label>
                 <label><input type="checkbox" data-print="print_initials"<?= typePrints($t, 'print_initials') ? ' checked' : '' ?>> Initialen</label>
-                <label><input type="checkbox" data-print="print_sponsor"<?= typePrints($t, 'print_sponsor') ? ' checked' : '' ?>> Sponsorblok</label>
+                <label><input type="checkbox" data-print="print_sponsor"<?= typePrints($t, 'print_sponsor') ? ' checked' : '' ?>> Sponsor voorkant</label>
+                <label><input type="checkbox" data-print="print_sponsor_back"<?= typePrints($t, 'print_sponsor_back') ? ' checked' : '' ?>> Sponsor achterkant</label>
                 <label><input type="checkbox" data-print="print_name_back"<?= typePrints($t, 'print_name_back') ? ' checked' : '' ?>> Nummer</label>
               </div>
               <?php else: ?>
@@ -1585,7 +1597,8 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
       <div class="checks" id="newPrints">
         <label><input type="checkbox" value="print_rohda"> Rohda</label>
         <label><input type="checkbox" value="print_initials"> Initialen</label>
-        <label><input type="checkbox" value="print_sponsor"> Sponsorblok</label>
+        <label><input type="checkbox" value="print_sponsor"> Sponsor voorkant</label>
+        <label><input type="checkbox" value="print_sponsor_back"> Sponsor achterkant</label>
         <label><input type="checkbox" value="print_name_back"> Nummer</label>
       </div>
       <div class="actions">

@@ -330,6 +330,7 @@ if ($action === 'save_type') {
     $printRohda = array_key_exists('print_rohda', $body) ? ((int) $body['print_rohda'] ? 1 : 0) : (int) ($types[$id]['print_rohda'] ?? 0);
     $printIni = array_key_exists('print_initials', $body) ? ((int) $body['print_initials'] ? 1 : 0) : (int) ($types[$id]['print_initials'] ?? 0);
     $printSp = array_key_exists('print_sponsor', $body) ? ((int) $body['print_sponsor'] ? 1 : 0) : (int) ($types[$id]['print_sponsor'] ?? 0);
+    $printSpBack = array_key_exists('print_sponsor_back', $body) ? ((int) $body['print_sponsor_back'] ? 1 : 0) : (int) ($types[$id]['print_sponsor_back'] ?? 0);
     $printName = array_key_exists('print_name_back', $body) ? ((int) $body['print_name_back'] ? 1 : 0) : (int) ($types[$id]['print_name_back'] ?? 0);
     $printPlace = array_key_exists('print_place', $body)
         ? substr(trim((string) $body['print_place']), 0, 255)
@@ -341,8 +342,8 @@ if ($action === 'save_type') {
         $sizesList = stannoSizesForArticle($article) ?: sizeOptionsForKind($sizeKind);
     }
     $sizes = formatSizeList($sizesList);
-    $upd = $mysqli->prepare("UPDATE clothing_types SET display_name=?, article_number=?, color=?, brand=?, price_small=NULLIF(?, ''), price_large=NULLIF(?, ''), price=NULLIF(?, ''), size_kind=?, sizes=?, order_group=?, print_rohda=?, print_initials=?, print_sponsor=?, print_name_back=?, print_place=?, updated_at=NOW() WHERE id=?");
-    $upd->bind_param('ssssssssssiiiisi', $display, $article, $color, $brand, $smallS, $largeS, $stdS, $sizeKind, $sizes, $orderGroup, $printRohda, $printIni, $printSp, $printName, $printPlace, $id);
+    $upd = $mysqli->prepare("UPDATE clothing_types SET display_name=?, article_number=?, color=?, brand=?, price_small=NULLIF(?, ''), price_large=NULLIF(?, ''), price=NULLIF(?, ''), size_kind=?, sizes=?, order_group=?, print_rohda=?, print_initials=?, print_sponsor=?, print_sponsor_back=?, print_name_back=?, print_place=?, updated_at=NOW() WHERE id=?");
+    $upd->bind_param('ssssssssssiiiiisi', $display, $article, $color, $brand, $smallS, $largeS, $stdS, $sizeKind, $sizes, $orderGroup, $printRohda, $printIni, $printSp, $printSpBack, $printName, $printPlace, $id);
     if (!$upd->execute()) {
         jsonOut(['ok' => false, 'error' => 'Kon artikel niet opslaan.'], 400);
     }
@@ -584,6 +585,7 @@ if ($action === 'add_type') {
     $printRohda = !empty($body['print_rohda']) ? 1 : 0;
     $printIni = !empty($body['print_initials']) ? 1 : 0;
     $printSp = !empty($body['print_sponsor']) ? 1 : 0;
+    $printSpBack = !empty($body['print_sponsor_back']) ? 1 : 0;
     $printName = !empty($body['print_name_back']) ? 1 : 0;
     $printPlace = substr(trim((string) ($body['print_place'] ?? '')), 0, 255);
     $sizesList = parseSizeList($body['sizes'] ?? '');
@@ -602,8 +604,8 @@ if ($action === 'add_type') {
             break;
         }
     }
-    $ins = $mysqli->prepare('INSERT INTO clothing_types (name, display_name, article_number, color, brand, price_small, price_large, price, size_kind, sizes, order_group, print_rohda, print_initials, print_sponsor, print_name_back, print_place, active, created_at, updated_at) VALUES (?,?,?,?,?,NULLIF(?,\'\'),NULLIF(?,\'\'),NULLIF(?,\'\'),?,?,?,?,?,?,?,?,1,NOW(),NOW())');
-    $ins->bind_param('sssssssssssiiiis', $name, $display, $article, $color, $brand, $smallS, $largeS, $stdS, $sizeKind, $sizes, $orderGroup, $printRohda, $printIni, $printSp, $printName, $printPlace);
+    $ins = $mysqli->prepare('INSERT INTO clothing_types (name, display_name, article_number, color, brand, price_small, price_large, price, size_kind, sizes, order_group, print_rohda, print_initials, print_sponsor, print_sponsor_back, print_name_back, print_place, active, created_at, updated_at) VALUES (?,?,?,?,?,NULLIF(?,\'\'),NULLIF(?,\'\'),NULLIF(?,\'\'),?,?,?,?,?,?,?,?,?,1,NOW(),NOW())');
+    $ins->bind_param('sssssssssssiiiiis', $name, $display, $article, $color, $brand, $smallS, $largeS, $stdS, $sizeKind, $sizes, $orderGroup, $printRohda, $printIni, $printSp, $printSpBack, $printName, $printPlace);
     if (!$ins->execute()) {
         jsonOut(['ok' => false, 'error' => 'Kon artikel niet toevoegen.'], 400);
     }

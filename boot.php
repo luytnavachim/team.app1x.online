@@ -217,6 +217,7 @@ function defaultKitSettings(): array {
             'rohda' => null,
             'initials' => null,
             'sponsor' => null,
+            'sponsor_back' => null,
             'name_back' => null,
         ],
         'season' => '26/27',
@@ -314,7 +315,8 @@ function isKeeperKitType(array $t): bool {
     }
     if (trim((string) ($t['article_number'] ?? '')) === '' && (
         typePrints($t, 'print_rohda') || typePrints($t, 'print_initials')
-        || typePrints($t, 'print_sponsor') || typePrints($t, 'print_name_back')
+        || typePrints($t, 'print_sponsor') || typePrints($t, 'print_sponsor_back')
+        || typePrints($t, 'print_name_back')
     )) {
         return false;
     }
@@ -824,6 +826,76 @@ function ensurePackageTypes(mysqli $db): void {
     }
 }
 
+function ensureSponsorPrintSplit(mysqli $db): void {
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    $added = false;
+    $r = $db->query("SHOW COLUMNS FROM clothing_types LIKE 'print_sponsor_back'");
+    if (!$r || $r->num_rows === 0) {
+        $db->query('ALTER TABLE clothing_types ADD COLUMN print_sponsor_back TINYINT(1) NOT NULL DEFAULT 0 AFTER print_sponsor');
+        $added = true;
+    }
+    $front = $db->query('SELECT id, name, display_name FROM clothing_types WHERE id=17 LIMIT 1');
+    $row = $front ? $front->fetch_assoc() : null;
+    if ($row) {
+        $dn = trim((string) ($row['display_name'] ?? ''));
+        if (preg_match('/^logo\s*sponser$/iu', $dn)) {
+            $db->query("UPDATE clothing_types SET display_name='Logo Sponsor voorkant', name='logo_sponsor_voorkant', updated_at=NOW() WHERE id=17");
+        }
+    }
+    $hasBack = false;
+    $chk = $db->query("SELECT id FROM clothing_types WHERE print_sponsor_back=1 AND (article_number IS NULL OR TRIM(article_number)='') LIMIT 1");
+    if ($chk && $chk->fetch_row()) {
+        $hasBack = true;
+    }
+    if (!$hasBack) {
+        $price = 9.95;
+        $src = $db->query('SELECT price, price_small, price_large FROM clothing_types WHERE id=17 LIMIT 1');
+        $p = $src ? $src->fetch_assoc() : null;
+        if ($p) {
+            foreach (['price_small', 'price_large', 'price'] as $k) {
+                if (($p[$k] ?? null) !== null && $p[$k] !== '') {
+                    $price = (float) $p[$k];
+                    break;
+                }
+            }
+        }
+        $name = 'logo_sponsor_achterkant';
+        $exist = $db->prepare('SELECT id FROM clothing_types WHERE name=? LIMIT 1');
+        $exist->bind_param('s', $name);
+        $exist->execute();
+        $found = $exist->get_result()->fetch_assoc();
+        $priceS = number_format($price, 2, '.', '');
+        $display = 'Logo Sponsor achterkant';
+        $article = '';
+        $color = '';
+        $brand = 'Stanno';
+        $kind = 'onesize';
+        $group = 'extra';
+        $place = '';
+        if ($found) {
+            $fid = (int) $found['id'];
+            $upd = $db->prepare("UPDATE clothing_types SET display_name=?, article_number=?, print_rohda=0, print_initials=0, print_sponsor=0, print_sponsor_back=1, print_name_back=0, price_small=?, price_large=?, price=?, active=1, updated_at=NOW() WHERE id=?");
+            $upd->bind_param('sssssi', $display, $article, $priceS, $priceS, $priceS, $fid);
+            $upd->execute();
+        } else {
+            $ins = $db->prepare('INSERT INTO clothing_types (name, display_name, article_number, color, brand, price_small, price_large, price, size_kind, order_group, print_rohda, print_initials, print_sponsor, print_sponsor_back, print_name_back, print_place, active, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,0,0,0,1,0,?,1,NOW(),NOW())');
+            $ins->bind_param('sssssssssss', $name, $display, $article, $color, $brand, $priceS, $priceS, $priceS, $kind, $group, $place);
+            $ins->execute();
+        }
+    }
+    if (!$added) {
+        return;
+    }
+    $db->query('UPDATE clothing_types SET print_sponsor_back=1 WHERE id IN (1, 19, 23)');
+    $db->query("UPDATE clothing_types SET print_sponsor=0, print_sponsor_back=1, print_place='Rohda Raalte logo · bedrijfslogo achterkant · initialen' WHERE id=13");
+    $db->query("UPDATE clothing_types SET print_place='Rohda Raalte logo · bedrijfslogo voor- en achterkant · initialen · nummer achterop' WHERE id IN (1, 19)");
+    $db->query("UPDATE clothing_types SET print_place='Rohda Raalte logo · bedrijfslogo voor- en achterkant · initialen' WHERE id=23");
+}
+
 function remapStaffShirtTypeIds(array $ids, int $staffShirtId): array {
     $out = [];
     foreach ($ids as $tid) {
@@ -863,7 +935,7 @@ function ensureStaffShirtType(mysqli $db): void {
     $desc = 'Shirt voor kader 14-2';
     $kind = 'body';
     $group = 'extra';
-    $place = 'Rohda Raalte logo · bedrijfslogo · initialen';
+    $place = 'Rohda Raalte logo · bedrijfslogo voor- en achterkant · initialen';
     $found = null;
     $sel = $db->prepare('SELECT id FROM clothing_types WHERE id=? OR name=? LIMIT 1');
     $sel->bind_param('is', $id, $name);
@@ -874,7 +946,7 @@ function ensureStaffShirtType(mysqli $db): void {
         seedPriceIfEmpty($db, $fid, $small, $large);
         $id = $fid;
     } else {
-        $ins = $db->prepare('INSERT INTO clothing_types (id, name, display_name, article_number, description, color, brand, price_small, price_large, price, size_kind, order_group, print_rohda, print_initials, print_sponsor, print_name_back, print_place, active, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,1,1,0,?,1,NOW(),NOW())');
+        $ins = $db->prepare('INSERT INTO clothing_types (id, name, display_name, article_number, description, color, brand, price_small, price_large, price, size_kind, order_group, print_rohda, print_initials, print_sponsor, print_sponsor_back, print_name_back, print_place, active, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,1,1,1,1,0,?,1,NOW(),NOW())');
         $ins->bind_param('issssssdddsss', $id, $name, $display, $article, $desc, $color, $brand, $small, $large, $price, $kind, $group, $place);
         $ins->execute();
     }
@@ -1067,6 +1139,7 @@ function isPrintCatalogType(array $t): bool {
     return typePrints($t, 'print_rohda')
         || typePrints($t, 'print_initials')
         || typePrints($t, 'print_sponsor')
+        || typePrints($t, 'print_sponsor_back')
         || typePrints($t, 'print_name_back');
 }
 
@@ -1076,9 +1149,10 @@ function catalogPrintPrices(array $types): array {
         'rohda' => 'print_rohda',
         'initials' => 'print_initials',
         'sponsor' => 'print_sponsor',
+        'sponsor_back' => 'print_sponsor_back',
         'name_back' => 'print_name_back',
     ];
-    $out = ['rohda' => null, 'initials' => null, 'sponsor' => null, 'name_back' => null];
+    $out = ['rohda' => null, 'initials' => null, 'sponsor' => null, 'sponsor_back' => null, 'name_back' => null];
     foreach ($map as $key => $flag) {
         foreach ($types as $t) {
             if (!is_array($t) || !isPrintCatalogType($t) || !typePrints($t, $flag)) {
@@ -2240,6 +2314,7 @@ function itemPrintMarks(array $g): array {
     $jersey = trim((string) ($g['jersey'] ?? ''));
     $rohda = typePrints($t, 'print_rohda');
     $sponsor = typePrints($t, 'print_sponsor');
+    $sponsorBack = typePrints($t, 'print_sponsor_back');
     $wantIni = typePrints($t, 'print_initials');
     $wantNum = typePrints($t, 'print_name_back');
     $bits = [];
@@ -2253,14 +2328,18 @@ function itemPrintMarks(array $g): array {
         $bits[] = 'Rohda logo';
     }
     if ($sponsor) {
-        $bits[] = 'Bedrijfslogo';
+        $bits[] = 'Sponsor voorkant';
+    }
+    if ($sponsorBack) {
+        $bits[] = 'Sponsor achterkant';
     }
     return [
-        'any' => $wantIni || $wantNum || $rohda || $sponsor,
+        'any' => $wantIni || $wantNum || $rohda || $sponsor || $sponsorBack,
         'ini' => $wantIni ? ($ini !== '' ? $ini : 'ontbreekt') : '',
         'num' => $wantNum ? ($jersey !== '' ? '#' . $jersey : 'ontbreekt') : '',
         'rohda' => $rohda ? 'ja' : '',
         'sponsor' => $sponsor ? 'ja' : '',
+        'sponsor_back' => $sponsorBack ? 'ja' : '',
         'on' => implode(' · ', $bits),
     ];
 }
@@ -2271,7 +2350,7 @@ function orderListRows(array $shopByType, int $orderPieces, array $gaps = [], ?D
     $rows = [];
     $rows[] = ['Bestelling Rohda Raalte 14-2 · versie ' . $when];
     $rows[] = ['Winkel: aantallen per maat. Drukker: per maat de initialen/nummers, en per stuk precies wat erop moet.'];
-    $rows[] = ['Rohda Raalte logo + bedrijfslogo: jassen, shirt, keeperstenue, tas. Initialen: jassen, shirt, broekje, keeperstenue, tas. Nummer achterop: shirt, keeperstenue.'];
+    $rows[] = ['Rohda-logo: jassen, shirt, keeperstenue, tas. Sponsor voorkant: shirt, keeperstenue, winterjas, tas. Sponsor achterkant: shirt, keeperstenue, field jack. Initialen: jassen, shirt, broekje, keeperstenue, tas. Nummer achterop: shirt, keeperstenue.'];
     $rows[] = [];
     $rows[] = ['BESTELLEN · AANTALLEN PER MAAT'];
     $rows[] = ['Product', 'Artikelnummer', 'Merk', 'Kleur', 'Maat', 'Aantal'];
@@ -2288,9 +2367,9 @@ function orderListRows(array $shopByType, int $orderPieces, array $gaps = [], ?D
     $rows[] = ['Alle producten · totaal', '', '', '', '', $orderPieces];
     $rows[] = [];
     $rows[] = ['BEDRUKKEN · PER MAAT'];
-    $rows[] = ['Product', 'Artikelnummer', 'Maat', 'Aantal', 'Initialen op deze maat', 'Nummers op deze maat', 'Rohda logo', 'Bedrijfslogo'];
+    $rows[] = ['Product', 'Artikelnummer', 'Maat', 'Aantal', 'Initialen op deze maat', 'Nummers op deze maat', 'Rohda logo', 'Sponsor voorkant', 'Sponsor achterkant'];
     foreach ($shopByType as $shop) {
-        $hasPrint = !empty($shop['rohda']) || !empty($shop['initials']) || !empty($shop['sponsor']) || !empty($shop['name_back']);
+        $hasPrint = !empty($shop['rohda']) || !empty($shop['initials']) || !empty($shop['sponsor']) || !empty($shop['sponsor_back']) || !empty($shop['name_back']);
         if (!$hasPrint) {
             continue;
         }
@@ -2306,6 +2385,7 @@ function orderListRows(array $shopByType, int $orderPieces, array $gaps = [], ?D
                 !empty($line['numbers']) ? implode(', ', array_map(static fn($n) => '#' . $n, $line['numbers'])) : '',
                 !empty($shop['rohda']) ? 'ja' : '',
                 !empty($shop['sponsor']) ? 'ja' : '',
+                !empty($shop['sponsor_back']) ? 'ja' : '',
             ];
         }
     }
@@ -2328,7 +2408,7 @@ function orderListRows(array $shopByType, int $orderPieces, array $gaps = [], ?D
 
     $rows[] = [];
     $rows[] = ['BEDRUKKEN · PER STUK'];
-    $rows[] = ['Product', 'Artikelnummer', 'Maat', 'Speler', 'Initialen', 'Nummer', 'Rohda logo', 'Bedrijfslogo', 'Op dit stuk'];
+    $rows[] = ['Product', 'Artikelnummer', 'Maat', 'Speler', 'Initialen', 'Nummer', 'Rohda logo', 'Sponsor voorkant', 'Sponsor achterkant', 'Op dit stuk'];
     foreach ($printGaps as $g) {
         $tid = (int) $g['tid'];
         $shop = $shopByType[$tid] ?? [];
@@ -2343,6 +2423,7 @@ function orderListRows(array $shopByType, int $orderPieces, array $gaps = [], ?D
             $m['num'],
             $m['rohda'],
             $m['sponsor'],
+            $m['sponsor_back'],
             $m['on'],
         ];
     }
@@ -2522,6 +2603,7 @@ ensureParentTokenColumn($mysqli);
 ensureParentSavedAtColumn($mysqli);
 ensureStaffFillColumns($mysqli);
 ensurePackageTypes($mysqli);
+ensureSponsorPrintSplit($mysqli);
 ensureStaffShirtType($mysqli);
 seedStannoTypeSizes($mysqli);
 migrateAssignedSizeAliases($mysqli);

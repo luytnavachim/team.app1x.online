@@ -634,9 +634,6 @@ function ensurePackageTypes(mysqli $db): void {
         }
         if ($found) {
             $fid = (int) $found['id'];
-            $upd = $db->prepare('UPDATE clothing_types SET name=?, display_name=?, article_number=?, description=?, color=?, brand=?, active=1, updated_at=NOW() WHERE id=?');
-            $upd->bind_param('ssssssi', $name, $display, $article, $desc, $color, $brand, $fid);
-            $upd->execute();
             seedPriceIfEmpty($db, $fid, $small, $large);
             continue;
         }
@@ -696,9 +693,6 @@ function ensureStaffShirtType(mysqli $db): void {
     $found = $sel->get_result()->fetch_assoc();
     if ($found) {
         $fid = (int) $found['id'];
-        $upd = $db->prepare('UPDATE clothing_types SET name=?, display_name=?, description=?, size_kind=?, order_group=?, active=1, updated_at=NOW() WHERE id=?');
-        $upd->bind_param('sssssi', $name, $display, $desc, $kind, $group, $fid);
-        $upd->execute();
         seedPriceIfEmpty($db, $fid, $small, $large);
         $id = $fid;
     } else {

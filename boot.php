@@ -2467,14 +2467,19 @@ function makeKitroomBackup(mysqli $db): array {
         throw new RuntimeException('Zip is niet beschikbaar op de server.');
     }
     $dir = kitroomBackupDir();
-    if (!is_dir($dir) && !@mkdir($dir, 0750, true) && !is_dir($dir)) {
-        throw new RuntimeException('Kon backupmap niet maken.');
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0750, true);
     }
     $stamp = new DateTimeImmutable('now', new DateTimeZone('Europe/Amsterdam'));
     $filename = 'kitroom-14-2-' . $stamp->format('Y-m-d-H-i') . '.zip';
-    $path = $dir . '/' . $filename;
+    $tmp = tempnam(sys_get_temp_dir(), 'krb');
+    if ($tmp === false) {
+        throw new RuntimeException('Kon tijdelijk backupbestand niet maken.');
+    }
+    @unlink($tmp);
     $zip = new ZipArchive();
-    if ($zip->open($path, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+    $opened = $zip->open($tmp, ZipArchive::CREATE);
+    if ($opened !== true) {
         throw new RuntimeException('Kon backupbestand niet maken.');
     }
     $zip->addFromString('kitroom.sql', sqlBackupDump($db));
@@ -2482,7 +2487,7 @@ function makeKitroomBackup(mysqli $db): array {
     foreach (['kit-settings.json', 'parent-form.json'] as $name) {
         $file = $dataDir . '/' . $name;
         if (is_readable($file)) {
-            $zip->addFile($file, $name);
+            $zip->addFromString($name, (string) file_get_contents($file));
         }
     }
     $zip->addFromString(
@@ -2493,11 +2498,23 @@ function makeKitroomBackup(mysqli $db): array {
         . "Pincode en databasewachtwoord zitten niet in dit bestand.\n"
     );
     $zip->close();
-    if (!is_file($path) || filesize($path) < 32) {
-        @unlink($path);
+    if (!is_file($tmp) || filesize($tmp) < 32) {
+        @unlink($tmp);
         throw new RuntimeException('Backupbestand is leeg.');
     }
-    pruneKitroomBackups($dir);
+    $path = $tmp;
+    if (is_dir($dir) && is_writable($dir)) {
+        $dest = $dir . '/' . $filename;
+        if (@rename($tmp, $dest) || @copy($tmp, $dest)) {
+            if (is_file($dest)) {
+                if (is_file($tmp) && realpath($tmp) !== realpath($dest)) {
+                    @unlink($tmp);
+                }
+                $path = $dest;
+                pruneKitroomBackups($dir);
+            }
+        }
+    }
     return ['path' => $path, 'filename' => $filename];
 }
 

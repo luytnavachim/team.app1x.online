@@ -45,6 +45,11 @@ if ($action === 'backup') {
     header('Cache-Control: no-store');
     header('Content-Length: ' . (string) filesize($made['path']));
     readfile($made['path']);
+    $tmpDir = realpath(sys_get_temp_dir()) ?: sys_get_temp_dir();
+    $real = realpath($made['path']);
+    if ($real && str_starts_with($real, $tmpDir)) {
+        @unlink($real);
+    }
     exit;
 }
 

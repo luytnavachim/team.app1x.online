@@ -158,16 +158,28 @@ body{
 .err{color:var(--miss);font-size:13px;font-weight:700;min-height:18px;margin:8px 0 0}
 .packshot-wrap{margin:0 0 16px;text-align:center}
 .packshot{
-  display:block;margin:0 auto;width:100%;max-width:180px;height:auto;
-  aspect-ratio:1 / 1;object-fit:contain;background:transparent;
+  display:block;margin:0 auto;width:100%;max-width:280px;height:auto;
+  object-fit:contain;background:transparent;
+}
+.kit-design{
+  display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 16px;
+}
+.kit-design figure{
+  margin:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r);
+  padding:10px 10px 8px;min-width:0;
+}
+.kit-design img{
+  width:100%;height:auto;max-height:420px;display:block;margin:0 auto;
+  object-fit:contain;background:transparent;
+}
+.kit-design figcaption{
+  margin:8px 0 0;text-align:center;font-size:12px;font-weight:800;color:var(--muted);
+}
+@media(max-width:520px){
+  .kit-design{grid-template-columns:1fr}
+  .kit-design img{max-height:none}
 }
 .packcap{margin:6px 0 0;font-size:12px;font-weight:600;color:var(--muted)}
-.packfold{margin:0 0 16px}
-.packfold > summary{
-  cursor:pointer;font-weight:800;font-size:13px;color:var(--muted);list-style:none;
-  min-height:40px;display:flex;align-items:center;
-}
-.packfold > summary::-webkit-details-marker{display:none}
 @media(max-width:520px){
   .row{flex-wrap:wrap}
   .row>span:first-child{width:100%}
@@ -204,13 +216,16 @@ body{
       <?php endif; ?>
       <?php if ($formSettings['note'] !== ''): ?> <?= h($formSettings['note']) ?><?php endif; ?>
     </p>
-    <details class="packfold">
-      <summary>Toon pakketfoto</summary>
-      <div class="packshot-wrap">
-        <img class="packshot" src="pakket-14-2.png" width="1023" height="1022" alt="Pakket 14-2: shirt, jassen, broekje, tas en sokken">
-        <p class="packcap">Dit gaan jullie bestellen</p>
-      </div>
-    </details>
+    <section class="kit-design">
+      <figure>
+        <img src="speler-kit.png" width="1254" height="1254" alt="Spelerstenue 14-2: shirt, broekje, jassen, tas en sokken">
+        <figcaption>Speler</figcaption>
+      </figure>
+      <figure>
+        <img src="kader-kit.png" width="901" height="1746" alt="Kadertenue 14-2: polo, shirt, jas en broekje">
+        <figcaption>Kader</figcaption>
+      </figure>
+    </section>
     <?php if ($typeOrder === []): ?>
     <div class="section">
       <h2><?= h($name) ?><?php if ($ini !== ''): ?> <span class="ini"><?= h($ini) ?></span><?php endif; ?></h2>

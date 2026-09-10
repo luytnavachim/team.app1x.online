@@ -815,6 +815,24 @@ tr.archived td{opacity:.55}
   aspect-ratio:1 / 1;object-fit:contain;object-position:center;
   border:0;border-radius:0;background:transparent;padding:0;
 }
+.kit-design{
+  display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0 0 16px;
+}
+.kit-design figure{
+  margin:0;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:12px 12px 10px;min-width:0;
+}
+.kit-design img{
+  width:100%;height:auto;max-height:560px;display:block;margin:0 auto;
+  object-fit:contain;background:transparent;
+}
+.kit-design figcaption{
+  margin:8px 0 0;text-align:center;font-size:12px;font-weight:800;color:var(--muted);
+}
+@media(max-width:720px){
+  .kit-design{grid-template-columns:1fr}
+  .kit-design img{max-height:none}
+}
 .packfold{margin:0 0 14px;border:0;padding:0;background:transparent}
 .packfold > summary{
   cursor:pointer;font-weight:800;font-size:13px;color:var(--muted);list-style:none;
@@ -925,6 +943,9 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   .navwrap,.filters,.actions,.note,.toast,.modal,.theme-switch,#parentAlert,.assign,.addrow,.money,.cat-input,#printPrices,.parent-defaults,.packfold > summary,#beheer{display:none !important}
   .packfold{display:block}
   .packshot{max-width:360px}
+  .kit-design{grid-template-columns:1fr 1fr;break-inside:avoid}
+  .kit-design img{max-height:280px}
+  .kit-design figure{border:1px solid #d4d4d8;background:#fff}
   .featured,.card{break-inside:avoid;border:1px solid #d4d4d8}
   .section{border:1px solid #d4d4d8}
   #bestel{break-inside:auto}
@@ -957,6 +978,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <div class="navwrap">
   <nav class="nav">
+    <a href="#design">Design</a>
     <a href="#spelers">Spelers</a>
     <?php if ($canEdit): ?>
     <a href="#ouders">Ouders<?php if ($parentFilled): ?> <span class="count" id="ouderNavCount"><?= count($parentFilled) ?></span><?php endif; ?></a>
@@ -1000,6 +1022,17 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     </div>
     <?php endif; ?>
   </div>
+
+  <section class="kit-design" id="design">
+    <figure>
+      <img src="speler-kit.png" width="1254" height="1254" alt="Spelerstenue 14-2: shirt, broekje, jassen, tas en sokken">
+      <figcaption>Speler</figcaption>
+    </figure>
+    <figure>
+      <img src="kader-kit.png" width="901" height="1746" alt="Kadertenue 14-2: polo, shirt, jas en broekje">
+      <figcaption>Kader</figcaption>
+    </figure>
+  </section>
 
   <details class="section fold" id="spelers">
     <summary class="fold-head"><h3>Spelers</h3><span class="fold-meta"><?= count($active) ?></span></summary>
@@ -1219,10 +1252,6 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     <summary class="fold-head"><h3>Bestelling</h3><span class="fold-meta"><?= (int) $orderPieces ?> stuks</span></summary>
     <p class="sub"><?= (int) $orderPieces ?> stuks<?php if ($canEdit && $orderTotal > 0): ?> · <?= euro($orderTotal) ?> kleding + bedrukking<?php endif; ?> · artikelnummers, maten en print.</p>
     <p class="shop-rule"><b>Logo + bedrijfslogo:</b> jassen, shirt, keeperstenue, tas · <b>Initialen:</b> jassen, shirt, broekje, keeperstenue, tas · <b>Nummer:</b> shirt, keeperstenue</p>
-    <details class="packfold">
-      <summary>Toon pakketfoto</summary>
-      <img class="packshot" src="pakket-14-2.png" width="1023" height="1022" alt="Pakket 14-2: shirt, jassen, broekje, tas en sokken">
-    </details>
 
     <div class="actions">
       <a class="btn dark" href="?csv=bestel">Excel-bestellijst</a>

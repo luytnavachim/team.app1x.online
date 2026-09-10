@@ -50,6 +50,136 @@ function euroPair(?float $n): string {
     return euro($n) . ' · ' . euro(withVat($n)) . ' incl.';
 }
 
+function withoutVat(?float $n): ?float {
+    if ($n === null) {
+        return null;
+    }
+    return round($n / (1 + vatRate()), 2);
+}
+
+/**
+ * Webshopprijzen zoals op Stanno.com en Teamswear.nl (incl. 21% btw), sept. 2026.
+ * stanno.nl en teamwears.nl bestaan niet; dit zijn de live shops.
+ *
+ * @return array<string, array{stanno_jr:?float,stanno_sr:?float,teamwear_jr:?float,teamwear_sr:?float,stanno_url:string,teamwear_url:string}>
+ */
+function shopComparePrices(): array {
+    return [
+        '410014' => [
+            'stanno_jr' => 23.99, 'stanno_sr' => 25.99,
+            'teamwear_jr' => 16.77, 'teamwear_sr' => 18.16,
+            'stanno_url' => 'https://www.stanno.com/nl/410014-bolt-t-shirt/',
+            'teamwear_url' => 'https://www.teamswear.nl/stanno-bolt-shirt-korte-mouw-heren-zwart',
+        ],
+        '440001' => [
+            'stanno_jr' => 12.99, 'stanno_sr' => 12.99,
+            'teamwear_jr' => 9.06, 'teamwear_sr' => 9.06,
+            'stanno_url' => 'https://www.stanno.com/nl/440001-uni-ii-sock/',
+            'teamwear_url' => 'https://www.teamswear.nl/stanno-uni-sock-ii-voetbalkousen-wit',
+        ],
+        '420004' => [
+            'stanno_jr' => 19.99, 'stanno_sr' => 19.99,
+            'teamwear_jr' => 13.96, 'teamwear_sr' => 13.96,
+            'stanno_url' => 'https://www.stanno.com/nl/420004-focus-shorts-ii/',
+            'teamwear_url' => 'https://www.teamswear.nl/stanno-focus-ii-short-heren-zwart',
+        ],
+        '444007' => [
+            'stanno_jr' => 14.99, 'stanno_sr' => 14.99,
+            'teamwear_jr' => 10.46, 'teamwear_sr' => 10.46,
+            'stanno_url' => 'https://www.stanno.com/nl/444007-raw-crew-socks/',
+            'teamwear_url' => 'https://www.teamswear.nl/stanno-raw-crew-gripsokken-zwart-wit',
+        ],
+        '440125' => [
+            'stanno_jr' => 13.99, 'stanno_sr' => 13.99,
+            'teamwear_jr' => 9.77, 'teamwear_sr' => 9.77,
+            'stanno_url' => 'https://www.stanno.com/nl/440125-uni-pro-sock/',
+            'teamwear_url' => 'https://www.teamswear.nl/stanno-uni-pro-voetbalkousen-zwart',
+        ],
+        '463003' => [
+            'stanno_jr' => 23.50, 'stanno_sr' => 25.50,
+            'teamwear_jr' => 16.45, 'teamwear_sr' => 17.85,
+            'stanno_url' => 'https://www.stanno.com/nl/463003-field-polo/',
+            'teamwear_url' => 'https://www.teamswear.nl/stanno-field-polo-heren-zwart',
+        ],
+        '408038' => [
+            'stanno_jr' => 41.99, 'stanno_sr' => 44.99,
+            'teamwear_jr' => 29.37, 'teamwear_sr' => 31.47,
+            'stanno_url' => 'https://www.stanno.com/nl/408038-bolt-quarter-zip-top/',
+            'teamwear_url' => 'https://www.teamswear.nl/stanno-bolt-ziptop-heren-zwart',
+        ],
+        '454002' => [
+            'stanno_jr' => 35.50, 'stanno_sr' => 37.50,
+            'teamwear_jr' => 24.85, 'teamwear_sr' => 26.25,
+            'stanno_url' => 'https://www.stanno.com/nl/454002-field-jack/',
+            'teamwear_url' => 'https://www.teamswear.nl/stanno-field-regenjas-heren-zwart',
+        ],
+        '456004' => [
+            'stanno_jr' => 89.99, 'stanno_sr' => 94.99,
+            'teamwear_jr' => 59.47, 'teamwear_sr' => 66.47,
+            'stanno_url' => 'https://www.stanno.com/nl/456004-prime-padded-jacket/',
+            'teamwear_url' => 'https://www.teamswear.nl/stanno-prime-padded-coach-jacket-heren-marine',
+        ],
+        '484838' => [
+            'stanno_jr' => 41.99, 'stanno_sr' => 41.99,
+            'teamwear_jr' => 29.37, 'teamwear_sr' => 29.37,
+            'stanno_url' => 'https://www.stanno.com/nl/484838-pro-prime-backpack/',
+            'teamwear_url' => 'https://www.teamswear.nl/stanno-pro-prime-multifunctionele-rugzak-met-bodemvak-zwart',
+        ],
+        '415007' => [
+            'stanno_jr' => 54.99, 'stanno_sr' => 59.99,
+            'teamwear_jr' => 38.47, 'teamwear_sr' => 41.97,
+            'stanno_url' => 'https://www.stanno.com/nl/415007-trick-long-sleeve-goalkeeper-set/',
+            'teamwear_url' => 'https://www.teamswear.nl/stanno-trick-keeperstenue-heren-geel',
+        ],
+        '444004' => [
+            'stanno_jr' => 9.99, 'stanno_sr' => 9.99,
+            'teamwear_jr' => 6.96, 'teamwear_sr' => 6.96,
+            'stanno_url' => 'https://www.stanno.com/nl/444004-move-footless-socks/',
+            'teamwear_url' => 'https://www.teamswear.nl/stanno-move-voetbalkousen-voetloos-wit',
+        ],
+        '425105' => [
+            'stanno_jr' => 36.99, 'stanno_sr' => 41.99,
+            'teamwear_jr' => 25.87, 'teamwear_sr' => 29.37,
+            'stanno_url' => 'https://www.stanno.com/nl/425105-bounce-goalkeeper-pants/',
+            'teamwear_url' => 'https://www.teamswear.nl/voetbal/keeperskleding/keepersbroeken/stanno',
+        ],
+    ];
+}
+
+function shopArticleKey(?string $article): string {
+    if (!preg_match('/(\d{6})/', (string) $article, $m)) {
+        return '';
+    }
+    return $m[1];
+}
+
+function shopCompareForArticle(?string $article): ?array {
+    $key = shopArticleKey($article);
+    if ($key === '') {
+        return null;
+    }
+    return shopComparePrices()[$key] ?? null;
+}
+
+function shopPriceCell(?float $jrIncl, ?float $srIncl, string $url = ''): string {
+    if ($jrIncl === null && $srIncl === null) {
+        return '<span class="muted">—</span>';
+    }
+    $same = $jrIncl !== null && $srIncl !== null && abs($jrIncl - $srIncl) < 0.005;
+    if ($same) {
+        $line = euro($jrIncl);
+        $hint = euro(withoutVat($jrIncl)) . ' excl.';
+    } else {
+        $line = 'JR ' . euro($jrIncl) . '<br>SR ' . euro($srIncl);
+        $hint = 'JR ' . euro(withoutVat($jrIncl)) . ' · SR ' . euro(withoutVat($srIncl)) . ' excl.';
+    }
+    $html = '<span class="shop-cmp">' . $line . '</span><small class="vat-hint">' . h($hint) . '</small>';
+    if ($url === '') {
+        return $html;
+    }
+    return '<a class="shop-cmp-link" href="' . h($url) . '" target="_blank" rel="noopener">' . $html . '</a>';
+}
+
 function normName(string $s): string {
     $s = mb_strtolower(trim($s), 'UTF-8');
     $map = ['à'=>'a','á'=>'a','ä'=>'a','â'=>'a','è'=>'e','é'=>'e','ë'=>'e','ê'=>'e','ì'=>'i','í'=>'i','ï'=>'i','ò'=>'o','ó'=>'o','ö'=>'o','ù'=>'u','ú'=>'u','ü'=>'u','ñ'=>'n','ç'=>'c','ÿ'=>'y'];

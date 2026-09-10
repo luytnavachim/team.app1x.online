@@ -796,6 +796,10 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
 .money:hover,.money:focus{border-color:var(--accent)}
 .money-wrap{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
 .vat-hint{display:block;font-size:10.5px;font-weight:700;color:var(--muted);letter-spacing:.1px;white-space:nowrap}
+.shop-cmp{display:block;font-size:12.5px;font-weight:800;line-height:1.25;white-space:nowrap}
+.shop-cmp-link{color:inherit;text-decoration:none}
+.shop-cmp-link:hover{color:var(--accent)}
+td .shop-cmp-link{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
 .stat .incl{color:var(--ink);font-weight:800;font-size:13px}
 .cat-input{
   width:100%;min-width:88px;border:1px solid var(--line2);border-radius:8px;padding:5px 8px;
@@ -1520,7 +1524,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <details class="section fold" id="catalogus">
     <summary class="fold-head"><h3>Catalogus · Stanno</h3></summary>
-    <p class="sub">Artikelnummers<?= $canEdit ? ', prijzen excl. btw (incl. 21% eronder)' : '' ?> en maten zoals Stanno die voert. <?= $canEdit ? 'Pas een regel aan of verwijder hem. Nieuw artikel onderaan.' : '' ?></p>
+    <p class="sub">Artikelnummers<?= $canEdit ? ', offerteprijzen excl. btw (incl. 21% eronder)' : '' ?> en maten zoals Stanno die voert. <?= $canEdit ? 'Stanno.com en Teamswear.nl zijn webshopprijzen incl. btw (sept. 2026), met excl. eronder ter vergelijking. Pas een regel aan of verwijder hem. Nieuw artikel onderaan.' : '' ?></p>
     <?php if ($canEdit): ?>
     <details class="shop-more" id="packageDefaults">
       <summary>Pakket-sjabloon</summary>
@@ -1545,8 +1549,10 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             <th>Kleur</th>
             <th>Merk</th>
             <?php if ($canEdit): ?>
-            <th>164 / JR</th>
-            <th>S–XL / SR</th>
+            <th>Offerte 164 / JR</th>
+            <th>Offerte S–XL / SR</th>
+            <th>Stanno.com</th>
+            <th>Teamswear</th>
             <?php endif; ?>
             <th class="name">Bedrukking</th>
             <?php if ($canEdit): ?><th></th><?php endif; ?>
@@ -1588,6 +1594,11 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             <?php if ($canEdit): ?>
             <td><?= moneyInput($tid, 'price_small', $small) ?></td>
             <td><?= moneyInput($tid, 'price_large', $large) ?></td>
+            <?php
+              $shop = isPrintCatalogType($t) ? null : shopCompareForArticle((string) ($t['article_number'] ?? ''));
+            ?>
+            <td><?= $shop ? shopPriceCell($shop['stanno_jr'], $shop['stanno_sr'], $shop['stanno_url']) : '<span class="muted">—</span>' ?></td>
+            <td><?= $shop ? shopPriceCell($shop['teamwear_jr'], $shop['teamwear_sr'], $shop['teamwear_url']) : '<span class="muted">—</span>' ?></td>
             <?php endif; ?>
             <td class="left">
               <?php if ($canEdit): ?>

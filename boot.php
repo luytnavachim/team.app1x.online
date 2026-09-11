@@ -1043,7 +1043,7 @@ function syncKitPrintFromPhotos(mysqli $db): void {
     }
     $done = true;
     $mark = __DIR__ . '/.data/print-photo-v';
-    if (is_file($mark) && trim((string) file_get_contents($mark)) === '1') {
+    if (is_file($mark) && trim((string) file_get_contents($mark)) === '2') {
         return;
     }
     ensureTypePrintColumns($db);
@@ -1059,7 +1059,7 @@ function syncKitPrintFromPhotos(mysqli $db): void {
         11 => ['print_rohda' => 1, 'print_initials' => 1, 'print_sponsor' => 1, 'print_sponsor_back' => 1, 'print_sponsor_padded' => 0, 'print_sponsor_jacket' => 0, 'print_sponsor_bag' => 0, 'print_name_back' => 0, 'print_staff_text' => 1],
         12 => ['print_rohda' => 0, 'print_initials' => 0, 'print_sponsor' => 0, 'print_sponsor_back' => 0, 'print_sponsor_padded' => 0, 'print_sponsor_jacket' => 0, 'print_sponsor_bag' => 0, 'print_name_back' => 0, 'print_staff_text' => 0],
         13 => ['print_rohda' => 0, 'print_initials' => 1, 'print_sponsor' => 0, 'print_sponsor_back' => 0, 'print_sponsor_padded' => 0, 'print_sponsor_jacket' => 1, 'print_sponsor_bag' => 0, 'print_name_back' => 0, 'print_staff_text' => 0],
-        14 => ['print_rohda' => 0, 'print_initials' => 1, 'print_sponsor' => 0, 'print_sponsor_back' => 0, 'print_sponsor_padded' => 1, 'print_sponsor_jacket' => 0, 'print_sponsor_bag' => 0, 'print_name_back' => 0, 'print_staff_text' => 0],
+        14 => ['print_rohda' => 1, 'print_initials' => 1, 'print_sponsor' => 0, 'print_sponsor_back' => 0, 'print_sponsor_padded' => 1, 'print_sponsor_jacket' => 0, 'print_sponsor_bag' => 0, 'print_name_back' => 0, 'print_staff_text' => 0],
         15 => ['print_rohda' => 1, 'print_initials' => 1, 'print_sponsor' => 0, 'print_sponsor_back' => 0, 'print_sponsor_padded' => 0, 'print_sponsor_jacket' => 0, 'print_sponsor_bag' => 1, 'print_name_back' => 0, 'print_staff_text' => 0],
         19 => ['print_rohda' => 1, 'print_initials' => 1, 'print_sponsor' => 1, 'print_sponsor_back' => 1, 'print_sponsor_padded' => 0, 'print_sponsor_jacket' => 0, 'print_sponsor_bag' => 0, 'print_name_back' => 0, 'print_staff_text' => 0],
         23 => ['print_rohda' => 1, 'print_initials' => 1, 'print_sponsor' => 1, 'print_sponsor_back' => 1, 'print_sponsor_padded' => 0, 'print_sponsor_jacket' => 0, 'print_sponsor_bag' => 0, 'print_name_back' => 0, 'print_staff_text' => 1],
@@ -1094,7 +1094,7 @@ function syncKitPrintFromPhotos(mysqli $db): void {
     $db->query("UPDATE clothing_types SET display_name='Logo sponsor regenjas' WHERE id=29");
     $db->query("UPDATE clothing_types SET display_name='Logo sponsor tas' WHERE id=30");
     @mkdir(dirname($mark), 0750, true);
-    file_put_contents($mark, "1\n");
+    file_put_contents($mark, "2\n");
 }
 
 function ensureTypeMetaColumns(mysqli $db): void {

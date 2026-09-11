@@ -1269,10 +1269,10 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <section class="kit-design" id="design">
     <figure>
-      <img src="<?= assetUrl('speler-kit.png') ?>" width="992" height="1024" alt="Spelerstenue 14-2: tas, jassen, shirt, broekje, footless en gripsokken">
+      <img src="<?= assetUrl('speler-kit.png') ?>" width="1024" height="1020" alt="Spelerstenue 14-2: tas, jassen, shirt, broekje, footless en gripsokken">
     </figure>
     <figure>
-      <img src="<?= assetUrl('kader-kit.png') ?>" width="522" height="1024" alt="Kadertenue 14-2: padded, shirt, polo en broekje">
+      <img src="<?= assetUrl('kader-kit.png') ?>" width="530" height="1024" alt="Kadertenue 14-2: padded, shirt, polo en broekje">
     </figure>
   </section>
 
@@ -1624,7 +1624,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   <details class="section fold" id="bestel">
     <summary class="fold-head"><h3>Bestelling</h3><span class="fold-meta" id="bestelMeta"><?= (int) $orderPieces ?> stuks</span></summary>
     <p class="sub" id="bestelSub"><?= (int) $orderPieces ?> stuks<?php if ($canEdit && $orderTotal > 0): ?> · <?= euro($orderTotal) ?> excl. · <?= euroIncl($orderTotal) ?><?php endif; ?> · artikelnummers, maten en print.<?= $canEdit ? ' Uitvinken haalt het item uit prijs en Excel, niet van de speler.' : '' ?></p>
-    <p class="shop-rule"><b>Shirt / keeperstenue / staf shirt / polo:</b> logo Rohda, logo sponsor voorkant, logo sponsor achterkant, initialen<?= ' · ' ?>nummer alleen op het spelersshirt, tekst staf op staf shirt en polo · <b>Regenjas:</b> initialen voorkant, logo sponsor achterkant · <b>Padded:</b> logo sponsor voorkant, initialen · <b>Tas:</b> logo Rohda, logo sponsor, initialen · <b>Broek:</b> initialen · <b>Sokken:</b> geen bedrukking</p>
+    <p class="shop-rule"><b>Shirt / keeperstenue / staf shirt / polo:</b> logo Rohda, logo sponsor voorkant, logo sponsor achterkant, initialen<?= ' · ' ?>nummer alleen op het spelersshirt, tekst staf op staf shirt en polo · <b>Regenjas:</b> initialen voorkant, logo sponsor achterkant · <b>Padded:</b> logo Rohda, logo sponsor voorkant, initialen · <b>Tas:</b> logo Rohda, logo sponsor, initialen · <b>Broek:</b> initialen · <b>Sokken:</b> geen bedrukking</p>
 
     <div class="actions">
       <a class="btn dark" href="?csv=bestel">Excel-bestellijst</a>

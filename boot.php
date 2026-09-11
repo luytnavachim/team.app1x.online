@@ -1678,6 +1678,68 @@ function catalogPrintPrices(array $types): array {
     return $out;
 }
 
+/** Kleding + print voor items die iemand krijgt (bestellen of in bezit), niet n.v.t. */
+function personKitCost(array $person, array $types, array $printPrices): array {
+    $map = [
+        'rohda' => 'print_rohda',
+        'initials' => 'print_initials',
+        'sponsor' => 'print_sponsor',
+        'sponsor_back' => 'print_sponsor_back',
+        'sponsor_padded' => 'print_sponsor_padded',
+        'sponsor_jacket' => 'print_sponsor_jacket',
+        'sponsor_bag' => 'print_sponsor_bag',
+        'name_back' => 'print_name_back',
+        'staff_text' => 'print_staff_text',
+    ];
+    $clothing = 0.0;
+    $print = 0.0;
+    $count = 0;
+    foreach (array_keys($person['items'] ?? []) as $tid) {
+        $tid = (int) $tid;
+        $t = $types[$tid] ?? null;
+        $it = itemFor($person, $tid);
+        if (!$t || !$it || isPrintCatalogType($t)) {
+            continue;
+        }
+        if (!isPendingItem($it) && !isIssued($it)) {
+            continue;
+        }
+        $count++;
+        $unit = priceFor($t, (string) ($it['size'] ?? ''));
+        if ($unit !== null) {
+            $clothing += $unit;
+        }
+        foreach ($map as $key => $flag) {
+            if (!typePrints($t, $flag)) {
+                continue;
+            }
+            $pu = $printPrices[$key] ?? null;
+            if ($pu !== null) {
+                $print += (float) $pu;
+            }
+        }
+    }
+    return [
+        'clothing' => round($clothing, 2),
+        'print' => round($print, 2),
+        'total' => round($clothing + $print, 2),
+        'count' => $count,
+    ];
+}
+
+function kitTotalHtml(array $cost): string {
+    $html = '<div class="kit-total" data-kit-total>';
+    $html .= '<span>Totaal kleding</span>';
+    if ($cost['count'] < 1) {
+        $html .= '<b>—</b>';
+    } else {
+        $html .= '<b>'.h(euro($cost['total'])).'</b>';
+        $html .= '<small>'.h(euro(withVat($cost['total']))).' incl.</small>';
+    }
+    $html .= '</div>';
+    return $html;
+}
+
 function typeOptionsHtml(array $types, string $placeholder = 'Type'): string {
     $html = '<option value="">'.h($placeholder).'</option>';
     foreach ($types as $tid => $t) {

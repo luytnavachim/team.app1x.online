@@ -108,6 +108,7 @@ foreach ($staff as &$s) {
         }
     }
     $s['card_types'] = array_values($card);
+    $s['kit_cost'] = personKitCost($s, $types, $printPrices);
 }
 unset($s);
 $season = trim((string) ($kitSettings['season'] ?? '26/27')) ?: '26/27';
@@ -203,6 +204,7 @@ foreach ($active as &$p) {
     $p['miss'] = count($p['to_order']);
     $p['pack_ok'] = $p['missing'] === [];
     $p['complete'] = $p['pack_ok'];
+    $p['kit_cost'] = personKitCost($p, $types, $printPrices);
 }
 unset($p);
 
@@ -775,7 +777,14 @@ details.fold[open] > summary.fold-head{margin-bottom:2px;border-bottom:1px solid
 .pack-table td.wait{background:var(--warnbg);color:var(--warn);font-weight:800}
 .pack-table td.extra{background:var(--nabg);color:var(--muted);font-weight:700}
 .pack-table td.no{background:var(--missbg);color:var(--miss);font-weight:800}
-.pack-table .tiny{display:block;font-size:10px;font-weight:700;color:inherit;opacity:.8}
+.pack-table .tiny.cost{color:var(--ink);opacity:1;font-weight:800;margin-top:2px}
+.kit-total{
+  display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 10px;
+  margin-top:10px;padding:10px 2px 0;border-top:1px solid var(--line);
+}
+.kit-total span{font-size:11px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;color:var(--dim)}
+.kit-total b{font-size:16px;font-weight:800;letter-spacing:-.3px}
+.kit-total small{width:100%;text-align:right;font-size:11.5px;font-weight:700;color:var(--muted)}
 .kit-gap{opacity:.72}
 .dot{display:inline-block;width:9px;height:9px;border-radius:3px;margin-right:5px;vertical-align:middle}
 .line{margin:18px 0 9px;font-size:11px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:var(--dim)}
@@ -1262,7 +1271,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             <tbody>
               <?php foreach ($fieldPlayers as $p): ?>
               <tr>
-                <td class="name"><a href="#card-p-<?= (int) $p['id'] ?>"><?= h(fullName($p)) ?></a><?php if (!empty($p['missing'])): ?><span class="tiny"><?= count($p['missing']) ?> ontbreekt</span><?php endif; ?></td>
+                <td class="name"><a href="#card-p-<?= (int) $p['id'] ?>"><?= h(fullName($p)) ?></a><?php if (!empty($p['missing'])): ?><span class="tiny"><?= count($p['missing']) ?> ontbreekt</span><?php endif; ?><?php if ($canEdit && !empty($p['kit_cost']['count'])): ?><span class="tiny cost"><?= h(euro($p['kit_cost']['total'])) ?></span><?php endif; ?></td>
                 <?php foreach ($PACKAGE_CORE as $colTid):
                     $cell = packageCellView($p, (int) $colTid, 'player');
                 ?>
@@ -1298,7 +1307,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               <?php endif; ?>
               <?php foreach ($staff as $s): ?>
               <tr>
-                <td class="name"><a href="#card-s-<?= (int) $s['id'] ?>"><?= h(fullName($s)) ?></a><?php if (!empty($s['missing'])): ?><span class="tiny"><?= count($s['missing']) ?> ontbreekt</span><?php endif; ?></td>
+                <td class="name"><a href="#card-s-<?= (int) $s['id'] ?>"><?= h(fullName($s)) ?></a><?php if (!empty($s['missing'])): ?><span class="tiny"><?= count($s['missing']) ?> ontbreekt</span><?php endif; ?><?php if ($canEdit && !empty($s['kit_cost']['count'])): ?><span class="tiny cost"><?= h(euro($s['kit_cost']['total'])) ?></span><?php endif; ?></td>
                 <?php foreach ($STAFF_PACKAGE as $colTid):
                     $cell = packageCellView($s, (int) $colTid, 'staff');
                 ?>
@@ -1334,7 +1343,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               <?php endif; ?>
               <?php foreach ($keeperPlayers as $p): ?>
               <tr>
-                <td class="name"><a href="#card-p-<?= (int) $p['id'] ?>"><?= h(fullName($p)) ?></a><?php if (!empty($p['missing'])): ?><span class="tiny"><?= count($p['missing']) ?> ontbreekt</span><?php endif; ?></td>
+                <td class="name"><a href="#card-p-<?= (int) $p['id'] ?>"><?= h(fullName($p)) ?></a><?php if (!empty($p['missing'])): ?><span class="tiny"><?= count($p['missing']) ?> ontbreekt</span><?php endif; ?><?php if ($canEdit && !empty($p['kit_cost']['count'])): ?><span class="tiny cost"><?= h(euro($p['kit_cost']['total'])) ?></span><?php endif; ?></td>
                 <?php foreach ($KEEPER_PACKAGE as $colTid):
                     $cell = packageCellView($p, (int) $colTid, 'player');
                 ?>
@@ -1448,6 +1457,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             </div>
             <?php endforeach; ?>
             <?php if ($canEdit): ?>
+            <?= kitTotalHtml($p['kit_cost'] ?? ['count' => 0, 'total' => 0.0]) ?>
               <div class="addrow" data-who="player" data-id="<?= (int) $p['id'] ?>">
                 <select class="assign-type"><?= typeOptionsHtml($types, 'Item toevoegen…') ?></select>
                 <select class="assign-size" disabled><option value="">Maat</option></select>
@@ -1798,6 +1808,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             </div>
           <?php endforeach; ?>
           <?php if ($canEdit): ?>
+            <?= kitTotalHtml($s['kit_cost'] ?? ['count' => 0, 'total' => 0.0]) ?>
             <div class="addrow" data-who="staff" data-id="<?= (int) $s['id'] ?>">
               <select class="assign-type"><?= typeOptionsHtml($types, 'Item toevoegen…') ?></select>
               <select class="assign-size" disabled><option value="">Maat</option></select>
@@ -2654,6 +2665,41 @@ function pendingWantRows(){
 function setText(el, text){
   if(el) el.textContent=text;
 }
+function personKitCostFromCard(card){
+  let clothing=0, print=0, n=0;
+  card.querySelectorAll('.kit-row').forEach(row=>{
+    if(row.dataset.gone==='1' || !row.isConnected) return;
+    const owned=row.dataset.status==='owned';
+    const box=row.querySelector('.want-check');
+    const on=owned || (box?box.checked:row.dataset.status==='pending');
+    if(!on) return;
+    const tid=+row.dataset.tid;
+    const size=row.querySelector('.size-select')?.value||'';
+    const price=priceForType(tid, size);
+    n+=1;
+    if(price!=null) clothing+=price;
+    const t=typeById(tid);
+    (t?.prints||[]).forEach(k=>{
+      const unit=TEAM.printPrices&&TEAM.printPrices[k]!=null?+TEAM.printPrices[k]:null;
+      if(unit!=null) print+=unit;
+    });
+  });
+  return {total: clothing+print, count: n};
+}
+function renderKitTotal(el, cost){
+  if(!el) return;
+  if(!cost.count){
+    el.innerHTML='<span>Totaal kleding</span><b>—</b>';
+    return;
+  }
+  el.innerHTML='<span>Totaal kleding</span><b>'+euroJs(cost.total)+'</b><small>'+euroJs(withVatJs(cost.total))+' incl.</small>';
+}
+function recalcAllKitTotals(){
+  document.querySelectorAll('article.card [data-kit-total]').forEach(el=>{
+    const card=el.closest('article.card');
+    if(card) renderKitTotal(el, personKitCostFromCard(card));
+  });
+}
 function recalcOrder(){
   if(!TEAM.editing) return;
   const rows=pendingWantRows();
@@ -2682,6 +2728,7 @@ function recalcOrder(){
   });
   const total=clothing+printCost;
   setText(document.getElementById('statPieces'), String(pieces));
+  recalcAllKitTotals();
   setText(document.getElementById('statTotal'), euroJs(total));
   setText(document.getElementById('statTotalIncl'), euroInclJs(total));
   setText(document.getElementById('livePieces'), String(pieces));

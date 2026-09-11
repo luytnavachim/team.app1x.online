@@ -139,7 +139,31 @@ function packageCellLabel(?array $it): string {
         return '—';
     }
     $size = trim((string) ($it['size'] ?? ''));
-    return $size !== '' ? $size : '•';
+    if ($size === '' || isSkipSize($size) || strcasecmp($size, 'nvt') === 0 || strcasecmp($size, 'n.v.t.') === 0) {
+        return isHeldItem($it) ? 'n.v.t.' : '•';
+    }
+    return $size;
+}
+
+function packageCellView(array $person, int $colTid, string $who): array {
+    $cellTid = packageColumnTid($person, $colTid, $who);
+    $need = packageTypeIdsFor($who, $person);
+    $it = itemFor($person, $cellTid);
+    if (isHeldItem($it) || itemStatus($it) === 'nvt') {
+        $label = packageCellLabel($it);
+        if ($label === '—' || $label === '•') {
+            $label = 'n.v.t.';
+        }
+        return ['class' => 'extra', 'label' => $label];
+    }
+    if ($it) {
+        return ['class' => packageCellClass($it), 'label' => packageCellLabel($it)];
+    }
+    $inNeed = in_array($cellTid, $need, true) || in_array($colTid, $need, true);
+    if (!$inNeed || personChoseSkip($person, $cellTid, $who) || personChoseSkip($person, $colTid, $who)) {
+        return ['class' => 'extra', 'label' => 'n.v.t.'];
+    }
+    return ['class' => 'no', 'label' => '—'];
 }
 
 $portal = loadScoutPortal();
@@ -1201,7 +1225,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     <div class="pack-grid">
       <div class="pack-block">
         <h4>Spelers</h4>
-        <p class="sub">Tas, regenjas, padded, shirt, footless, broek, grip. Keepers krijgen keeperstenue i.p.v. veldshirt.</p>
+        <p class="sub">Tas, regenjas, padded, shirt, footless, broek, grip. Keepers: keeperstenue i.p.v. veldshirt; broek, grip en footless zijn n.v.t.</p>
         <?php if ($canEdit): ?>
         <div class="actions" style="margin:0 0 10px">
           <button type="button" class="btn dark assign-package-all" data-who="player">Pakket aan alle spelers</button>
@@ -1222,10 +1246,9 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               <tr>
                 <td class="name"><a href="#card-p-<?= (int) $p['id'] ?>"><?= h(fullName($p)) ?></a><?php if (!empty($p['missing'])): ?><span class="tiny"><?= count($p['missing']) ?> ontbreekt</span><?php endif; ?></td>
                 <?php foreach ($PACKAGE_CORE as $colTid):
-                    $cellTid = packageColumnTid($p, (int) $colTid, 'player');
-                    $it = itemFor($p, $cellTid);
+                    $cell = packageCellView($p, (int) $colTid, 'player');
                 ?>
-                <td class="<?= packageCellClass($it) ?>"><?= h(packageCellLabel($it)) ?></td>
+                <td class="<?= h($cell['class']) ?>"><?= h($cell['label']) ?></td>
                 <?php endforeach; ?>
               </tr>
               <?php endforeach; ?>
@@ -1259,9 +1282,9 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               <tr>
                 <td class="name"><a href="#card-s-<?= (int) $s['id'] ?>"><?= h(fullName($s)) ?></a><?php if (!empty($s['missing'])): ?><span class="tiny"><?= count($s['missing']) ?> ontbreekt</span><?php endif; ?></td>
                 <?php foreach ($STAFF_PACKAGE as $colTid):
-                    $it = itemFor($s, (int) $colTid);
+                    $cell = packageCellView($s, (int) $colTid, 'staff');
                 ?>
-                <td class="<?= packageCellClass($it) ?>"><?= h(packageCellLabel($it)) ?></td>
+                <td class="<?= h($cell['class']) ?>"><?= h($cell['label']) ?></td>
                 <?php endforeach; ?>
               </tr>
               <?php endforeach; ?>

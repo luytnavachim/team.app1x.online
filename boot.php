@@ -471,6 +471,10 @@ function staffPackageTypeIds(): array {
     return sanitizeTypeIdList(loadKitSettings()['package_staff'] ?? null, defaultStaffPackageIds());
 }
 
+function fieldKitTypeIds(): array {
+    return [1, 3, 4, 7, 24, 31];
+}
+
 function packageTypeIdsFor(string $who, ?array $person = null): array {
     if ($who === 'staff') {
         return staffPackageTypeIds();
@@ -481,7 +485,7 @@ function packageTypeIdsFor(string $who, ?array $person = null): array {
     }
     $out = [];
     foreach ($ids as $tid) {
-        if (!in_array($tid, fieldOnlyTypeIds(), true)) {
+        if (!in_array($tid, fieldKitTypeIds(), true)) {
             $out[$tid] = $tid;
         }
     }
@@ -507,6 +511,21 @@ function packageColumnTid(array $person, int $tid, string $who): int {
     return $tid;
 }
 
+function personChoseSkip(array $person, int $tid, string $who): bool {
+    $it = itemFor($person, $tid);
+    if (isHeldItem($it) || itemStatus($it) === 'nvt') {
+        return true;
+    }
+    if ($it) {
+        return false;
+    }
+    if (empty($person['parent_saved_at'])) {
+        return false;
+    }
+    $allowed = $who === 'staff' ? staffAllowedTypeIds($person) : parentAllowedTypeIds($person);
+    return in_array($tid, $allowed, true);
+}
+
 function personHasType(array $person, int $tid): bool {
     return itemFor($person, $tid) !== null;
 }
@@ -514,9 +533,10 @@ function personHasType(array $person, int $tid): bool {
 function packageMissingIds(array $person, string $who): array {
     $miss = [];
     foreach (packageTypeIdsFor($who, $person) as $tid) {
-        if (!personHasType($person, $tid)) {
-            $miss[] = $tid;
+        if (personHasType($person, $tid) || personChoseSkip($person, $tid, $who)) {
+            continue;
         }
+        $miss[] = $tid;
     }
     return $miss;
 }
@@ -2613,32 +2633,52 @@ function isPendingItem(?array $it): bool {
 }
 
 function isHeldItem(?array $it): bool {
-    return $it !== null && itemStatus($it) === 'hold';
+    return $it !== null && in_array(itemStatus($it), ['hold', 'nvt'], true);
 }
 
 function holdPersonItem(mysqli $db, string $who, int $personId, int $typeId, string $size = ''): bool {
     $existing = personItemRow($db, $who, $personId, $typeId);
-    if (!$existing || itemStatus($existing) === 'active') {
+    if (itemStatus($existing) === 'active') {
         return false;
     }
     $keepSize = sanitizeSize($size);
     if ($keepSize === '' || $keepSize === skipSizeToken()) {
-        $keepSize = sanitizeSize((string) ($existing['size'] ?? ''));
+        $keepSize = $existing ? sanitizeSize((string) ($existing['size'] ?? '')) : '';
     }
-    if ($keepSize === '') {
-        $keepSize = (string) ($existing['size'] ?? '');
+    if ($keepSize === '' || $keepSize === skipSizeToken()) {
+        $keepSize = $existing ? (string) ($existing['size'] ?? '') : 'nvt';
     }
-    $id = (int) $existing['id'];
+    if ($keepSize === '' || $keepSize === skipSizeToken()) {
+        $keepSize = 'nvt';
+    }
+    $status = 'hold';
+    if ($existing) {
+        $id = (int) $existing['id'];
+        if ($who === 'player') {
+            $upd = $db->prepare("UPDATE player_clothing SET size=?, status=?, updated_at=NOW() WHERE id=?");
+            $upd->bind_param('ssi', $keepSize, $status, $id);
+        } elseif ($who === 'staff') {
+            $upd = $db->prepare("UPDATE staff_clothing SET size=?, status=?, updated_at=NOW() WHERE id=?");
+            $upd->bind_param('ssi', $keepSize, $status, $id);
+        } else {
+            return false;
+        }
+        if (!$upd->execute()) {
+            throw new RuntimeException($upd->error !== '' ? $upd->error : 'Kon item niet op hold zetten.');
+        }
+        return true;
+    }
     if ($who === 'player') {
-        $upd = $db->prepare("UPDATE player_clothing SET size=?, status='hold', updated_at=NOW() WHERE id=?");
+        $ins = $db->prepare('INSERT INTO player_clothing (player_id, clothing_type_id, size, status, created_at, updated_at) VALUES (?,?,?,?,NOW(),NOW())');
+        $ins->bind_param('iiss', $personId, $typeId, $keepSize, $status);
     } elseif ($who === 'staff') {
-        $upd = $db->prepare("UPDATE staff_clothing SET size=?, status='hold', updated_at=NOW() WHERE id=?");
+        $ins = $db->prepare('INSERT INTO staff_clothing (staff_member_id, clothing_type_id, size, status, created_at, updated_at) VALUES (?,?,?,?,NOW(),NOW())');
+        $ins->bind_param('iiss', $personId, $typeId, $keepSize, $status);
     } else {
         return false;
     }
-    $upd->bind_param('si', $keepSize, $id);
-    if (!$upd->execute()) {
-        throw new RuntimeException($upd->error !== '' ? $upd->error : 'Kon item niet op hold zetten.');
+    if (!$ins->execute()) {
+        throw new RuntimeException($ins->error !== '' ? $ins->error : 'Kon item niet op hold zetten.');
     }
     return true;
 }

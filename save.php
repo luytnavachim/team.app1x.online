@@ -398,10 +398,9 @@ if ($action === 'delete_type') {
         $upd->bind_param('i', $id);
         $upd->execute();
         $kit = loadKitSettings();
-        $kit['package'] = array_values(array_filter(
-            array_map('intval', $kit['package'] ?? []),
-            static fn(int $tid): bool => $tid !== $id
-        ));
+        $drop = static fn(int $tid): bool => $tid !== $id;
+        $kit['package'] = array_values(array_filter(array_map('intval', $kit['package'] ?? []), $drop));
+        $kit['package_staff'] = array_values(array_filter(array_map('intval', $kit['package_staff'] ?? []), $drop));
         saveKitSettings($kit);
         $mysqli->commit();
     } catch (Throwable $e) {
@@ -446,21 +445,33 @@ if ($action === 'add_package_all') {
         jsonOut(['ok' => false, 'error' => 'Sessie verlopen. Vernieuw de pagina.'], 403);
     }
     $mode = (($body['mode'] ?? '') === 'active') ? 'active' : 'pending';
+    $who = (($body['who'] ?? 'player') === 'staff') ? 'staff' : 'player';
     $types = loadTypes($mysqli);
     $saved = 0;
     $people = 0;
-    $res = $mysqli->query("SELECT * FROM players WHERE status='active' AND IFNULL(is_guest,0)=0 ORDER BY last_name, first_name");
-    $portal = loadScoutPortal();
     $mysqli->begin_transaction();
     try {
-        while ($row = $res->fetch_assoc()) {
-            if (!playerOnScoutTeam14($row, $portal)) {
-                continue;
+        if ($who === 'staff') {
+            $res = $mysqli->query("SELECT * FROM staff_members WHERE status='active' ORDER BY last_name, first_name, id");
+            while ($row = $res->fetch_assoc()) {
+                $out = assignPackageToPerson($mysqli, $types, 'staff', (int) $row['id'], $mode, true);
+                if ($out['saved'] > 0) {
+                    $people++;
+                    $saved += $out['saved'];
+                }
             }
-            $out = assignPackageToPerson($mysqli, $types, 'player', (int) $row['id'], $mode, true);
-            if ($out['saved'] > 0) {
-                $people++;
-                $saved += $out['saved'];
+        } else {
+            $res = $mysqli->query("SELECT * FROM players WHERE status='active' AND IFNULL(is_guest,0)=0 ORDER BY last_name, first_name");
+            $portal = loadScoutPortal();
+            while ($row = $res->fetch_assoc()) {
+                if (!playerOnScoutTeam14($row, $portal)) {
+                    continue;
+                }
+                $out = assignPackageToPerson($mysqli, $types, 'player', (int) $row['id'], $mode, true);
+                if ($out['saved'] > 0) {
+                    $people++;
+                    $saved += $out['saved'];
+                }
             }
         }
         $mysqli->commit();
@@ -468,7 +479,7 @@ if ($action === 'add_package_all') {
         $mysqli->rollback();
         jsonOut(['ok' => false, 'error' => $e->getMessage()], 400);
     }
-    jsonOut(['ok' => true, 'saved' => $saved, 'people' => $people]);
+    jsonOut(['ok' => true, 'saved' => $saved, 'people' => $people, 'who' => $who]);
 }
 
 if ($action === 'save_jersey') {
@@ -637,6 +648,9 @@ if ($action === 'save_kit') {
     $kit = loadKitSettings();
     if (isset($body['package']) && is_array($body['package'])) {
         $kit['package'] = $body['package'];
+    }
+    if (isset($body['package_staff']) && is_array($body['package_staff'])) {
+        $kit['package_staff'] = $body['package_staff'];
     }
     if (isset($body['print']) && is_array($body['print'])) {
         $kit['print'] = array_merge($kit['print'], $body['print']);

@@ -363,9 +363,29 @@ function kitSettingsPath(): string {
     return __DIR__ . '/.data/kit-settings.json';
 }
 
+function defaultPlayerPackageIds(): array {
+    return [15, 13, 14, 1, 24, 4, 7];
+}
+
+function defaultStaffPackageIds(): array {
+    return [14, 23, 11, 4];
+}
+
+function sanitizeTypeIdList(mixed $raw, array $fallback): array {
+    $ids = [];
+    foreach (is_array($raw) ? $raw : [] as $id) {
+        $id = (int) $id;
+        if ($id > 0) {
+            $ids[$id] = $id;
+        }
+    }
+    return $ids !== [] ? array_values($ids) : $fallback;
+}
+
 function defaultKitSettings(): array {
     return [
-        'package' => [13, 14, 15],
+        'package' => defaultPlayerPackageIds(),
+        'package_staff' => defaultStaffPackageIds(),
         'print' => [
             'rohda' => null,
             'initials' => null,
@@ -398,13 +418,8 @@ function loadKitSettings(bool $reload = false): array {
     if (!is_array($raw)) {
         return $cached = $def;
     }
-    $package = [];
-    foreach (($raw['package'] ?? $def['package']) as $id) {
-        $id = (int) $id;
-        if ($id > 0) {
-            $package[$id] = $id;
-        }
-    }
+    $package = sanitizeTypeIdList($raw['package'] ?? null, $def['package']);
+    $packageStaff = sanitizeTypeIdList($raw['package_staff'] ?? null, $def['package_staff']);
     $print = $def['print'];
     foreach (array_keys($print) as $key) {
         $print[$key] = parseMoney($raw['print'][$key] ?? null);
@@ -414,7 +429,8 @@ function loadKitSettings(bool $reload = false): array {
         $season = $def['season'];
     }
     $cached = [
-        'package' => $package !== [] ? array_values($package) : $def['package'],
+        'package' => $package,
+        'package_staff' => $packageStaff,
         'print' => $print,
         'season' => substr($season, 0, 16),
     ];
@@ -427,13 +443,8 @@ function saveKitSettings(array $settings): void {
         @mkdir($dir, 0750, true);
     }
     $def = defaultKitSettings();
-    $package = [];
-    foreach (($settings['package'] ?? []) as $id) {
-        $id = (int) $id;
-        if ($id > 0) {
-            $package[$id] = $id;
-        }
-    }
+    $package = sanitizeTypeIdList($settings['package'] ?? null, $def['package']);
+    $packageStaff = sanitizeTypeIdList($settings['package_staff'] ?? null, $def['package_staff']);
     $print = [];
     foreach (array_keys($def['print']) as $key) {
         $print[$key] = parseMoney($settings['print'][$key] ?? null);
@@ -443,7 +454,8 @@ function saveKitSettings(array $settings): void {
         $season = $def['season'];
     }
     $clean = [
-        'package' => $package !== [] ? array_values($package) : $def['package'],
+        'package' => $package,
+        'package_staff' => $packageStaff,
         'print' => $print,
         'season' => substr($season, 0, 16),
     ];
@@ -452,9 +464,61 @@ function saveKitSettings(array $settings): void {
 }
 
 function packageTypeIds(): array {
-    $ids = loadKitSettings()['package'] ?? [13, 14, 15];
-    $ids = array_values(array_filter(array_map('intval', is_array($ids) ? $ids : []), static fn($id) => $id > 0));
-    return $ids !== [] ? $ids : [13, 14, 15];
+    return sanitizeTypeIdList(loadKitSettings()['package'] ?? null, defaultPlayerPackageIds());
+}
+
+function staffPackageTypeIds(): array {
+    return sanitizeTypeIdList(loadKitSettings()['package_staff'] ?? null, defaultStaffPackageIds());
+}
+
+function packageTypeIdsFor(string $who, ?array $person = null): array {
+    if ($who === 'staff') {
+        return staffPackageTypeIds();
+    }
+    $ids = packageTypeIds();
+    if (($person['position'] ?? '') !== 'goalkeeper') {
+        return $ids;
+    }
+    $out = [];
+    foreach ($ids as $tid) {
+        if (!in_array($tid, fieldOnlyTypeIds(), true)) {
+            $out[$tid] = $tid;
+        }
+    }
+    foreach (keeperCoreTypeIds() as $kid) {
+        $out[$kid] = $kid;
+    }
+    return array_values($out);
+}
+
+function packageColumnTid(array $person, int $tid, string $who): int {
+    if ($who === 'player' && ($person['position'] ?? '') === 'goalkeeper' && $tid === 1) {
+        $types = rememberTypes();
+        $fallback = $tid;
+        foreach (keeperCoreTypeIds($types) as $kid) {
+            $t = $types[$kid] ?? null;
+            if ($t && keeperKitTypeHasSet($t)) {
+                return (int) $kid;
+            }
+            $fallback = (int) $kid;
+        }
+        return $fallback;
+    }
+    return $tid;
+}
+
+function personHasType(array $person, int $tid): bool {
+    return itemFor($person, $tid) !== null;
+}
+
+function packageMissingIds(array $person, string $who): array {
+    $miss = [];
+    foreach (packageTypeIdsFor($who, $person) as $tid) {
+        if (!personHasType($person, $tid)) {
+            $miss[] = $tid;
+        }
+    }
+    return $miss;
 }
 
 function fieldShortTypeId(): int {
@@ -563,7 +627,7 @@ function cleanupMismatchedPlayerKit(mysqli $db): int {
 }
 
 function isPackageType(int $tid): bool {
-    return in_array($tid, packageTypeIds(), true);
+    return in_array($tid, packageTypeIds(), true) || in_array($tid, staffPackageTypeIds(), true);
 }
 
 function rememberTypes(?array $types = null): array {
@@ -1707,7 +1771,7 @@ function defaultParentFormSettings(): array {
         'note' => '',
         'field' => [1, 4, 13, 14, 24, 7],
         'keeper' => array_values(array_unique(array_merge(keeperCoreTypeIds(), [13, 14]))),
-        'staff' => [11, 12],
+        'staff' => defaultStaffPackageIds(),
         'players' => [],
         'staff_members' => [],
         'v' => 2,
@@ -2304,7 +2368,23 @@ function assignPackageToPerson(
     string $mode,
     bool $onlyMissing = true
 ): array {
-    $shirt = currentItemSize($db, $who, $personId, 1);
+    $person = null;
+    if ($who === 'player') {
+        $st = $db->prepare('SELECT * FROM players WHERE id=? LIMIT 1');
+        $st->bind_param('i', $personId);
+        $st->execute();
+        $person = $st->get_result()->fetch_assoc() ?: null;
+    }
+    $shirtTid = $who === 'staff' ? staffShirtTypeId() : 1;
+    $shirt = currentItemSize($db, $who, $personId, $shirtTid);
+    if ($shirt === '' && $who === 'staff') {
+        foreach ([1, 11, 14, 4] as $alt) {
+            $shirt = currentItemSize($db, $who, $personId, $alt);
+            if ($shirt !== '') {
+                break;
+            }
+        }
+    }
     if ($shirt === '' && $who === 'player') {
         foreach (array_values(array_unique(array_merge([9], keeperOnlyTypeIds($types)))) as $kid) {
             $t = $types[$kid] ?? null;
@@ -2320,7 +2400,7 @@ function assignPackageToPerson(
     $shorts = currentItemSize($db, $who, $personId, 4);
     $socks = currentItemSize($db, $who, $personId, 3);
     if ($socks === '') {
-        foreach (array_values(array_unique(array_merge([10], keeperOnlyTypeIds($types)))) as $kid) {
+        foreach (array_values(array_unique(array_merge([10, 24, 7], keeperOnlyTypeIds($types)))) as $kid) {
             $t = $types[$kid] ?? null;
             if (!$t || typeSizeKind($t) !== 'socks') {
                 continue;
@@ -2334,8 +2414,11 @@ function assignPackageToPerson(
     $body = $shirt !== '' ? $shirt : $shorts;
     $saved = 0;
     $skipped = [];
-    foreach (packageTypeIds() as $tid) {
+    foreach (packageTypeIdsFor($who, $person) as $tid) {
         if (!isset($types[$tid])) {
+            continue;
+        }
+        if ($who === 'player' && $person && !typeAllowedForPlayer($person, $tid)) {
             continue;
         }
         $kind = typeSizeKind($types[$tid]);

@@ -56,7 +56,7 @@ $posLabel = [
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title><?= $person ? 'Maten · ' . h($name) : 'Link ongeldig' ?> · Kitroom</title>
-<meta name="theme-color" content="#090A0C">
+<meta name="theme-color" content="#0B0B0D">
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
 <script>
@@ -70,27 +70,27 @@ $posLabel = [
 </script>
 <style>
 :root,html[data-theme="dark"]{
-  --bg:#090A0C; --surface:#121417; --surface2:#181B20; --raise:#22262C;
-  --line:#2C323A; --line2:#3D454E;
-  --ink:#F4F1EC; --muted:#9A9388; --dim:#6B655C;
-  --accent:#E11D2E; --accent-dim:#C41424; --on-accent:#FFFFFF; --accent-text:#FF6B76;
-  --green:#3DCC8A; --greenbg:rgba(61,204,138,.14);
-  --miss:#FF6B6B; --missbg:rgba(255,107,107,.14);
-  --warn:#E8B84A; --warnbg:rgba(232,184,74,.14);
-  --na:#6B655C; --nabg:rgba(255,255,255,.04);
-  --glow-a:rgba(225,29,46,.14); --glow-b:rgba(232,184,74,.07);
+  --bg:#0B0B0D; --surface:#141416; --surface2:#1C1C1E; --raise:#262628;
+  --line:#2E2E32; --line2:#45454A;
+  --ink:#FFFFFF; --muted:#A8A8AE; --dim:#75757C;
+  --accent:#C9A24A; --accent-dim:#A8862E; --on-accent:#111111; --accent-text:#E2C36A;
+  --green:#3CB87A; --greenbg:rgba(60,184,122,.14);
+  --miss:#E07A5F; --missbg:rgba(224,122,95,.14);
+  --warn:#C9A24A; --warnbg:rgba(201,162,74,.16);
+  --na:#75757C; --nabg:rgba(255,255,255,.04);
+  --glow-a:rgba(201,162,74,.16); --glow-b:rgba(255,255,255,.04);
   --r:14px; --r-lg:20px;
 }
 html[data-theme="light"]{
-  --bg:#F4F1EC; --surface:#FFFFFF; --surface2:#F7F4EF; --raise:#EFEBE4;
-  --line:#E4DED4; --line2:#D0C8BB;
-  --ink:#14110F; --muted:#6A635A; --dim:#8A8378;
-  --accent:#E11D2E; --accent-dim:#C41424; --on-accent:#FFFFFF; --accent-text:#B91C1C;
-  --green:#0F7A4F; --greenbg:rgba(15,122,79,.12);
-  --miss:#C62828; --missbg:rgba(198,40,40,.10);
-  --warn:#A67C12; --warnbg:rgba(166,124,18,.12);
-  --na:#8A8378; --nabg:rgba(20,17,15,.04);
-  --glow-a:rgba(225,29,46,.10); --glow-b:rgba(232,184,74,.08);
+  --bg:#F4F4F5; --surface:#FFFFFF; --surface2:#F7F7F8; --raise:#EEEEF0;
+  --line:#E2E2E6; --line2:#C8C8CE;
+  --ink:#111111; --muted:#5A5A60; --dim:#8A8A90;
+  --accent:#C9A24A; --accent-dim:#A8862E; --on-accent:#111111; --accent-text:#8F7318;
+  --green:#0E7A4A; --greenbg:rgba(14,122,74,.11);
+  --miss:#B85C45; --missbg:rgba(184,92,69,.10);
+  --warn:#8F7318; --warnbg:rgba(201,162,74,.14);
+  --na:#8A8A90; --nabg:rgba(17,17,17,.04);
+  --glow-a:rgba(201,162,74,.10); --glow-b:transparent;
 }
 *{box-sizing:border-box}
 html{color-scheme:dark;-webkit-text-size-adjust:100%}
@@ -191,7 +191,7 @@ body{
   <header class="top">
     <div class="club">
       <b>Kitroom</b>
-      <small>14-2 · maten invullen</small>
+      <small>Triplet IT · 14-2</small>
     </div>
     <div class="theme-switch" role="group" aria-label="Thema">
       <button type="button" data-theme-set="dark" aria-pressed="true" title="Donker" aria-label="Donker"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 14.3A8.5 8.5 0 1 1 9.7 3 7 7 0 0 0 21 14.3z"/></svg><span class="sr-only">Donker</span></button>
@@ -272,7 +272,7 @@ body{
     const next=t==='light' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', next);
     document.documentElement.style.colorScheme=next;
-    if(meta) meta.setAttribute('content', next==='light' ? '#F4F1EC' : '#090A0C');
+    if(meta) meta.setAttribute('content', next==='light' ? '#F4F4F5' : '#0B0B0D');
     document.querySelectorAll('[data-theme-set]').forEach(btn=>{
       btn.setAttribute('aria-pressed', btn.getAttribute('data-theme-set')===next ? 'true' : 'false');
     });

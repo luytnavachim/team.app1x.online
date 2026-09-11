@@ -437,7 +437,7 @@ foreach ($orderGroups as $g) {
 }
 $printCost = 0.0;
 $printLines = [
-    'rohda' => 'Logo Rohda',
+    'rohda' => 'Clublogo',
     'initials' => 'Initialen',
     'sponsor' => 'Logo sponsor voorkant',
     'sponsor_back' => 'Logo sponsor achterkant',
@@ -611,47 +611,47 @@ $voetLabel = static function (string $v): string {
   document.documentElement.style.colorScheme=t;
 })();
 </script>
-<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%22478.658%20474.658%201090.5839999999998%201090.5839999999998%22%3E%3Crect%20x%3D%22478.658%22%20y%3D%22474.658%22%20width%3D%221090.5839999999998%22%20height%3D%221090.5839999999998%22%20rx%3D%22239.92847999999995%22%20fill%3D%22%2312151A%22%2F%3E%3Cpath%20transform%3D%22translate(0%2C0)%22%20fill%3D%22%23E11D2E%22%20d%3D%22M%20921.182%20786.705%20C%20921.088%20748.191%20924.254%20721.832%20952.882%20692.548%20C%201015.98%20628.006%201122.48%20672.735%201124.65%20761.167%20C%201125.5%20795.816%201102.43%20832.056%201081.81%20859.102%20C%201173.63%20909.241%201268.41%20963.174%201360.93%201011.13%20L%201361%201131.03%20C%201319.03%201131.1%201275.61%201130.63%201233.75%201131.29%20L%201233.19%201375.08%20L%201049.35%201375.98%20C%201012.25%201376.33%20975.285%201377.55%20938.134%201377.03%20C%20917.37%201362.43%20883.662%201343.49%20865.937%201326.65%20C%20904.772%201326.82%20943.608%201326.66%20982.44%201326.19%20L%201181.84%201325.99%20L%201181.77%201081.01%20C%201223.2%201081.15%201266.55%201081.59%201307.88%201080.71%20L%201307.78%201041.6%20C%201291.08%201031.4%201272.57%201022.84%201255.7%201013.2%20C%201209.38%20986.726%201158.4%20962.557%201112.55%20935.731%20L%201022.94%20987.354%20C%20993.336%20970.865%20960.046%20953.378%20929.916%20937.92%20C%20920.677%20942.578%20898.06%20955.722%20889.447%20958.678%20C%20884.065%20957.576%20873.468%20958.363%20868.546%20958.12%20C%20855.177%20957.462%20795.501%20959.764%20787.18%20956.615%20C%20823.019%20935.682%20860.332%20916.939%20896.692%20896.892%20C%20908.282%20890.501%20919.978%20884.554%20932.037%20879.089%20C%20947.323%20886.595%20963.46%20896.026%20978.428%20904.412%20C%20992.956%20912.551%201009.08%20921.18%201023.02%20930.015%20C%201031.8%20923.173%201052.8%20912.06%201063.31%20905.352%20C%201044.94%20894.018%201024.84%20883.287%201005.8%20873.072%20C%201027.7%20847.761%201051.43%20821.947%201065.94%20791.627%20C%201076.9%20768.732%201076.85%20743.614%201055.63%20726.522%20C%201019.55%20697.466%20974.242%20726.414%20971.812%20768.411%20C%20971.469%20774.337%20971.873%20780.788%20972.045%20786.715%20C%20955.299%20786.729%20937.87%20786.998%20921.182%20786.705%20z%22%2F%3E%3Cpath%20transform%3D%22translate(0%2C0)%22%20fill%3D%22%23E11D2E%22%20d%3D%22M%20687.097%201011.14%20L%20787.18%20956.615%20C%20795.501%20959.764%20855.177%20957.462%20868.546%20958.12%20C%20873.468%20958.363%20884.065%20957.576%20889.447%20958.678%20C%20873.458%20968.871%20851.83%20980.353%20835.021%20989.785%20C%20803.509%201007.51%20771.807%201024.9%20739.921%201041.95%20L%20739.755%201081.04%20L%20865.102%201081.01%20C%20865.082%201106.56%20864.201%201324.24%20865.937%201326.65%20C%20883.662%201343.49%20917.37%201362.43%20938.134%201377.03%20L%20812.355%201377.16%20L%20812.749%201132.92%20L%20687.027%201133.03%20L%20687.097%201011.14%20z%22%2F%3E%3C%2Fsvg%3E">
-<meta name="description" content="Kleding- en selectieoverzicht voor 14-2.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%228%22%20fill%3D%22%23111111%22%2F%3E%3Crect%20x%3D%226%22%20y%3D%227%22%20width%3D%225%22%20height%3D%2218%22%20rx%3D%221%22%20fill%3D%22%23C9A24A%22%2F%3E%3Crect%20x%3D%2213.5%22%20y%3D%227%22%20width%3D%225%22%20height%3D%2218%22%20rx%3D%221%22%20fill%3D%22%23C9A24A%22%2F%3E%3Crect%20x%3D%2221%22%20y%3D%227%22%20width%3D%225%22%20height%3D%2218%22%20rx%3D%221%22%20fill%3D%22%23C9A24A%22%2F%3E%3C%2Fsvg%3E">
+<meta name="description" content="Kleding- en selectieoverzicht 14-2 · Triplet IT.">
 <style>
 :root,html[data-theme="dark"]{
-  --bg:#0B0B0D; --surface:#141416; --surface2:#1C1C20; --raise:#26262B;
-  --line:#2E2E34; --line2:#45454E;
-  --ink:#F5F5F6; --muted:#9A9AA3; --dim:#6E6E76;
-  --accent:#E31C24; --accent-dim:#C41018; --on-accent:#FFFFFF; --accent-text:#FF5A62;
-  --green:#2FBE7A; --greenbg:rgba(47,190,122,.14);
-  --miss:#FF7A59; --missbg:rgba(255,122,89,.14);
-  --warn:#E0A83A; --warnbg:rgba(224,168,58,.14);
-  --na:#6E6E76; --nabg:rgba(255,255,255,.045);
-  --glow-a:rgba(227,28,36,.16); --glow-b:rgba(227,28,36,.05);
+  --bg:#0B0B0D; --surface:#141416; --surface2:#1C1C1E; --raise:#262628;
+  --line:#2E2E32; --line2:#45454A;
+  --ink:#FFFFFF; --muted:#A8A8AE; --dim:#75757C;
+  --accent:#C9A24A; --accent-dim:#A8862E; --on-accent:#111111; --accent-text:#E2C36A;
+  --green:#3CB87A; --greenbg:rgba(60,184,122,.14);
+  --miss:#E07A5F; --missbg:rgba(224,122,95,.14);
+  --warn:#C9A24A; --warnbg:rgba(201,162,74,.16);
+  --na:#75757C; --nabg:rgba(255,255,255,.045);
+  --glow-a:rgba(201,162,74,.16); --glow-b:rgba(255,255,255,.04);
   --nav-fade:rgba(11,11,13,0);
-  --featured:linear-gradient(140deg,#1A1214,#141416 64%);
+  --featured:linear-gradient(140deg,#1A1812,#141416 64%);
   --mark-bg:#141416;
   --overlay:rgba(8,8,10,.78);
-  --hover:rgba(255,255,255,.035);
-  --editbar-bg:rgba(227,28,36,.10); --editbar-ink:#F5F5F6;
-  --pill-ink:#D4D4D8;
+  --hover:rgba(255,255,255,.04);
+  --editbar-bg:rgba(201,162,74,.12); --editbar-ink:#FFFFFF;
+  --pill-ink:#E8E8EA;
   --modal-shadow:0 24px 60px rgba(0,0,0,.55);
   --r:14px; --r-lg:20px;
 }
 html[data-theme="light"]{
-  --bg:#F3F4F6; --surface:#FFFFFF; --surface2:#F6F7F9; --raise:#ECEEF2;
-  --line:#E2E4E8; --line2:#C8CCD4;
-  --ink:#121214; --muted:#5C5F66; --dim:#8B8E96;
-  --accent:#E31C24; --accent-dim:#C41018; --on-accent:#FFFFFF; --accent-text:#C41018;
+  --bg:#F4F4F5; --surface:#FFFFFF; --surface2:#F7F7F8; --raise:#EEEEF0;
+  --line:#E2E2E6; --line2:#C8C8CE;
+  --ink:#111111; --muted:#5A5A60; --dim:#8A8A90;
+  --accent:#C9A24A; --accent-dim:#A8862E; --on-accent:#111111; --accent-text:#8F7318;
   --green:#0E7A4A; --greenbg:rgba(14,122,74,.11);
-  --miss:#D6452F; --missbg:rgba(214,69,47,.10);
-  --warn:#9A7400; --warnbg:rgba(154,116,0,.11);
-  --na:#8B8E96; --nabg:rgba(18,18,20,.04);
-  --glow-a:rgba(227,28,36,.08); --glow-b:transparent;
-  --nav-fade:rgba(243,244,246,0);
-  --featured:linear-gradient(140deg,#FFFFFF,#F3F4F6 64%);
+  --miss:#B85C45; --missbg:rgba(184,92,69,.10);
+  --warn:#8F7318; --warnbg:rgba(201,162,74,.14);
+  --na:#8A8A90; --nabg:rgba(17,17,17,.04);
+  --glow-a:rgba(201,162,74,.10); --glow-b:transparent;
+  --nav-fade:rgba(244,244,245,0);
+  --featured:linear-gradient(140deg,#FFFFFF,#F4F4F5 64%);
   --mark-bg:#FFFFFF;
-  --overlay:rgba(18,18,20,.40);
-  --hover:rgba(18,18,20,.035);
-  --editbar-bg:rgba(227,28,36,.08); --editbar-ink:#121214;
-  --pill-ink:#3A3A40;
-  --modal-shadow:0 24px 60px rgba(18,18,20,.12);
+  --overlay:rgba(17,17,17,.40);
+  --hover:rgba(17,17,17,.035);
+  --editbar-bg:rgba(201,162,74,.12); --editbar-ink:#111111;
+  --pill-ink:#2A2A2E;
+  --modal-shadow:0 24px 60px rgba(17,17,17,.12);
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth;color-scheme:dark;-webkit-text-size-adjust:100%}
@@ -1214,8 +1214,8 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 <div class="wrap">
   <header class="top">
     <div class="club">
-      <div class="mark" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="623.0 619.0 801.9 801.9" ><path transform="translate(0,0)" fill="currentColor" d="M 921.182 786.705 C 921.088 748.191 924.254 721.832 952.882 692.548 C 1015.98 628.006 1122.48 672.735 1124.65 761.167 C 1125.5 795.816 1102.43 832.056 1081.81 859.102 C 1173.63 909.241 1268.41 963.174 1360.93 1011.13 L 1361 1131.03 C 1319.03 1131.1 1275.61 1130.63 1233.75 1131.29 L 1233.19 1375.08 L 1049.35 1375.98 C 1012.25 1376.33 975.285 1377.55 938.134 1377.03 C 917.37 1362.43 883.662 1343.49 865.937 1326.65 C 904.772 1326.82 943.608 1326.66 982.44 1326.19 L 1181.84 1325.99 L 1181.77 1081.01 C 1223.2 1081.15 1266.55 1081.59 1307.88 1080.71 L 1307.78 1041.6 C 1291.08 1031.4 1272.57 1022.84 1255.7 1013.2 C 1209.38 986.726 1158.4 962.557 1112.55 935.731 L 1022.94 987.354 C 993.336 970.865 960.046 953.378 929.916 937.92 C 920.677 942.578 898.06 955.722 889.447 958.678 C 884.065 957.576 873.468 958.363 868.546 958.12 C 855.177 957.462 795.501 959.764 787.18 956.615 C 823.019 935.682 860.332 916.939 896.692 896.892 C 908.282 890.501 919.978 884.554 932.037 879.089 C 947.323 886.595 963.46 896.026 978.428 904.412 C 992.956 912.551 1009.08 921.18 1023.02 930.015 C 1031.8 923.173 1052.8 912.06 1063.31 905.352 C 1044.94 894.018 1024.84 883.287 1005.8 873.072 C 1027.7 847.761 1051.43 821.947 1065.94 791.627 C 1076.9 768.732 1076.85 743.614 1055.63 726.522 C 1019.55 697.466 974.242 726.414 971.812 768.411 C 971.469 774.337 971.873 780.788 972.045 786.715 C 955.299 786.729 937.87 786.998 921.182 786.705 z"/><path transform="translate(0,0)" fill="currentColor" d="M 687.097 1011.14 L 787.18 956.615 C 795.501 959.764 855.177 957.462 868.546 958.12 C 873.468 958.363 884.065 957.576 889.447 958.678 C 873.458 968.871 851.83 980.353 835.021 989.785 C 803.509 1007.51 771.807 1024.9 739.921 1041.95 L 739.755 1081.04 L 865.102 1081.01 C 865.082 1106.56 864.201 1324.24 865.937 1326.65 C 883.662 1343.49 917.37 1362.43 938.134 1377.03 L 812.355 1377.16 L 812.749 1132.92 L 687.027 1133.03 L 687.097 1011.14 z"/></svg></div>
-      <div><b>Kitroom</b><small>14-2 · kleding &amp; selectie</small></div>
+      <div class="mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="2.5" y="4" width="5" height="16" rx="1"/><rect x="9.5" y="4" width="5" height="16" rx="1"/><rect x="16.5" y="4" width="5" height="16" rx="1"/></svg></div>
+      <div><b>Kitroom</b><small>Triplet IT · 14-2</small></div>
     </div>
     <div class="top-right">
       <div class="theme-switch" role="group" aria-label="Thema">
@@ -1637,7 +1637,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   <details class="section fold" id="bestel">
     <summary class="fold-head"><h3>Bestelling</h3><span class="fold-meta" id="bestelMeta"><?= (int) $orderPieces ?> stuks</span></summary>
     <p class="sub" id="bestelSub"><?= (int) $orderPieces ?> stuks<?php if ($canEdit && $orderTotal > 0): ?> · <?= euro($orderTotal) ?> excl. · <?= euroIncl($orderTotal) ?><?php endif; ?> · artikelnummers, maten en print.<?= $canEdit ? ' Uitvinken haalt het item uit prijs en Excel, niet van de speler.' : '' ?></p>
-    <p class="shop-rule"><b>Shirt / keeperstenue / staf shirt / polo:</b> logo Rohda, logo sponsor voorkant, logo sponsor achterkant, initialen<?= ' · ' ?>nummer alleen op het spelersshirt, tekst staf op staf shirt en polo · <b>Regenjas:</b> initialen voorkant, logo sponsor achterkant · <b>Padded:</b> logo Rohda, logo sponsor voorkant, initialen · <b>Tas:</b> logo Rohda, logo sponsor, initialen · <b>Broek:</b> initialen · <b>Sokken:</b> geen bedrukking</p>
+    <p class="shop-rule"><b>Shirt / keeperstenue / staf shirt / polo:</b> clublogo, logo sponsor voorkant, logo sponsor achterkant, initialen<?= ' · ' ?>nummer alleen op het spelersshirt, tekst staf op staf shirt en polo · <b>Regenjas:</b> initialen voorkant, logo sponsor achterkant · <b>Padded:</b> clublogo, logo sponsor voorkant, initialen · <b>Tas:</b> clublogo, logo sponsor, initialen · <b>Broek:</b> initialen · <b>Sokken:</b> geen bedrukking</p>
 
     <div class="actions">
       <a class="btn dark" href="?csv=bestel">Excel-bestellijst</a>
@@ -1715,7 +1715,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         </div>
         <?php if ($shop['rohda'] || $shop['initials'] || $shop['sponsor'] || $shop['sponsor_back'] || !empty($shop['sponsor_padded']) || !empty($shop['sponsor_jacket']) || !empty($shop['sponsor_bag']) || $shop['name_back'] || !empty($shop['staff_text'])): ?>
         <div class="print-row">
-          <?php if ($shop['rohda']): ?><i>Logo Rohda <b><?= (int) $shop['rohda'] ?></b></i><?php endif; ?>
+          <?php if ($shop['rohda']): ?><i>Clublogo <b><?= (int) $shop['rohda'] ?></b></i><?php endif; ?>
           <?php if ($shop['initials']): ?><i>Initialen <b><?= (int) $shop['initials'] ?></b></i><?php endif; ?>
           <?php if ($shop['sponsor']): ?><i>Logo sponsor voorkant <b><?= (int) $shop['sponsor'] ?></b></i><?php endif; ?>
           <?php if ($shop['sponsor_back']): ?><i>Logo sponsor achterkant <b><?= (int) $shop['sponsor_back'] ?></b></i><?php endif; ?>
@@ -1745,7 +1745,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     </div>
 
     <?php if ($canEdit): ?>
-    <p class="shop-rule">Printprijzen komen uit de catalogus (logo Rohda, logo sponsor voorkant/achterkant/padded/regenjas/tas, initialen<?= ($printPrices['name_back'] ?? null) === null ? '; nummer: nog geen catalogusprijs' : '' ?>).</p>
+    <p class="shop-rule">Printprijzen komen uit de catalogus (clublogo, logo sponsor voorkant/achterkant/padded/regenjas/tas, initialen<?= ($printPrices['name_back'] ?? null) === null ? '; nummer: nog geen catalogusprijs' : '' ?>).</p>
     <details class="shop-more">
       <summary>Prijsregels (intern)</summary>
       <div class="tablewrap">
@@ -1881,7 +1881,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <details class="section fold" id="catalogus">
     <summary class="fold-head"><h3>Catalogus · Stanno</h3></summary>
-    <p class="sub">Artikelnummers<?= $canEdit ? ', offerteprijzen excl. btw (incl. 21% eronder)' : '' ?> en per item de bedrukking zoals op de foto’s: logo Rohda, logo sponsor voor/achter, initialen, nummer, tekst staf. <?= $canEdit ? 'Stanno.com en Teamswear.nl zijn webshopprijzen incl. btw (sept. 2026), met excl. eronder ter vergelijking.' : '' ?></p>
+    <p class="sub">Artikelnummers<?= $canEdit ? ', offerteprijzen excl. btw (incl. 21% eronder)' : '' ?> en per item de bedrukking zoals op de foto’s: clublogo, logo sponsor voor/achter, initialen, nummer, tekst staf. <?= $canEdit ? 'Stanno.com en Teamswear.nl zijn webshopprijzen incl. btw (sept. 2026), met excl. eronder ter vergelijking.' : '' ?></p>
     <?php if ($canEdit): ?>
     <details class="shop-more" id="packageDefaults">
       <summary>Pakket-sjablonen</summary>
@@ -2028,7 +2028,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             <option value="match">Wedstrijd</option>
           </select>
         </label>
-        <label>Bedrukking <input class="cat-input" id="newPlace" placeholder="Logo Rohda · Logo sponsor voorkant · Initialen"></label>
+        <label>Bedrukking <input class="cat-input" id="newPlace" placeholder="Clublogo · Logo sponsor voorkant · Initialen"></label>
       </div>
       <div class="checks" id="newPrints">
         <?php foreach (printFlagEditorLabels() as $flag => $label): ?>
@@ -2249,7 +2249,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     const next=t==='light' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', next);
     document.documentElement.style.colorScheme=next;
-    if(meta) meta.setAttribute('content', next==='light' ? '#F3F4F6' : '#0B0B0D');
+    if(meta) meta.setAttribute('content', next==='light' ? '#F4F4F5' : '#0B0B0D');
     document.querySelectorAll('[data-theme-set]').forEach(btn=>{
       btn.setAttribute('aria-pressed', btn.getAttribute('data-theme-set')===next ? 'true' : 'false');
     });

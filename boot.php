@@ -1899,6 +1899,29 @@ function ensureParentSavedAtColumn(mysqli $db): void {
     $db->query('ALTER TABLE players ADD COLUMN parent_saved_at DATETIME NULL DEFAULT NULL AFTER parent_token');
 }
 
+function ensureClothingHoldStatus(mysqli $db): void {
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    foreach (['player_clothing', 'staff_clothing'] as $table) {
+        $r = $db->query("SHOW COLUMNS FROM `{$table}` LIKE 'status'");
+        $row = $r ? $r->fetch_assoc() : null;
+        $type = (string) ($row['Type'] ?? '');
+        if ($type === '' || stripos($type, "'hold'") !== false) {
+            continue;
+        }
+        if (!preg_match('/^enum\((.*)\)$/i', $type, $m)) {
+            continue;
+        }
+        $ok = $db->query("ALTER TABLE `{$table}` MODIFY status ENUM({$m[1]},'hold') NOT NULL DEFAULT 'active'");
+        if (!$ok) {
+            throw new RuntimeException('Kon kledingstatus hold niet toevoegen.');
+        }
+    }
+}
+
 function findPlayerByParentToken(mysqli $db, string $token): ?array {
     $token = strtolower(trim($token));
     if (!preg_match('/^[a-f0-9]{48}$/', $token)) {
@@ -2508,7 +2531,9 @@ function holdPersonItem(mysqli $db, string $who, int $personId, int $typeId, str
         return false;
     }
     $upd->bind_param('si', $keepSize, $id);
-    $upd->execute();
+    if (!$upd->execute()) {
+        throw new RuntimeException($upd->error !== '' ? $upd->error : 'Kon item niet op hold zetten.');
+    }
     return true;
 }
 
@@ -3069,6 +3094,7 @@ function makeKitroomBackup(mysqli $db): array {
 ensureParentTokenColumn($mysqli);
 ensureParentSavedAtColumn($mysqli);
 ensureStaffFillColumns($mysqli);
+ensureClothingHoldStatus($mysqli);
 ensurePackageTypes($mysqli);
 ensureFieldShortType($mysqli);
 ensureSponsorPrintSplit($mysqli);

@@ -105,7 +105,7 @@ body{
     radial-gradient(700px 380px at 8% -6%,var(--glow-b),transparent 60%);
   background-attachment:fixed;
 }
-.wrap{max-width:520px;margin:auto;padding:20px 16px 88px}
+.wrap{max-width:520px;margin:auto;padding:20px 16px 88px;min-width:0}
 .top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}
 .club b{display:block;font-size:19px;font-weight:800;letter-spacing:-.3px}
 .club small{display:block;color:var(--muted);font-size:12px;font-weight:600}
@@ -175,10 +175,12 @@ body{
 .packcap{margin:6px 0 0;font-size:12px;font-weight:600;color:var(--muted)}
 @media(max-width:520px){
   .row{flex-wrap:wrap}
-  .row>span:first-child{width:100%}
-  .size-select{width:100%;max-width:none;min-height:44px;font-size:16px}
+  .row>span:first-child{width:100%;overflow-wrap:anywhere}
+  .size-select{width:100%;max-width:none;min-width:0;min-height:44px;font-size:16px}
   .section h2{font-size:22px}
   .note{font-size:14px;line-height:1.5}
+  .top{gap:8px}
+  .theme-switch button{padding:6px 9px}
 }
 </style>
 </head>

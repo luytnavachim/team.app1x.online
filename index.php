@@ -153,11 +153,7 @@ function packageCellView(array $person, int $colTid, string $who): array {
     $need = packageTypeIdsFor($who, $person);
     $it = itemFor($person, $cellTid);
     if (isHeldItem($it) || itemStatus($it) === 'nvt') {
-        $label = packageCellLabel($it);
-        if ($label === '—' || $label === '•') {
-            $label = 'n.v.t.';
-        }
-        return ['class' => 'extra', 'label' => $label];
+        return ['class' => 'extra', 'label' => 'n.v.t.'];
     }
     if ($it) {
         return ['class' => packageCellClass($it), 'label' => packageCellLabel($it)];
@@ -251,6 +247,9 @@ $keeperPlayers = array_values(array_filter($active, static fn($p) => playerIsKee
 $playerPackOk = count(array_filter($fieldPlayers, static fn($p) => !empty($p['pack_ok'])));
 $keeperPackOk = count(array_filter($keeperPlayers, static fn($p) => !empty($p['pack_ok'])));
 $staffPackOk = count(array_filter($staff, static fn($s) => !empty($s['pack_ok'])));
+$PLAYER_OVERVIEW = packOverviewTypeIds($PACKAGE_CORE, $fieldPlayers);
+$KEEPER_OVERVIEW = packOverviewTypeIds($KEEPER_PACKAGE, $keeperPlayers);
+$STAFF_OVERVIEW = packOverviewTypeIds($STAFF_PACKAGE, $staff);
 
 $parentFilled = array_values(array_filter($active, static fn($p) => !empty($p['parent_saved_at'])));
 usort($parentFilled, static fn($a, $b) => strcmp((string) ($b['parent_saved_at'] ?? ''), (string) ($a['parent_saved_at'] ?? '')));
@@ -1266,7 +1265,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             <thead>
               <tr>
                 <th class="name">Speler</th>
-                <?php foreach ($PACKAGE_CORE as $tid): ?>
+                <?php foreach ($PLAYER_OVERVIEW as $tid): ?>
                 <th><?= h(cardTypeName((int) $tid, $types)) ?></th>
                 <?php endforeach; ?>
               </tr>
@@ -1275,7 +1274,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               <?php foreach ($fieldPlayers as $p): ?>
               <tr>
                 <td class="name"><a href="#card-p-<?= (int) $p['id'] ?>"><?= h(fullName($p)) ?></a><?php if (!empty($p['missing'])): ?><span class="tiny"><?= count($p['missing']) ?> ontbreekt</span><?php endif; ?><?php if ($canEdit && !empty($p['kit_cost']['count'])): ?><span class="tiny cost"><?= h(euro($p['kit_cost']['total'])) ?></span><?php endif; ?></td>
-                <?php foreach ($PACKAGE_CORE as $colTid):
+                <?php foreach ($PLAYER_OVERVIEW as $colTid):
                     $cell = packageCellView($p, (int) $colTid, 'player');
                 ?>
                 <td class="<?= h($cell['class']) ?>"><?= h($cell['label']) ?></td>
@@ -1299,19 +1298,19 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             <thead>
               <tr>
                 <th class="name">Naam</th>
-                <?php foreach ($STAFF_PACKAGE as $tid): ?>
+                <?php foreach ($STAFF_OVERVIEW as $tid): ?>
                 <th><?= h(cardTypeName((int) $tid, $types)) ?></th>
                 <?php endforeach; ?>
               </tr>
             </thead>
             <tbody>
               <?php if (!$staff): ?>
-              <tr><td class="name" colspan="<?= count($STAFF_PACKAGE) + 1 ?>">Nog geen staf.</td></tr>
+              <tr><td class="name" colspan="<?= count($STAFF_OVERVIEW) + 1 ?>">Nog geen staf.</td></tr>
               <?php endif; ?>
               <?php foreach ($staff as $s): ?>
               <tr>
                 <td class="name"><a href="#card-s-<?= (int) $s['id'] ?>"><?= h(fullName($s)) ?></a><?php if (!empty($s['missing'])): ?><span class="tiny"><?= count($s['missing']) ?> ontbreekt</span><?php endif; ?><?php if ($canEdit && !empty($s['kit_cost']['count'])): ?><span class="tiny cost"><?= h(euro($s['kit_cost']['total'])) ?></span><?php endif; ?></td>
-                <?php foreach ($STAFF_PACKAGE as $colTid):
+                <?php foreach ($STAFF_OVERVIEW as $colTid):
                     $cell = packageCellView($s, (int) $colTid, 'staff');
                 ?>
                 <td class="<?= h($cell['class']) ?>"><?= h($cell['label']) ?></td>
@@ -1324,7 +1323,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
       </div>
       <div class="pack-block pack-keepers">
         <h4>Keepers</h4>
-        <p class="sub">Tas, regenjas, padded, keeperstenue, keepersokken, keepersbroek.</p>
+        <p class="sub">Keeperpakket plus extra’s die hij bestelt. Grijs is n.v.t., niet in de bestelling.</p>
         <?php if ($canEdit): ?>
         <div class="actions" style="margin:0 0 10px">
           <button type="button" class="btn dark assign-package-all" data-who="keeper">Pakket aan keepers</button>
@@ -1335,19 +1334,19 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             <thead>
               <tr>
                 <th class="name">Keeper</th>
-                <?php foreach ($KEEPER_PACKAGE as $tid): ?>
+                <?php foreach ($KEEPER_OVERVIEW as $tid): ?>
                 <th><?= h(cardTypeName((int) $tid, $types)) ?></th>
                 <?php endforeach; ?>
               </tr>
             </thead>
             <tbody>
               <?php if (!$keeperPlayers): ?>
-              <tr><td class="name" colspan="<?= count($KEEPER_PACKAGE) + 1 ?>">Nog geen keepers.</td></tr>
+              <tr><td class="name" colspan="<?= count($KEEPER_OVERVIEW) + 1 ?>">Nog geen keepers.</td></tr>
               <?php endif; ?>
               <?php foreach ($keeperPlayers as $p): ?>
               <tr>
                 <td class="name"><a href="#card-p-<?= (int) $p['id'] ?>"><?= h(fullName($p)) ?></a><?php if (!empty($p['missing'])): ?><span class="tiny"><?= count($p['missing']) ?> ontbreekt</span><?php endif; ?><?php if ($canEdit && !empty($p['kit_cost']['count'])): ?><span class="tiny cost"><?= h(euro($p['kit_cost']['total'])) ?></span><?php endif; ?></td>
-                <?php foreach ($KEEPER_PACKAGE as $colTid):
+                <?php foreach ($KEEPER_OVERVIEW as $colTid):
                     $cell = packageCellView($p, (int) $colTid, 'player');
                 ?>
                 <td class="<?= h($cell['class']) ?>"><?= h($cell['label']) ?></td>

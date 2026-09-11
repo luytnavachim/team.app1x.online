@@ -633,6 +633,36 @@ function collapseCardTypeIds(array $ids, array $person): array {
     return $out;
 }
 
+/** Pakketkolommen plus extra items die iemand écht heeft (bestellen, in bezit of n.v.t.). */
+function packOverviewTypeIds(array $packageIds, array $people): array {
+    $types = rememberTypes();
+    $out = [];
+    foreach ($packageIds as $tid) {
+        $tid = (int) $tid;
+        if ($tid > 0) {
+            $out[$tid] = $tid;
+        }
+    }
+    foreach ($people as $person) {
+        $ids = [];
+        foreach (array_keys($person['items'] ?? []) as $tid) {
+            $tid = (int) $tid;
+            if ($tid < 1 || !itemFor($person, $tid)) {
+                continue;
+            }
+            $t = $types[$tid] ?? null;
+            if ($t && isPrintCatalogType($t)) {
+                continue;
+            }
+            $ids[] = $tid;
+        }
+        foreach (collapseCardTypeIds($ids, $person) as $tid) {
+            $out[(int) $tid] = (int) $tid;
+        }
+    }
+    return array_values($out);
+}
+
 /** Haalt de oude Focus-broek weg als dezelfde persoon al Field Short krijgt. */
 function cleanupRedundantShorts(mysqli $db): int {
     $short = fieldShortTypeId();
@@ -2690,7 +2720,7 @@ function dbHasLiveSlot(mysqli $db, string $who, int $personId, int $tid): bool {
     foreach (packageEquivalentTypeIds($tid) as $cid) {
         $row = personItemRow($db, $who, $personId, $cid);
         $status = strtolower(trim((string) ($row['status'] ?? '')));
-        if (in_array($status, ['pending', 'active'], true)) {
+        if (in_array($status, ['pending', 'active', 'hold', 'nvt'], true)) {
             return true;
         }
     }

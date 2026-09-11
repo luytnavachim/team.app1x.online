@@ -13,6 +13,7 @@ $posOrder = ['goalkeeper', 'defender', 'midfielder', 'attacker'];
 
 $types = loadTypes($mysqli);
 cleanupMismatchedPlayerKit($mysqli);
+cleanupRedundantShorts($mysqli);
 $typeAssigned = clothingTypeAssignmentCounts($mysqli);
 
 $FIELD_CORE = [1, 4, 24, 7];
@@ -53,7 +54,7 @@ function cardTypeIds(array $p, array $types, array $packageIds, array $keeperOnl
         }
         $out[$tid] = $tid;
     }
-    return array_values($out);
+    return collapseCardTypeIds(array_values($out), $p);
 }
 
 $players = [];
@@ -107,7 +108,7 @@ foreach ($staff as &$s) {
             $card[$tid] = $tid;
         }
     }
-    $s['card_types'] = array_values($card);
+    $s['card_types'] = collapseCardTypeIds(array_values($card), $s);
     $s['kit_cost'] = personKitCost($s, $types, $printPrices);
 }
 unset($s);
@@ -769,14 +770,16 @@ details.fold[open] > summary.fold-head{margin-bottom:2px;border-bottom:1px solid
 .pack-table{width:max-content;min-width:100%;border-collapse:separate;border-spacing:0;font-size:11.5px}
 .pack-table th,.pack-table td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap}
 .pack-table th{font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:var(--dim);font-weight:800;background:var(--raise)}
-.pack-table td.name,.pack-table th.name{text-align:left;font-weight:700;position:sticky;left:0;z-index:2;min-width:9.5rem;max-width:12rem;white-space:normal;line-height:1.25}
+.pack-table td.name,.pack-table th.name{text-align:left;font-weight:700;position:sticky;left:0;z-index:2;min-width:9.5rem;max-width:12rem;white-space:normal;line-height:1.25;overflow:hidden}
 .pack-table th.name{background:var(--raise);z-index:3}
 .pack-table td.name{background:var(--surface2);box-shadow:4px 0 8px -6px rgba(0,0,0,.35)}
+.pack-table td.name a{display:block;overflow:hidden}
 .pack-table tr:last-child td{border-bottom:0}
 .pack-table td.ok{background:var(--greenbg);color:var(--green);font-weight:800}
 .pack-table td.wait{background:var(--warnbg);color:var(--warn);font-weight:800}
 .pack-table td.extra{background:var(--nabg);color:var(--muted);font-weight:700}
 .pack-table td.no{background:var(--missbg);color:var(--miss);font-weight:800}
+.pack-table .tiny{display:block;font-size:10px;font-weight:700;color:inherit;opacity:.8;overflow:hidden}
 .pack-table .tiny.cost{color:var(--ink);opacity:1;font-weight:800;margin-top:2px}
 .kit-total{
   display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 10px;
@@ -1842,6 +1845,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         <?php foreach ($types as $t):
           if (!typeIsActive($t) || isPrintCatalogType($t)) continue;
           $tid = (int) $t['id'];
+          if ($tid === 4 && isset($types[fieldShortTypeId()])) continue;
           $on = in_array($tid, $PACKAGE_CORE, true) ? ' checked' : '';
         ?>
         <label><input type="checkbox" value="<?= $tid ?>"<?= $on ?>> <?= h(shortTypeName($tid, $types)) ?></label>
@@ -1852,6 +1856,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         <?php foreach ($types as $t):
           if (!typeIsActive($t) || isPrintCatalogType($t)) continue;
           $tid = (int) $t['id'];
+          if ($tid === 4 && isset($types[fieldShortTypeId()])) continue;
           $on = in_array($tid, $KEEPER_PACKAGE, true) ? ' checked' : '';
         ?>
         <label><input type="checkbox" value="<?= $tid ?>"<?= $on ?>> <?= h(shortTypeName($tid, $types)) ?></label>
@@ -1862,6 +1867,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         <?php foreach ($types as $t):
           if (!typeIsActive($t) || isPrintCatalogType($t)) continue;
           $tid = (int) $t['id'];
+          if ($tid === 4 && isset($types[fieldShortTypeId()])) continue;
           $on = in_array($tid, $STAFF_PACKAGE, true) ? ' checked' : '';
         ?>
         <label><input type="checkbox" value="<?= $tid ?>"<?= $on ?>> <?= h(shortTypeName($tid, $types)) ?></label>

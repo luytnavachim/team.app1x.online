@@ -364,7 +364,7 @@ function kitSettingsPath(): string {
 }
 
 function defaultPlayerPackageIds(): array {
-    return [15, 13, 14, 1, 24, 4, 7];
+    return [15, 13, 14, 1, 24, fieldShortTypeId(), 7];
 }
 
 function defaultKeeperPackageIds(): array {
@@ -372,7 +372,7 @@ function defaultKeeperPackageIds(): array {
 }
 
 function defaultStaffPackageIds(): array {
-    return [14, 23, 11, 4];
+    return [14, 23, 11, fieldShortTypeId()];
 }
 
 function sanitizeTypeIdList(mixed $raw, array $fallback): array {
@@ -423,9 +423,9 @@ function loadKitSettings(bool $reload = false): array {
     if (!is_array($raw)) {
         return $cached = $def;
     }
-    $package = sanitizeTypeIdList($raw['package'] ?? null, $def['package']);
+    $package = remapShortsInTypeList(sanitizeTypeIdList($raw['package'] ?? null, $def['package']));
     $packageKeeper = sanitizeTypeIdList($raw['package_keeper'] ?? null, $def['package_keeper']);
-    $packageStaff = sanitizeTypeIdList($raw['package_staff'] ?? null, $def['package_staff']);
+    $packageStaff = remapShortsInTypeList(sanitizeTypeIdList($raw['package_staff'] ?? null, $def['package_staff']));
     $print = $def['print'];
     foreach (array_keys($print) as $key) {
         $print[$key] = parseMoney($raw['print'][$key] ?? null);
@@ -450,9 +450,9 @@ function saveKitSettings(array $settings): void {
         @mkdir($dir, 0750, true);
     }
     $def = defaultKitSettings();
-    $package = sanitizeTypeIdList($settings['package'] ?? null, $def['package']);
+    $package = remapShortsInTypeList(sanitizeTypeIdList($settings['package'] ?? null, $def['package']));
     $packageKeeper = sanitizeTypeIdList($settings['package_keeper'] ?? null, $def['package_keeper']);
-    $packageStaff = sanitizeTypeIdList($settings['package_staff'] ?? null, $def['package_staff']);
+    $packageStaff = remapShortsInTypeList(sanitizeTypeIdList($settings['package_staff'] ?? null, $def['package_staff']));
     $print = [];
     foreach (array_keys($def['print']) as $key) {
         $print[$key] = parseMoney($settings['print'][$key] ?? null);
@@ -498,8 +498,73 @@ function packageTypeIdsFor(string $who, ?array $person = null): array {
     return packageTypeIds();
 }
 
+function fieldShortTypeId(): int {
+    return 31;
+}
+
+/** Focus-short (4) en Field Short (31) zijn dezelfde broek-plek. */
+function shortsSlotTypeIds(): array {
+    $ids = [];
+    foreach ([4, fieldShortTypeId()] as $id) {
+        $id = (int) $id;
+        if ($id > 0) {
+            $ids[$id] = $id;
+        }
+    }
+    return array_values($ids);
+}
+
+function isShortsType(int $tid): bool {
+    return in_array($tid, shortsSlotTypeIds(), true);
+}
+
+function packageEquivalentTypeIds(int $tid): array {
+    return isShortsType($tid) ? shortsSlotTypeIds() : [$tid];
+}
+
+function remapShortsInTypeList(array $ids): array {
+    $out = [];
+    foreach ($ids as $id) {
+        $id = (int) $id;
+        if (isShortsType($id)) {
+            $id = fieldShortTypeId();
+        }
+        if ($id > 0) {
+            $out[$id] = $id;
+        }
+    }
+    return array_values($out);
+}
+
+function itemFillRank(?array $it): int {
+    if (isIssued($it)) {
+        return 3;
+    }
+    if (isPendingItem($it)) {
+        return 2;
+    }
+    if (isHeldItem($it) || itemStatus($it) === 'nvt') {
+        return 1;
+    }
+    return 0;
+}
+
 function packageColumnTid(array $person, int $tid, string $who): int {
-    return $tid;
+    $cands = packageEquivalentTypeIds($tid);
+    if (count($cands) < 2) {
+        return $tid;
+    }
+    $prefer = fieldShortTypeId();
+    $bestTid = in_array($prefer, $cands, true) ? $prefer : $tid;
+    $bestRank = -1;
+    foreach ($cands as $cid) {
+        $rank = itemFillRank(itemFor($person, $cid));
+        if ($rank > $bestRank || ($rank === $bestRank && $cid === $prefer)) {
+            $bestRank = $rank;
+            $bestTid = $cid;
+        }
+    }
+    return $bestTid;
 }
 
 function personChoseSkip(array $person, int $tid, string $who): bool {
@@ -511,10 +576,32 @@ function personHasType(array $person, int $tid): bool {
     return itemFor($person, $tid) !== null;
 }
 
+function packageSlotIsFilled(array $person, int $tid, string $who): bool {
+    $live = false;
+    $skip = false;
+    foreach (packageEquivalentTypeIds($tid) as $cid) {
+        $it = itemFor($person, $cid);
+        if (isIssued($it) || isPendingItem($it)) {
+            $live = true;
+        }
+        if (isHeldItem($it) || itemStatus($it) === 'nvt') {
+            $skip = true;
+        }
+    }
+    return $live || $skip;
+}
+
 function packageMissingIds(array $person, string $who): array {
     $miss = [];
+    $seen = [];
     foreach (packageTypeIdsFor($who, $person) as $tid) {
-        if (personHasType($person, $tid) || personChoseSkip($person, $tid, $who)) {
+        $tid = (int) $tid;
+        $key = implode(',', packageEquivalentTypeIds($tid));
+        if (isset($seen[$key])) {
+            continue;
+        }
+        $seen[$key] = true;
+        if (packageSlotIsFilled($person, $tid, $who)) {
             continue;
         }
         $miss[] = $tid;
@@ -522,8 +609,53 @@ function packageMissingIds(array $person, string $who): array {
     return $miss;
 }
 
-function fieldShortTypeId(): int {
-    return 31;
+function collapseCardTypeIds(array $ids, array $person): array {
+    $keepShort = null;
+    foreach ($ids as $tid) {
+        $tid = (int) $tid;
+        if (!isShortsType($tid)) {
+            continue;
+        }
+        $keepShort = packageColumnTid($person, $tid, 'player');
+        break;
+    }
+    if ($keepShort === null) {
+        return array_values($ids);
+    }
+    $out = [];
+    foreach ($ids as $tid) {
+        $tid = (int) $tid;
+        if (isShortsType($tid) && $tid !== $keepShort) {
+            continue;
+        }
+        $out[] = $tid;
+    }
+    return $out;
+}
+
+/** Haalt de oude Focus-broek weg als dezelfde persoon al Field Short krijgt. */
+function cleanupRedundantShorts(mysqli $db): int {
+    $short = fieldShortTypeId();
+    $n = 0;
+    $sql = "DELETE pc FROM player_clothing pc
+            INNER JOIN player_clothing ps
+              ON ps.player_id = pc.player_id
+             AND ps.clothing_type_id = {$short}
+             AND ps.status IN ('pending','active')
+            WHERE pc.clothing_type_id = 4 AND pc.status IN ('hold','nvt')";
+    if ($db->query($sql)) {
+        $n += (int) $db->affected_rows;
+    }
+    $sql = "DELETE sc FROM staff_clothing sc
+            INNER JOIN staff_clothing ss
+              ON ss.staff_member_id = sc.staff_member_id
+             AND ss.clothing_type_id = {$short}
+             AND ss.status IN ('pending','active')
+            WHERE sc.clothing_type_id = 4 AND sc.status IN ('hold','nvt')";
+    if ($db->query($sql)) {
+        $n += (int) $db->affected_rows;
+    }
+    return $n;
 }
 
 function staffShirtTypeId(): int {
@@ -1484,10 +1616,13 @@ function parentFillableTypeIds(?array $types = null): array {
             $ids[$id] = $id;
         }
     }
-    if ($ids === []) {
-        return [1, 4, 13, 14, 15, 3, 7, 11, 12, staffShirtTypeId(), 9, 10, 19];
+    if (isset($ids[fieldShortTypeId()])) {
+        unset($ids[4]);
     }
-    $preferred = [1, 23, 9, 19, 4, 13, 14, 15, 3, 10, 7, 11, 12];
+    if ($ids === []) {
+        return [1, fieldShortTypeId(), 13, 14, 15, 3, 7, 11, 12, staffShirtTypeId(), 9, 10, 19];
+    }
+    $preferred = [1, 23, 9, 19, fieldShortTypeId(), 13, 14, 15, 3, 10, 7, 11, 12];
     $out = [];
     foreach ($preferred as $id) {
         if (isset($ids[$id])) {
@@ -1519,7 +1654,7 @@ function shortTypeName(int $tid, array $types = []): string {
         1 => 'Shirt',
         23 => 'Staf shirt',
         4 => 'Broek',
-        31 => 'Field Short',
+        31 => 'Broek',
         3 => 'Sokken',
         7 => 'Grip',
         9 => 'K-shirt',
@@ -1548,6 +1683,7 @@ function shortTypeName(int $tid, array $types = []): string {
 
 function cardTypeName(int $tid, array $types = []): string {
     return match ($tid) {
+        4, 31 => 'Broek',
         13 => 'Regenjas',
         14 => 'Padded',
         15 => 'Tas',
@@ -1747,6 +1883,9 @@ function typeOptionsHtml(array $types, string $placeholder = 'Type'): string {
             continue;
         }
         $tid = (int) $tid;
+        if ($tid === 4 && isset($types[fieldShortTypeId()])) {
+            continue;
+        }
         $html .= '<option value="'.$tid.'">'.h(shortTypeName($tid, $types)).'</option>';
     }
     return $html;
@@ -1824,6 +1963,9 @@ function normalizeParentTypeIds(array $ids, array $allowed): array {
     $out = [];
     foreach ($ids as $id) {
         $id = (int) $id;
+        if (isShortsType($id)) {
+            $id = fieldShortTypeId();
+        }
         if (in_array($id, $allowed, true)) {
             $out[$id] = $id;
         }
@@ -1834,9 +1976,9 @@ function normalizeParentTypeIds(array $ids, array $allowed): array {
 function defaultParentFormSettings(): array {
     return [
         'note' => '',
-        'field' => [1, 4, 13, 14, 24, 7],
+        'field' => [1, fieldShortTypeId(), 13, 14, 24, 7],
         'keeper' => array_values(array_unique(array_merge(
-            [1, 4, 13, 14, 24, 7],
+            [1, fieldShortTypeId(), 13, 14, 24, 7],
             keeperCoreTypeIds()
         ))),
         'staff' => defaultStaffPackageIds(),
@@ -2455,7 +2597,7 @@ function assignPackageToPerson(
     $shirtTid = $who === 'staff' ? staffShirtTypeId() : 1;
     $shirt = currentItemSize($db, $who, $personId, $shirtTid);
     if ($shirt === '' && $who === 'staff') {
-        foreach ([1, 11, 14, 4] as $alt) {
+        foreach ([1, 11, 14, fieldShortTypeId(), 4] as $alt) {
             $shirt = currentItemSize($db, $who, $personId, $alt);
             if ($shirt !== '') {
                 break;
@@ -2474,7 +2616,10 @@ function assignPackageToPerson(
             }
         }
     }
-    $shorts = currentItemSize($db, $who, $personId, 4);
+    $shorts = currentItemSize($db, $who, $personId, fieldShortTypeId());
+    if ($shorts === '' || $shorts === skipSizeToken()) {
+        $shorts = currentItemSize($db, $who, $personId, 4);
+    }
     $socks = currentItemSize($db, $who, $personId, 3);
     if ($socks === '') {
         foreach (array_values(array_unique(array_merge([10, 24, 7], keeperOnlyTypeIds($types)))) as $kid) {
@@ -2518,7 +2663,7 @@ function assignPackageToPerson(
             $skipped[] = shortTypeName($tid, $types);
             continue;
         }
-        if ($onlyMissing && currentItemSize($db, $who, $personId, $tid) !== '') {
+        if ($onlyMissing && dbHasLiveSlot($db, $who, $personId, $tid)) {
             continue;
         }
         upsertPersonItem($db, $types, $who, $personId, $tid, $size, $mode);
@@ -2539,6 +2684,17 @@ function personItemRow(mysqli $db, string $who, int $personId, int $typeId): ?ar
     $st->execute();
     $row = $st->get_result()->fetch_assoc();
     return $row ?: null;
+}
+
+function dbHasLiveSlot(mysqli $db, string $who, int $personId, int $tid): bool {
+    foreach (packageEquivalentTypeIds($tid) as $cid) {
+        $row = personItemRow($db, $who, $personId, $cid);
+        $status = strtolower(trim((string) ($row['status'] ?? '')));
+        if (in_array($status, ['pending', 'active'], true)) {
+            return true;
+        }
+    }
+    return false;
 }
 
 function removePersonItem(mysqli $db, string $who, int $personId, int $typeId): void {

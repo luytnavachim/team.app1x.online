@@ -1480,6 +1480,29 @@ function shortTypeName(int $tid, array $types = []): string {
     return $label !== '' ? $label : (string) $tid;
 }
 
+function cardTypeName(int $tid, array $types = []): string {
+    return match ($tid) {
+        13 => 'Regenjas',
+        14 => 'Padded',
+        15 => 'Tas',
+        24 => 'Footless',
+        default => shortTypeName($tid, $types),
+    };
+}
+
+function kitRowCopyHtml(int $tid, array $types, string $tag, ?float $unit): string {
+    $html = '<span class="kit-copy">';
+    $html .= '<span class="kit-name">'.h(cardTypeName($tid, $types)).'</span>';
+    $html .= '<span class="kit-tag">'.h($tag).'</span>';
+    $html .= '<span class="kit-price">';
+    if ($unit !== null) {
+        $html .= '<span class="kit-ex">'.h(euro($unit)).'</span>';
+        $html .= '<span class="kit-inc">'.h(euro(withVat($unit))).' incl.</span>';
+    }
+    $html .= '</span></span>';
+    return $html;
+}
+
 function typeIsActive(array $t): bool {
     return !array_key_exists('active', $t) || (int) $t['active'] === 1;
 }

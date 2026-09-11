@@ -699,7 +699,7 @@ details.fold[open] > summary.fold-head{margin-bottom:2px;border-bottom:1px solid
 .meta{font-size:11.5px;color:var(--muted);font-weight:600;margin:5px 0 11px;line-height:1.35}
 .meta a{color:var(--accent-text);text-decoration:none;font-weight:800}
 .meta a:hover{text-decoration:underline}
-.kit{display:grid;gap:6px;flex:1}
+.kit{display:grid;gap:8px;flex:1}
 .row{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:12.5px;font-weight:600;padding:8px 10px;border-radius:9px;background:var(--nabg);color:var(--muted);min-width:0}
 .row.ok{background:var(--greenbg);color:var(--green)}
 .row.no{background:var(--missbg);color:var(--miss)}
@@ -708,13 +708,27 @@ details.fold[open] > summary.fold-head{margin-bottom:2px;border-bottom:1px solid
 .row.extra{background:var(--nabg);color:var(--muted)}
 .row>span:last-child,.row>select{flex:0 0 auto;white-space:nowrap}
 .row>span:first-child,.row .want{min-width:0}
-.row .want{display:inline-flex;align-items:center;gap:7px;font-weight:700;min-width:0}
-.row .want input{margin:0;flex:0 0 auto;accent-color:var(--accent)}
-.kit-row .size-select{max-width:96px}
-.row .del{
-  border:0;background:transparent;color:var(--miss);font:inherit;
-  font-size:11px;font-weight:800;cursor:pointer;padding:0 2px;white-space:nowrap;
+.row .want{display:inline-flex;align-items:flex-start;gap:8px;font-weight:700;min-width:0}
+.row .want input{margin:3px 0 0;flex:0 0 auto;accent-color:var(--accent)}
+.kit-row{
+  display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 10px;align-items:start;
+  padding:10px;
 }
+.kit-copy{display:flex;flex-direction:column;gap:2px;min-width:0}
+.kit-name{font-size:13px;font-weight:800;line-height:1.25;color:inherit}
+.kit-tag{font-size:11px;font-weight:700;opacity:.88;line-height:1.2}
+.kit-price{display:flex;flex-wrap:wrap;gap:0 8px;align-items:baseline;margin-top:3px}
+.kit-ex{font-size:12.5px;font-weight:800;white-space:nowrap;font-variant-numeric:tabular-nums}
+.kit-inc{font-size:11px;font-weight:700;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.kit-tools{display:flex;flex-direction:column;align-items:stretch;gap:5px;width:92px}
+.kit-row .size-select{width:100%;max-width:none;min-width:0;text-align:center}
+.kit-tools > span{display:block;text-align:center;font-weight:800;white-space:nowrap;padding:6px 0}
+.row .del{
+  border:1px solid transparent;background:transparent;color:var(--miss);font:inherit;
+  font-size:11px;font-weight:800;cursor:pointer;padding:5px 6px;white-space:nowrap;
+  border-radius:8px;width:100%;line-height:1.2;
+}
+.row .del:hover{background:var(--missbg)}
 .kit-row.off{opacity:.55}
 .shop-card.off{opacity:.48}
 .shop-include{
@@ -854,10 +868,15 @@ tr.archived td{opacity:.55}
 }
 .assign select:hover,.addrow select:hover{border-color:var(--accent)}
 .addrow{display:grid;grid-template-columns:1fr 86px auto;gap:6px;margin-top:8px;align-items:center}
+.card .addrow{grid-template-columns:minmax(0,1fr) auto}
+.card .addrow .assign-type{grid-column:1 / -1}
 @media(max-width:760px){
   .assign{grid-template-columns:1fr}
   .addrow{grid-template-columns:1fr 1fr}
   .addrow .btn{grid-column:1 / -1}
+  .card .addrow{grid-template-columns:minmax(0,1fr) auto}
+  .card .addrow .assign-type{grid-column:1 / -1}
+  .card .addrow .btn{grid-column:auto}
 }
 
 /* ---------- modal / toast ---------- */
@@ -988,13 +1007,11 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   .barrow{grid-template-columns:80px 1fr 30px}
   .top{flex-wrap:wrap}
   .club b{font-size:17px}
-  .kit-row{
-    display:grid;grid-template-columns:1fr auto;grid-template-areas:"want size" "want del";
-    gap:6px 8px;align-items:center;
-  }
-  .kit-row .want{grid-area:want;font-size:13.5px}
-  .kit-row .size-select{grid-area:size;max-width:120px;min-height:42px;font-size:16px}
-  .kit-row .del{grid-area:del;justify-self:end;min-height:36px}
+  .kit-row{grid-template-columns:minmax(0,1fr) auto}
+  .kit-row .want{font-size:13.5px}
+  .kit-tools{width:108px}
+  .kit-row .size-select{min-height:42px;font-size:16px}
+  .kit-row .del{min-height:36px}
   .who{flex-wrap:wrap}
   .who .jersey-select{max-width:none;width:100%;min-height:42px}
   .packshot{max-width:100%;padding:8px}
@@ -1170,7 +1187,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               $owned = isIssued($it);
               $cls = $owned ? 'ok' : ($pending ? 'wait' : 'extra');
               $val = $it ? (string) $it['size'] : '—';
-              $tag = $pending ? ' · bestellen' : ($owned ? ' · in bezit' : ($held ? ' · niet in bestelling' : ''));
+              $tag = $pending ? 'bestellen' : ($owned ? 'in bezit' : ($held ? 'niet in bestelling' : ''));
               $unit = ($canEdit && ($pending || $held)) ? priceFor($t, (string) ($it['size'] ?? '')) : null;
             ?>
             <div class="row <?= $cls ?> kit-row<?= $pending ? '' : ' off' ?>" data-who="player" data-id="<?= (int) $p['id'] ?>" data-tid="<?= $tid ?>" data-status="<?= ($pending || $held) ? 'pending' : ($owned ? 'owned' : '') ?>">
@@ -1178,16 +1195,18 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
                 <?php if ($canEdit): ?>
                 <input type="checkbox" class="want-check"<?= $pending ? ' checked' : '' ?><?= $owned ? ' disabled title="In bezit"' : '' ?>>
                 <?php endif; ?>
-                <?= h(shortTypeName($tid, $types)) ?><span class="kit-tag"><?= $tag ?></span><?php if ($unit !== null): ?><span class="kit-price"> · <?= euroPair($unit) ?></span><?php endif; ?>
+                <?= kitRowCopyHtml($tid, $types, $tag, $unit) ?>
               </label>
+              <div class="kit-tools">
               <?php if ($canEdit): ?>
                 <?= sizeSelect($tid, (string) ($it['size'] ?? ''), 'player', (int) $p['id']) ?>
                 <?php if ($it): ?>
-                <button type="button" class="del item-del" data-who="player" data-id="<?= (int) $p['id'] ?>" data-tid="<?= $tid ?>">Verwijderen</button>
+                <button type="button" class="del item-del" data-who="player" data-id="<?= (int) $p['id'] ?>" data-tid="<?= $tid ?>" title="Verwijderen">Wis</button>
                 <?php endif; ?>
               <?php else: ?>
                 <span><?= h($val) ?></span>
               <?php endif; ?>
+              </div>
             </div>
             <?php endforeach; ?>
             <?php if ($canEdit): ?>
@@ -1520,22 +1539,25 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               $owned = isIssued($it);
               $cls = $owned ? 'ok' : ($pending ? 'wait' : 'extra');
               $unit = ($canEdit && ($pending || $held)) ? priceFor($types[$tid], (string) ($it['size'] ?? '')) : null;
+              $stag = $pending ? 'bestellen' : ($owned ? 'in bezit' : ($held ? 'niet in bestelling' : ''));
           ?>
             <div class="row <?= $cls ?> kit-row<?= $pending ? '' : ' off' ?>" data-who="staff" data-id="<?= (int) $s['id'] ?>" data-tid="<?= $tid ?>" data-status="<?= ($pending || $held) ? 'pending' : ($owned ? 'owned' : '') ?>">
               <label class="want">
                 <?php if ($canEdit): ?>
                 <input type="checkbox" class="want-check"<?= $pending ? ' checked' : '' ?><?= $owned ? ' disabled title="In bezit"' : '' ?>>
                 <?php endif; ?>
-                <?= h(shortTypeName($tid, $types)) ?><span class="kit-tag"><?= $pending ? ' · bestellen' : ($owned ? ' · in bezit' : ($held ? ' · niet in bestelling' : '')) ?></span><?php if ($unit !== null): ?><span class="kit-price"> · <?= euroPair($unit) ?></span><?php endif; ?>
+                <?= kitRowCopyHtml($tid, $types, $stag, $unit) ?>
               </label>
+              <div class="kit-tools">
               <?php if ($canEdit): ?>
                 <?= sizeSelect($tid, (string) ($it['size'] ?? ''), 'staff', (int) $s['id']) ?>
                 <?php if ($it): ?>
-                <button type="button" class="del item-del" data-who="staff" data-id="<?= (int) $s['id'] ?>" data-tid="<?= $tid ?>">Verwijderen</button>
+                <button type="button" class="del item-del" data-who="staff" data-id="<?= (int) $s['id'] ?>" data-tid="<?= $tid ?>" title="Verwijderen">Wis</button>
                 <?php endif; ?>
               <?php else: ?>
                 <span><?= h($it['size'] ?? '—') ?></span>
               <?php endif; ?>
+              </div>
             </div>
           <?php endforeach; ?>
           <?php if ($canEdit): ?>
@@ -2092,10 +2114,13 @@ function syncKitRow(row){
   row.classList.toggle('wait', on);
   row.classList.toggle('extra', !on);
   const tag=row.querySelector('.kit-tag');
-  if(tag) tag.textContent=on?' · bestellen':' · niet in bestelling';
+  if(tag) tag.textContent=on?'bestellen':'niet in bestelling';
   const price=priceForType(+row.dataset.tid, row.querySelector('.size-select')?.value||'');
   const priceEl=row.querySelector('.kit-price');
-  if(priceEl) priceEl.textContent=price!=null?' · '+euroPairJs(price):'';
+  if(priceEl){
+    if(price==null) priceEl.innerHTML='';
+    else priceEl.innerHTML='<span class="kit-ex">'+euroJs(price)+'</span><span class="kit-inc">'+euroJs(withVatJs(price))+' incl.</span>';
+  }
 }
 function rowChoice(row){
   const owned=row.dataset.status==='owned';

@@ -119,6 +119,12 @@ function shopComparePrices(): array {
             'stanno_url' => 'https://www.stanno.com/nl/456004-prime-padded-jacket/',
             'teamwear_url' => 'https://www.teamswear.nl/stanno-prime-padded-coach-jacket-heren-marine',
         ],
+        '484837' => [
+            'stanno_jr' => 43.99, 'stanno_sr' => 43.99,
+            'teamwear_jr' => 30.77, 'teamwear_sr' => 30.77,
+            'stanno_url' => 'https://www.stanno.com/nl/484837-pro-bag-prime/',
+            'teamwear_url' => 'https://www.teamswear.nl/stanno-pro-prime-sporttas-met-bodemvak-zwart',
+        ],
         '484838' => [
             'stanno_jr' => 41.99, 'stanno_sr' => 41.99,
             'teamwear_jr' => 29.37, 'teamwear_sr' => 29.37,
@@ -1183,7 +1189,7 @@ function ensurePackageTypes(mysqli $db): void {
     $rows = [
         13 => ['field_jack', 'Field Jack (regenjas)', '454002', 'Regenjack pakket 14-2', 24.94, 26.34],
         14 => ['prime_padded_jacket', 'Prime Padded Jacket (Winterjas)', '456004', 'Winterjas pakket 14-2', 63.22, 66.73],
-        15 => ['pro_bag_prime', 'Pro Bag Prime (multifunctionele tas)', '484838', 'Sporttas pakket 14-2', 29.50, 29.50],
+        15 => ['pro_bag_prime', 'Pro Bag Prime (multifunctionele tas)', '484837', 'Sporttas pakket 14-2', 29.50, 29.50],
     ];
     foreach ($rows as $id => $r) {
         [$name, $display, $article, $desc, $small, $large] = $r;

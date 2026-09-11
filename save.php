@@ -345,7 +345,7 @@ if ($action === 'save_type') {
     }
     $sizes = formatSizeList($sizesList);
     $upd = $mysqli->prepare("UPDATE clothing_types SET display_name=?, article_number=?, color=?, brand=?, price_small=NULLIF(?, ''), price_large=NULLIF(?, ''), price=NULLIF(?, ''), size_kind=?, sizes=?, order_group=?, print_rohda=?, print_initials=?, print_sponsor=?, print_sponsor_back=?, print_sponsor_padded=?, print_sponsor_jacket=?, print_sponsor_bag=?, print_name_back=?, print_staff_text=?, print_place=?, updated_at=NOW() WHERE id=?");
-    $upd->bind_param('ssssssssssiiiiiiiiiisi', $display, $article, $color, $brand, $smallS, $largeS, $stdS, $sizeKind, $sizes, $orderGroup, $printRohda, $printIni, $printSp, $printSpBack, $printSpPadded, $printSpJacket, $printSpBag, $printName, $printStaffText, $printPlace, $id);
+    $upd->bind_param('ssssssssssiiiiiiiiisi', $display, $article, $color, $brand, $smallS, $largeS, $stdS, $sizeKind, $sizes, $orderGroup, $printRohda, $printIni, $printSp, $printSpBack, $printSpPadded, $printSpJacket, $printSpBag, $printName, $printStaffText, $printPlace, $id);
     if (!$upd->execute()) {
         jsonOut(['ok' => false, 'error' => 'Kon artikel niet opslaan.'], 400);
     }

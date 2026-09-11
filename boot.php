@@ -457,6 +457,10 @@ function packageTypeIds(): array {
     return $ids !== [] ? $ids : [13, 14, 15];
 }
 
+function fieldShortTypeId(): int {
+    return 31;
+}
+
 function staffShirtTypeId(): int {
     return 23;
 }
@@ -620,6 +624,7 @@ function stannoSizeChart(): array {
     $socks = ['25/29', '30/35', '36/40', '41/44', '45/48'];
     return [
         '410014' => $jr3xl,
+        '420000' => $jr3xl,
         '420004' => $jr3xl,
         '408038' => $jr3xl,
         '463003' => ['116', '128', '140', '152', '164', 'S', 'M', 'L', 'XL', 'XXL', 'XXXL'],
@@ -982,6 +987,74 @@ function ensurePackageTypes(mysqli $db): void {
     }
     if ($printColsAdded) {
         seedTypePrintDefaults($db);
+    }
+}
+
+function ensureFieldShortType(mysqli $db): void {
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    ensureTypeMetaColumns($db);
+    ensureTypePrintColumns($db);
+    $id = fieldShortTypeId();
+    $name = 'field_short';
+    $display = 'Field Short';
+    $article = '420000';
+    $desc = 'Field short zwart';
+    $color = 'Zwart';
+    $brand = 'Stanno';
+    $price = 9.45;
+    $place = 'Alleen initialen';
+    $kind = 'body';
+    $group = 'match';
+    $foundId = 0;
+    $sel = $db->prepare('SELECT id FROM clothing_types WHERE id=? OR article_number=? OR name=? LIMIT 1');
+    $sel->bind_param('iss', $id, $article, $name);
+    $sel->execute();
+    $found = $sel->get_result()->fetch_assoc();
+    if ($found) {
+        $foundId = (int) $found['id'];
+    }
+    if ($foundId < 1) {
+        $ins = $db->prepare('INSERT INTO clothing_types (id, name, display_name, article_number, description, color, brand, price_small, price_large, price, size_kind, order_group, print_rohda, print_initials, print_sponsor, print_sponsor_back, print_name_back, print_place, active, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,0,1,0,0,0,?,1,NOW(),NOW())');
+        $ins->bind_param('issssssdddsss', $id, $name, $display, $article, $desc, $color, $brand, $price, $price, $price, $kind, $group, $place);
+        $ins->execute();
+        $foundId = $id > 0 ? $id : (int) $db->insert_id;
+    }
+    $tid = $foundId > 0 ? $foundId : $id;
+    $types = loadTypes($db);
+    $opts = sizeOptions($tid);
+    $res = $db->query("SELECT id FROM players WHERE status='active'");
+    if (!$res) {
+        return;
+    }
+    while ($row = $res->fetch_assoc()) {
+        $pid = (int) ($row['id'] ?? 0);
+        if ($pid < 1) {
+            continue;
+        }
+        if (currentItemSize($db, 'player', $pid, $tid) !== '') {
+            continue;
+        }
+        $size = currentItemSize($db, 'player', $pid, 4);
+        if ($size === '') {
+            $size = currentItemSize($db, 'player', $pid, 1);
+        }
+        if ($size === '') {
+            $size = currentItemSize($db, 'player', $pid, 19);
+        }
+        $mapped = normalizeSizeLabel($size);
+        if (in_array($mapped, $opts, true)) {
+            $size = $mapped;
+        } elseif (!in_array($size, $opts, true)) {
+            $size = in_array('164', $opts, true) ? '164' : ($opts[0] ?? '');
+        }
+        if ($size === '' || $size === 'onbekend') {
+            continue;
+        }
+        upsertPersonItem($db, $types, 'player', $pid, $tid, $size, 'pending');
     }
 }
 
@@ -1380,6 +1453,7 @@ function shortTypeName(int $tid, array $types = []): string {
         1 => 'Shirt',
         23 => 'Staf shirt',
         4 => 'Broek',
+        31 => 'Field Short',
         3 => 'Sokken',
         7 => 'Grip',
         9 => 'K-shirt',
@@ -2456,7 +2530,7 @@ function sizeSelect(int $tid, string $current, string $who, int $id, bool $na = 
         array_unshift($opts, $current);
     }
     $copy = '';
-    if ($tid === 4) {
+    if ($tid === 4 || $tid === fieldShortTypeId()) {
         $copy = ' data-copy-from="1"';
     } elseif ($tid === 7) {
         $copy = ' data-copy-from="3"';
@@ -2996,6 +3070,7 @@ ensureParentTokenColumn($mysqli);
 ensureParentSavedAtColumn($mysqli);
 ensureStaffFillColumns($mysqli);
 ensurePackageTypes($mysqli);
+ensureFieldShortType($mysqli);
 ensureSponsorPrintSplit($mysqli);
 ensureStaffTextPrint($mysqli);
 ensureSponsorQuoteKinds($mysqli);

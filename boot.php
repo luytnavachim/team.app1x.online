@@ -620,6 +620,21 @@ function fieldOnlyTypeIds(): array {
     return [1, 3]; // veldshirt, veldsokken — grip mag ook voor keepers
 }
 
+/** Keeper: veldshirt wordt keeperstenue. Veldsokken vallen weg. */
+function remapPlayerKitType(array $person, int $tid): int {
+    if ($tid < 1 || ($person['position'] ?? '') !== 'goalkeeper') {
+        return $tid;
+    }
+    if (!in_array($tid, fieldOnlyTypeIds(), true)) {
+        return $tid;
+    }
+    $mapped = packageColumnTid($person, $tid, 'player');
+    if ($mapped < 1 || in_array($mapped, fieldOnlyTypeIds(), true)) {
+        return 0;
+    }
+    return $mapped;
+}
+
 /** Keeper krijgt geen veldshirt/veldsokken; veldspeler geen keepershirt/-sokken. */
 function typeAllowedForPlayer(array $player, int $tid): bool {
     $isKeeper = ($player['position'] ?? '') === 'goalkeeper';
@@ -1525,7 +1540,14 @@ function parentFillableTypeIds(?array $types = null): array {
 }
 
 function parentTypeChoices(string $kind = 'field'): array {
-    return parentFillableTypeIds();
+    $ids = parentFillableTypeIds();
+    if ($kind === 'keeper') {
+        return filterParentTypeIdsForPerson($ids, ['position' => 'goalkeeper']);
+    }
+    if ($kind === 'field') {
+        return filterParentTypeIdsForPerson($ids, ['position' => 'midfielder']);
+    }
+    return $ids;
 }
 
 function allParentTypeIds(): array {
@@ -1569,6 +1591,7 @@ function cardTypeName(int $tid, array $types = []): string {
         13 => 'Regenjas',
         14 => 'Padded',
         15 => 'Tas',
+        19 => 'Shirt',
         24 => 'Footless',
         default => shortTypeName($tid, $types),
     };
@@ -1970,12 +1993,9 @@ function filterParentTypeIdsForPerson(array $ids, array $person): array {
             continue;
         }
         if ($isKeeper) {
-            if (in_array($tid, fieldOnlyTypeIds(), true)) {
-                $mapped = packageColumnTid($person, $tid, 'player');
-                if (in_array($mapped, fieldOnlyTypeIds(), true)) {
-                    continue;
-                }
-                $tid = $mapped;
+            $tid = remapPlayerKitType($person, $tid);
+            if ($tid < 1) {
+                continue;
             }
         } elseif (in_array($tid, keeperOnlyTypeIds(), true)) {
             continue;
@@ -2534,14 +2554,12 @@ function applyPersonItemChoice(
         $st->bind_param('i', $personId);
         $st->execute();
         $player = $st->get_result()->fetch_assoc();
-        if ($player && !typeAllowedForPlayer($player, $typeId)) {
-            // Verkeerd type voor positie: weghalen i.p.v. opslaan
-            $existing = personItemRow($db, $who, $personId, $typeId);
-            if ($existing) {
-                removePersonItem($db, $who, $personId, $typeId);
-                return true;
+        if ($player) {
+            $mapped = remapPlayerKitType($player, $typeId);
+            if ($mapped < 1) {
+                return false;
             }
-            return false;
+            $typeId = $mapped;
         }
     }
     $parsed = parseItemInput($input);

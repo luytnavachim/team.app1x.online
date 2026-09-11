@@ -115,7 +115,7 @@ function parentChecksHtml(string $scope, array $choices, array $selected, int $p
     $html = '<div class="checks" data-parent-scope="'.h($scope).'" data-id="'.$playerId.'" data-default="'.h(implode(',', $defaultIds)).'">';
     foreach ($choices as $tid) {
         $on = in_array($tid, $selected, true) ? ' checked' : '';
-        $html .= '<label><input type="checkbox" value="'.$tid.'"'.$on.'> '.h(shortTypeName($tid, rememberTypes())).'</label>';
+        $html .= '<label><input type="checkbox" value="'.$tid.'"'.$on.'> '.h(cardTypeName($tid, rememberTypes())).'</label>';
     }
     $html .= '</div>';
     return $html;
@@ -2519,6 +2519,10 @@ document.querySelectorAll('[data-parent-scope="player"]').forEach(box=>{
     const reset=typesKey(types)===typesKey(def);
     const out=await api({action:'parent_form', csrf:TEAM.csrf, scope:'player', id:+box.dataset.id, types, reset:reset});
     if(!out.ok){ toast(out.error||'Mislukt'); return; }
+    if(Array.isArray(out.types)){
+      const on=new Set(out.types.map(Number));
+      box.querySelectorAll('input[type=checkbox]').forEach(cb=>{ cb.checked=on.has(+cb.value); });
+    }
     toast(out.custom ? 'Aangepast voor deze speler' : 'Standaard voor deze speler');
   });
 });

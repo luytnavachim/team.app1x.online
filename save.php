@@ -242,7 +242,8 @@ if ($action === 'parent_form') {
         if ($reset || $typesIn === []) {
             unset($settings['players'][$id]);
         } else {
-            $settings['players'][$id] = $typesIn;
+            $p['id'] = $id;
+            $settings['players'][$id] = filterParentTypeIdsForPerson($typesIn, $p);
         }
         saveParentFormSettings($settings);
         $p['id'] = $id;
@@ -272,6 +273,18 @@ if ($action === 'add_item') {
     }
     $types = loadTypes($mysqli);
     try {
+        if ($who === 'player') {
+            $st = $mysqli->prepare('SELECT id, position FROM players WHERE id=? LIMIT 1');
+            $st->bind_param('i', $id);
+            $st->execute();
+            $player = $st->get_result()->fetch_assoc();
+            if ($player) {
+                $tid = remapPlayerKitType($player, $tid);
+            }
+        }
+        if ($tid < 1) {
+            jsonOut(['ok' => false, 'error' => 'Dit item hoort niet bij deze speler.'], 400);
+        }
         upsertPersonItem($mysqli, $types, $who, $id, $tid, $size, $mode);
     } catch (Throwable $e) {
         jsonOut(['ok' => false, 'error' => $e->getMessage()], 400);

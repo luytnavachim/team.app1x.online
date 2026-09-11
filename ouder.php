@@ -244,7 +244,7 @@ body{
             $cls = $it ? ($pending ? 'wait' : 'ok') : 'no';
           ?>
           <div class="row <?= $cls ?>">
-            <span><?= h(shortTypeName($tid, $types)) ?><?= $pending ? ' · bestellen' : '' ?></span>
+            <span><?= h(cardTypeName($tid, $types)) ?><?= $pending ? ' · bestellen' : '' ?></span>
             <?= sizeSelect($tid, (string) ($it['size'] ?? ''), $who, (int) $person['id'], false, true, $person) ?>
           </div>
           <?php endforeach; ?>

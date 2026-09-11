@@ -162,19 +162,15 @@ body{
   object-fit:contain;background:transparent;
 }
 .kit-design{
-  display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 16px;align-items:start;
+  display:grid;grid-template-columns:1fr;gap:10px;margin:0 0 16px;align-items:start;
 }
 .kit-design figure{
-  margin:0;background:#fff;border:1px solid var(--line);border-radius:var(--r);
-  padding:8px;min-width:0;
+  margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:var(--r);
+  padding:8px;min-width:0;width:100%;max-width:420px;
 }
 .kit-design img{
-  width:100%;height:auto;max-height:520px;display:block;margin:0 auto;
+  width:100%;height:auto;max-height:none;display:block;margin:0 auto;
   object-fit:contain;background:#fff;
-}
-@media(max-width:520px){
-  .kit-design{grid-template-columns:1fr}
-  .kit-design img{max-height:none}
 }
 .packcap{margin:6px 0 0;font-size:12px;font-weight:600;color:var(--muted)}
 @media(max-width:520px){
@@ -214,12 +210,15 @@ body{
       <?php if ($formSettings['note'] !== ''): ?> <?= h($formSettings['note']) ?><?php endif; ?>
     </p>
     <section class="kit-design">
-      <figure>
-        <img src="<?= assetUrl('speler-kit.png') ?>" width="1023" height="1024" alt="Spelerstenue 14-2: shirt, broekje, jassen, tas en sokken">
-      </figure>
+      <?php if ($isStaff): ?>
       <figure>
         <img src="<?= assetUrl('kader-kit.png') ?>" width="528" height="1024" alt="Kadertenue 14-2: polo, shirt, jas en broekje">
       </figure>
+      <?php else: ?>
+      <figure>
+        <img src="<?= assetUrl('speler-kit.png') ?>" width="1023" height="1024" alt="Spelerstenue 14-2: shirt, broekje, jassen, tas en sokken">
+      </figure>
+      <?php endif; ?>
     </section>
     <?php if ($typeOrder === []): ?>
     <div class="section">

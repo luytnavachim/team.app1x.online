@@ -1760,27 +1760,7 @@ function allParentTypeIds(): array {
     return parentFillableTypeIds();
 }
 
-function shortTypeName(int $tid, array $types = []): string {
-    $known = match ($tid) {
-        1 => 'Shirt',
-        23 => 'Staf shirt',
-        4 => 'Broek',
-        31 => 'Broek',
-        3 => 'Sokken',
-        7 => 'Grip',
-        9 => 'K-shirt',
-        10 => 'K-sokken',
-        19 => 'Keeperstenue',
-        11 => 'Polo',
-        12 => 'Zip',
-        13 => 'Field Jack (regenjas)',
-        14 => 'Prime Padded Jacket (Winterjas)',
-        15 => 'Pro Bag Prime (multifunctionele tas)',
-        default => '',
-    };
-    if ($known !== '') {
-        return $known;
-    }
+function catalogTypeName(int $tid, array $types = []): string {
     if ($types === []) {
         $types = rememberTypes();
     }
@@ -1792,16 +1772,12 @@ function shortTypeName(int $tid, array $types = []): string {
     return $label !== '' ? $label : (string) $tid;
 }
 
+function shortTypeName(int $tid, array $types = []): string {
+    return catalogTypeName($tid, $types);
+}
+
 function cardTypeName(int $tid, array $types = []): string {
-    return match ($tid) {
-        4, 31 => 'Broek',
-        13 => 'Regenjas',
-        14 => 'Padded',
-        15 => 'Tas',
-        24 => 'Footless',
-        25 => 'Keepersbroek',
-        default => shortTypeName($tid, $types),
-    };
+    return catalogTypeName($tid, $types);
 }
 
 function kitRowCopyHtml(int $tid, array $types, string $tag, ?float $unit): string {

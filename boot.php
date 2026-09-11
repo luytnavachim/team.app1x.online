@@ -993,6 +993,110 @@ function typePrints(array $t, string $flag): bool {
     return (int) ($t[$flag] ?? 0) === 1;
 }
 
+/** Vinkjes in de catalogus: wat er écht op het item zit, in dezelfde woorden als op de foto. */
+function printFlagEditorLabels(): array {
+    return [
+        'print_rohda' => 'Logo Rohda',
+        'print_sponsor' => 'Logo sponsor voorkant',
+        'print_sponsor_back' => 'Logo sponsor achterkant',
+        'print_sponsor_padded' => 'Logo sponsor padded',
+        'print_sponsor_jacket' => 'Logo sponsor regenjas',
+        'print_sponsor_bag' => 'Logo sponsor tas',
+        'print_initials' => 'Initialen',
+        'print_name_back' => 'Nummer',
+        'print_staff_text' => 'Tekst staf',
+    ];
+}
+
+/** Leesbare tags per item, zoals op de pakketfoto. */
+function printTagsForType(array $t): array {
+    $map = [
+        'print_rohda' => 'Logo Rohda',
+        'print_sponsor' => 'Logo sponsor voorkant',
+        'print_sponsor_padded' => 'Logo sponsor voorkant',
+        'print_sponsor_back' => 'Logo sponsor achterkant',
+        'print_sponsor_jacket' => 'Logo sponsor achterkant',
+        'print_sponsor_bag' => 'Logo sponsor',
+        'print_initials' => 'Initialen',
+        'print_name_back' => 'Nummer',
+        'print_staff_text' => 'Tekst staf',
+    ];
+    $tags = [];
+    foreach ($map as $flag => $label) {
+        if (typePrints($t, $flag)) {
+            $tags[] = $label;
+        }
+    }
+    return $tags;
+}
+
+function printPlaceFromFlags(array $t): string {
+    $tags = printTagsForType($t);
+    return $tags !== [] ? implode(' · ', $tags) : 'Geen bedrukking';
+}
+
+/** Zet bedrukking gelijk met de kader- en spelersfoto. */
+function syncKitPrintFromPhotos(mysqli $db): void {
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    $mark = __DIR__ . '/.data/print-photo-v';
+    if (is_file($mark) && trim((string) file_get_contents($mark)) === '1') {
+        return;
+    }
+    ensureTypePrintColumns($db);
+    ensureSponsorPrintSplit($db);
+    ensureStaffTextPrint($db);
+    ensureSponsorQuoteKinds($db);
+    $rows = [
+        1 => ['print_rohda' => 1, 'print_initials' => 1, 'print_sponsor' => 1, 'print_sponsor_back' => 1, 'print_sponsor_padded' => 0, 'print_sponsor_jacket' => 0, 'print_sponsor_bag' => 0, 'print_name_back' => 1, 'print_staff_text' => 0],
+        3 => ['print_rohda' => 0, 'print_initials' => 0, 'print_sponsor' => 0, 'print_sponsor_back' => 0, 'print_sponsor_padded' => 0, 'print_sponsor_jacket' => 0, 'print_sponsor_bag' => 0, 'print_name_back' => 0, 'print_staff_text' => 0],
+        4 => ['print_rohda' => 0, 'print_initials' => 1, 'print_sponsor' => 0, 'print_sponsor_back' => 0, 'print_sponsor_padded' => 0, 'print_sponsor_jacket' => 0, 'print_sponsor_bag' => 0, 'print_name_back' => 0, 'print_staff_text' => 0],
+        7 => ['print_rohda' => 0, 'print_initials' => 0, 'print_sponsor' => 0, 'print_sponsor_back' => 0, 'print_sponsor_padded' => 0, 'print_sponsor_jacket' => 0, 'print_sponsor_bag' => 0, 'print_name_back' => 0, 'print_staff_text' => 0],
+        10 => ['print_rohda' => 0, 'print_initials' => 0, 'print_sponsor' => 0, 'print_sponsor_back' => 0, 'print_sponsor_padded' => 0, 'print_sponsor_jacket' => 0, 'print_sponsor_bag' => 0, 'print_name_back' => 0, 'print_staff_text' => 0],
+        11 => ['print_rohda' => 1, 'print_initials' => 1, 'print_sponsor' => 1, 'print_sponsor_back' => 1, 'print_sponsor_padded' => 0, 'print_sponsor_jacket' => 0, 'print_sponsor_bag' => 0, 'print_name_back' => 0, 'print_staff_text' => 1],
+        12 => ['print_rohda' => 0, 'print_initials' => 0, 'print_sponsor' => 0, 'print_sponsor_back' => 0, 'print_sponsor_padded' => 0, 'print_sponsor_jacket' => 0, 'print_sponsor_bag' => 0, 'print_name_back' => 0, 'print_staff_text' => 0],
+        13 => ['print_rohda' => 0, 'print_initials' => 1, 'print_sponsor' => 0, 'print_sponsor_back' => 0, 'print_sponsor_padded' => 0, 'print_sponsor_jacket' => 1, 'print_sponsor_bag' => 0, 'print_name_back' => 0, 'print_staff_text' => 0],
+        14 => ['print_rohda' => 0, 'print_initials' => 1, 'print_sponsor' => 0, 'print_sponsor_back' => 0, 'print_sponsor_padded' => 1, 'print_sponsor_jacket' => 0, 'print_sponsor_bag' => 0, 'print_name_back' => 0, 'print_staff_text' => 0],
+        15 => ['print_rohda' => 1, 'print_initials' => 1, 'print_sponsor' => 0, 'print_sponsor_back' => 0, 'print_sponsor_padded' => 0, 'print_sponsor_jacket' => 0, 'print_sponsor_bag' => 1, 'print_name_back' => 0, 'print_staff_text' => 0],
+        19 => ['print_rohda' => 1, 'print_initials' => 1, 'print_sponsor' => 1, 'print_sponsor_back' => 1, 'print_sponsor_padded' => 0, 'print_sponsor_jacket' => 0, 'print_sponsor_bag' => 0, 'print_name_back' => 0, 'print_staff_text' => 0],
+        23 => ['print_rohda' => 1, 'print_initials' => 1, 'print_sponsor' => 1, 'print_sponsor_back' => 1, 'print_sponsor_padded' => 0, 'print_sponsor_jacket' => 0, 'print_sponsor_bag' => 0, 'print_name_back' => 0, 'print_staff_text' => 1],
+        24 => ['print_rohda' => 0, 'print_initials' => 0, 'print_sponsor' => 0, 'print_sponsor_back' => 0, 'print_sponsor_padded' => 0, 'print_sponsor_jacket' => 0, 'print_sponsor_bag' => 0, 'print_name_back' => 0, 'print_staff_text' => 0],
+        25 => ['print_rohda' => 0, 'print_initials' => 1, 'print_sponsor' => 0, 'print_sponsor_back' => 0, 'print_sponsor_padded' => 0, 'print_sponsor_jacket' => 0, 'print_sponsor_bag' => 0, 'print_name_back' => 0, 'print_staff_text' => 0],
+        31 => ['print_rohda' => 0, 'print_initials' => 1, 'print_sponsor' => 0, 'print_sponsor_back' => 0, 'print_sponsor_padded' => 0, 'print_sponsor_jacket' => 0, 'print_sponsor_bag' => 0, 'print_name_back' => 0, 'print_staff_text' => 0],
+    ];
+    $sql = 'UPDATE clothing_types SET print_rohda=?, print_initials=?, print_sponsor=?, print_sponsor_back=?, print_sponsor_padded=?, print_sponsor_jacket=?, print_sponsor_bag=?, print_name_back=?, print_staff_text=?, print_place=?, updated_at=NOW() WHERE id=?';
+    $st = $db->prepare($sql);
+    foreach ($rows as $id => $flags) {
+        $place = printPlaceFromFlags($flags);
+        $st->bind_param(
+            'iiiiiiiiisi',
+            $flags['print_rohda'],
+            $flags['print_initials'],
+            $flags['print_sponsor'],
+            $flags['print_sponsor_back'],
+            $flags['print_sponsor_padded'],
+            $flags['print_sponsor_jacket'],
+            $flags['print_sponsor_bag'],
+            $flags['print_name_back'],
+            $flags['print_staff_text'],
+            $place,
+            $id
+        );
+        $st->execute();
+    }
+    $db->query("UPDATE clothing_types SET display_name='Logo Rohda' WHERE id=16");
+    $db->query("UPDATE clothing_types SET display_name='Logo sponsor voorkant' WHERE id=17");
+    $db->query("UPDATE clothing_types SET display_name='Logo sponsor achterkant' WHERE id=26");
+    $db->query("UPDATE clothing_types SET display_name='Logo sponsor padded' WHERE id=28");
+    $db->query("UPDATE clothing_types SET display_name='Logo sponsor regenjas' WHERE id=29");
+    $db->query("UPDATE clothing_types SET display_name='Logo sponsor tas' WHERE id=30");
+    @mkdir(dirname($mark), 0750, true);
+    file_put_contents($mark, "1\n");
+}
+
 function ensureTypeMetaColumns(mysqli $db): void {
     static $done = false;
     if ($done) {
@@ -3490,6 +3594,7 @@ ensureSponsorPrintSplit($mysqli);
 ensureStaffTextPrint($mysqli);
 ensureSponsorQuoteKinds($mysqli);
 ensureStaffShirtType($mysqli);
+syncKitPrintFromPhotos($mysqli);
 seedStannoTypeSizes($mysqli);
 migrateAssignedSizeAliases($mysqli);
 startTeamSession();

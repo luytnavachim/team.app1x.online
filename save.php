@@ -334,9 +334,17 @@ if ($action === 'save_type') {
     $printSpBag = array_key_exists('print_sponsor_bag', $body) ? ((int) $body['print_sponsor_bag'] ? 1 : 0) : (int) ($types[$id]['print_sponsor_bag'] ?? 0);
     $printName = array_key_exists('print_name_back', $body) ? ((int) $body['print_name_back'] ? 1 : 0) : (int) ($types[$id]['print_name_back'] ?? 0);
     $printStaffText = array_key_exists('print_staff_text', $body) ? ((int) $body['print_staff_text'] ? 1 : 0) : (int) ($types[$id]['print_staff_text'] ?? 0);
-    $printPlace = array_key_exists('print_place', $body)
-        ? substr(trim((string) $body['print_place']), 0, 255)
-        : (string) ($types[$id]['print_place'] ?? '');
+    $printPlace = printPlaceFromFlags([
+        'print_rohda' => $printRohda,
+        'print_initials' => $printIni,
+        'print_sponsor' => $printSp,
+        'print_sponsor_back' => $printSpBack,
+        'print_sponsor_padded' => $printSpPadded,
+        'print_sponsor_jacket' => $printSpJacket,
+        'print_sponsor_bag' => $printSpBag,
+        'print_name_back' => $printName,
+        'print_staff_text' => $printStaffText,
+    ]);
     $sizesList = array_key_exists('sizes', $body)
         ? parseSizeList($body['sizes'])
         : parseSizeList((string) ($types[$id]['sizes'] ?? ''));
@@ -620,7 +628,21 @@ if ($action === 'add_type') {
     $printSpBag = !empty($body['print_sponsor_bag']) ? 1 : 0;
     $printName = !empty($body['print_name_back']) ? 1 : 0;
     $printStaffText = !empty($body['print_staff_text']) ? 1 : 0;
-    $printPlace = substr(trim((string) ($body['print_place'] ?? '')), 0, 255);
+    $printPlace = printPlaceFromFlags([
+        'print_rohda' => $printRohda,
+        'print_initials' => $printIni,
+        'print_sponsor' => $printSp,
+        'print_sponsor_back' => $printSpBack,
+        'print_sponsor_padded' => $printSpPadded,
+        'print_sponsor_jacket' => $printSpJacket,
+        'print_sponsor_bag' => $printSpBag,
+        'print_name_back' => $printName,
+        'print_staff_text' => $printStaffText,
+    ]);
+    $customPlace = substr(trim((string) ($body['print_place'] ?? '')), 0, 255);
+    if ($customPlace !== '') {
+        $printPlace = $customPlace;
+    }
     $sizesList = parseSizeList($body['sizes'] ?? '');
     if ($sizesList === []) {
         $sizesList = stannoSizesForArticle($article) ?: sizeOptionsForKind($sizeKind);

@@ -435,14 +435,14 @@ foreach ($orderGroups as $g) {
 }
 $printCost = 0.0;
 $printLines = [
-    'rohda' => 'Rohda Raalte logo',
+    'rohda' => 'Logo Rohda',
     'initials' => 'Initialen',
-    'sponsor' => 'Sponsor shirts voorkant',
-    'sponsor_back' => 'Sponsor shirts achterkant',
-    'sponsor_padded' => 'Sponsor padded (gezamenlijk)',
-    'sponsor_jacket' => 'Sponsor field jack achterkant',
-    'sponsor_bag' => 'Sponsor tas',
-    'name_back' => 'Nummer achterop',
+    'sponsor' => 'Logo sponsor voorkant',
+    'sponsor_back' => 'Logo sponsor achterkant',
+    'sponsor_padded' => 'Logo sponsor padded',
+    'sponsor_jacket' => 'Logo sponsor regenjas',
+    'sponsor_bag' => 'Logo sponsor tas',
+    'name_back' => 'Nummer',
     'staff_text' => 'Tekst staf',
 ];
 $printRows = [];
@@ -1624,7 +1624,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   <details class="section fold" id="bestel">
     <summary class="fold-head"><h3>Bestelling</h3><span class="fold-meta" id="bestelMeta"><?= (int) $orderPieces ?> stuks</span></summary>
     <p class="sub" id="bestelSub"><?= (int) $orderPieces ?> stuks<?php if ($canEdit && $orderTotal > 0): ?> · <?= euro($orderTotal) ?> excl. · <?= euroIncl($orderTotal) ?><?php endif; ?> · artikelnummers, maten en print.<?= $canEdit ? ' Uitvinken haalt het item uit prijs en Excel, niet van de speler.' : '' ?></p>
-    <p class="shop-rule"><b>Rohda-logo:</b> jassen, shirt, keeperstenue, tas · <b>Sponsor shirts:</b> voor- en achterkant op shirt/keeperstenue (niet de jassen) · <b>Sponsor padded:</b> gezamenlijk blok op de winterjas · <b>Sponsor field jack:</b> achterkant regenjas · <b>Sponsor tas:</b> 1 kleur · <b>Initialen:</b> jassen, shirt, broekje, keeperstenue, tas · <b>Nummer:</b> shirt</p>
+    <p class="shop-rule"><b>Shirt / keeperstenue / staf shirt / polo:</b> logo Rohda, logo sponsor voorkant, logo sponsor achterkant, initialen<?= ' · ' ?>nummer alleen op het spelersshirt, tekst staf op staf shirt en polo · <b>Regenjas:</b> initialen voorkant, logo sponsor achterkant · <b>Padded:</b> logo sponsor voorkant, initialen · <b>Tas:</b> logo Rohda, logo sponsor, initialen · <b>Broek:</b> initialen · <b>Sokken:</b> geen bedrukking</p>
 
     <div class="actions">
       <a class="btn dark" href="?csv=bestel">Excel-bestellijst</a>
@@ -1702,14 +1702,14 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         </div>
         <?php if ($shop['rohda'] || $shop['initials'] || $shop['sponsor'] || $shop['sponsor_back'] || !empty($shop['sponsor_padded']) || !empty($shop['sponsor_jacket']) || !empty($shop['sponsor_bag']) || $shop['name_back'] || !empty($shop['staff_text'])): ?>
         <div class="print-row">
-          <?php if ($shop['rohda']): ?><i>Rohda logo <b><?= (int) $shop['rohda'] ?></b></i><?php endif; ?>
+          <?php if ($shop['rohda']): ?><i>Logo Rohda <b><?= (int) $shop['rohda'] ?></b></i><?php endif; ?>
           <?php if ($shop['initials']): ?><i>Initialen <b><?= (int) $shop['initials'] ?></b></i><?php endif; ?>
-          <?php if ($shop['sponsor']): ?><i>Sponsor shirts voorkant <b><?= (int) $shop['sponsor'] ?></b></i><?php endif; ?>
-          <?php if ($shop['sponsor_back']): ?><i>Sponsor shirts achterkant <b><?= (int) $shop['sponsor_back'] ?></b></i><?php endif; ?>
-          <?php if (!empty($shop['sponsor_padded'])): ?><i>Sponsor padded <b><?= (int) $shop['sponsor_padded'] ?></b></i><?php endif; ?>
-          <?php if (!empty($shop['sponsor_jacket'])): ?><i>Sponsor field jack achterkant <b><?= (int) $shop['sponsor_jacket'] ?></b></i><?php endif; ?>
-          <?php if (!empty($shop['sponsor_bag'])): ?><i>Sponsor tas <b><?= (int) $shop['sponsor_bag'] ?></b></i><?php endif; ?>
-          <?php if ($shop['name_back']): ?><i>Nummer achterop <b><?= (int) $shop['name_back'] ?></b></i><?php endif; ?>
+          <?php if ($shop['sponsor']): ?><i>Logo sponsor voorkant <b><?= (int) $shop['sponsor'] ?></b></i><?php endif; ?>
+          <?php if ($shop['sponsor_back']): ?><i>Logo sponsor achterkant <b><?= (int) $shop['sponsor_back'] ?></b></i><?php endif; ?>
+          <?php if (!empty($shop['sponsor_padded'])): ?><i>Logo sponsor padded <b><?= (int) $shop['sponsor_padded'] ?></b></i><?php endif; ?>
+          <?php if (!empty($shop['sponsor_jacket'])): ?><i>Logo sponsor regenjas <b><?= (int) $shop['sponsor_jacket'] ?></b></i><?php endif; ?>
+          <?php if (!empty($shop['sponsor_bag'])): ?><i>Logo sponsor tas <b><?= (int) $shop['sponsor_bag'] ?></b></i><?php endif; ?>
+          <?php if ($shop['name_back']): ?><i>Nummer <b><?= (int) $shop['name_back'] ?></b></i><?php endif; ?>
           <?php if (!empty($shop['staff_text'])): ?><i>Tekst staf <b><?= (int) $shop['staff_text'] ?></b></i><?php endif; ?>
         </div>
         <?php endif; ?>
@@ -1732,7 +1732,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     </div>
 
     <?php if ($canEdit): ?>
-    <p class="shop-rule">Printprijzen komen uit de catalogus (Rohda Logo, sponsor shirts/padded/field jack/tas, Initialen<?= ($printPrices['name_back'] ?? null) === null ? '; nummer: nog geen catalogusprijs' : '' ?>).</p>
+    <p class="shop-rule">Printprijzen komen uit de catalogus (logo Rohda, logo sponsor voorkant/achterkant/padded/regenjas/tas, initialen<?= ($printPrices['name_back'] ?? null) === null ? '; nummer: nog geen catalogusprijs' : '' ?>).</p>
     <details class="shop-more">
       <summary>Prijsregels (intern)</summary>
       <div class="tablewrap">
@@ -1868,7 +1868,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <details class="section fold" id="catalogus">
     <summary class="fold-head"><h3>Catalogus · Stanno</h3></summary>
-    <p class="sub">Artikelnummers<?= $canEdit ? ', offerteprijzen excl. btw (incl. 21% eronder)' : '' ?> en maten zoals Stanno die voert. <?= $canEdit ? 'Stanno.com en Teamswear.nl zijn webshopprijzen incl. btw (sept. 2026), met excl. eronder ter vergelijking. Pas een regel aan of verwijder hem. Nieuw artikel onderaan.' : '' ?></p>
+    <p class="sub">Artikelnummers<?= $canEdit ? ', offerteprijzen excl. btw (incl. 21% eronder)' : '' ?> en per item de bedrukking zoals op de foto’s: logo Rohda, logo sponsor voor/achter, initialen, nummer, tekst staf. <?= $canEdit ? 'Stanno.com en Teamswear.nl zijn webshopprijzen incl. btw (sept. 2026), met excl. eronder ter vergelijking.' : '' ?></p>
     <?php if ($canEdit): ?>
     <details class="shop-more" id="packageDefaults">
       <summary>Pakket-sjablonen</summary>
@@ -1932,27 +1932,22 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             $tid = (int) $t['id'];
             $small = isset($t['price_small']) && $t['price_small'] !== '' && $t['price_small'] !== null ? (float) $t['price_small'] : null;
             $large = isset($t['price_large']) && $t['price_large'] !== '' && $t['price_large'] !== null ? (float) $t['price_large'] : (isset($t['price']) && $t['price'] !== '' && $t['price'] !== null ? (float) $t['price'] : null);
-            $tags = [];
-            if (typePrints($t, 'print_rohda')) $tags[] = 'Rohda';
-            if (typePrints($t, 'print_initials')) $tags[] = 'initialen';
-            if (typePrints($t, 'print_sponsor')) $tags[] = 'sponsor shirts voorkant';
-            if (typePrints($t, 'print_sponsor_back')) $tags[] = 'sponsor shirts achterkant';
-            if (typePrints($t, 'print_sponsor_padded')) $tags[] = 'sponsor padded';
-            if (typePrints($t, 'print_sponsor_jacket')) $tags[] = 'sponsor field jack';
-            if (typePrints($t, 'print_sponsor_bag')) $tags[] = 'sponsor tas';
-            if (typePrints($t, 'print_name_back')) $tags[] = 'nummer';
-            if (typePrints($t, 'print_staff_text')) $tags[] = 'tekst staf';
+            $tags = printTagsForType($t);
+            $place = printPlaceFromFlags($t);
           ?>
           <tr data-type-id="<?= $tid ?>">
             <td class="name">
               <?php if ($canEdit): ?>
               <div class="cat-name">
                 <input class="cat-input" data-tid="<?= $tid ?>" data-field="display_name" value="<?= h((string) $t['display_name']) ?>" aria-label="Naam">
-                <input class="cat-input" data-tid="<?= $tid ?>" data-field="print_place" value="<?= h((string) ($t['print_place'] ?? '')) ?>" placeholder="Plaats bedrukking…">
+                <?php if (!isPrintCatalogType($t)): ?>
+                <div class="place"><?= h($place) ?></div>
+                <?php endif; ?>
                 <input class="cat-input" data-tid="<?= $tid ?>" data-field="sizes" value="<?= h(formatSizeList(sizeOptions($tid))) ?>" placeholder="Maten, kommagescheiden" aria-label="Maten">
               </div>
               <?php else: ?>
-              <?= h($t['display_name']) ?><?php if (!empty($t['print_place'])): ?><div class="place"><?= h((string) $t['print_place']) ?></div><?php endif; ?>
+              <?= h($t['display_name']) ?>
+              <?php if (!isPrintCatalogType($t)): ?><div class="place"><?= h($place) ?></div><?php endif; ?>
               <div class="place"><?= h(formatSizeList(sizeOptions($tid))) ?></div>
               <?php endif; ?>
             </td>
@@ -1971,15 +1966,9 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             <td class="left">
               <?php if ($canEdit): ?>
               <div class="cat-prints" data-tid="<?= $tid ?>">
-                <label><input type="checkbox" data-print="print_rohda"<?= typePrints($t, 'print_rohda') ? ' checked' : '' ?>> Rohda</label>
-                <label><input type="checkbox" data-print="print_initials"<?= typePrints($t, 'print_initials') ? ' checked' : '' ?>> Initialen</label>
-                <label><input type="checkbox" data-print="print_sponsor"<?= typePrints($t, 'print_sponsor') ? ' checked' : '' ?>> Shirts voorkant</label>
-                <label><input type="checkbox" data-print="print_sponsor_back"<?= typePrints($t, 'print_sponsor_back') ? ' checked' : '' ?>> Shirts achterkant</label>
-                <label><input type="checkbox" data-print="print_sponsor_padded"<?= typePrints($t, 'print_sponsor_padded') ? ' checked' : '' ?>> Padded (gezamenlijk)</label>
-                <label><input type="checkbox" data-print="print_sponsor_jacket"<?= typePrints($t, 'print_sponsor_jacket') ? ' checked' : '' ?>> Field jack achterkant</label>
-                <label><input type="checkbox" data-print="print_sponsor_bag"<?= typePrints($t, 'print_sponsor_bag') ? ' checked' : '' ?>> Tas</label>
-                <label><input type="checkbox" data-print="print_name_back"<?= typePrints($t, 'print_name_back') ? ' checked' : '' ?>> Nummer</label>
-                <label><input type="checkbox" data-print="print_staff_text"<?= typePrints($t, 'print_staff_text') ? ' checked' : '' ?>> Tekst staf</label>
+                <?php foreach (printFlagEditorLabels() as $flag => $label): ?>
+                <label><input type="checkbox" data-print="<?= h($flag) ?>"<?= typePrints($t, $flag) ? ' checked' : '' ?>> <?= h($label) ?></label>
+                <?php endforeach; ?>
               </div>
               <?php else: ?>
               <div class="print-tags"><?php foreach ($tags as $tag): ?><i><?= h($tag) ?></i><?php endforeach; ?><?php if (!$tags): ?><span class="muted">geen</span><?php endif; ?></div>
@@ -2026,18 +2015,12 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             <option value="match">Wedstrijd</option>
           </select>
         </label>
-        <label>Bedrukking <input class="cat-input" id="newPlace" placeholder="Rohda borst · initialen"></label>
+        <label>Bedrukking <input class="cat-input" id="newPlace" placeholder="Logo Rohda · Logo sponsor voorkant · Initialen"></label>
       </div>
       <div class="checks" id="newPrints">
-        <label><input type="checkbox" value="print_rohda"> Rohda</label>
-        <label><input type="checkbox" value="print_initials"> Initialen</label>
-        <label><input type="checkbox" value="print_sponsor"> Shirts voorkant</label>
-        <label><input type="checkbox" value="print_sponsor_back"> Shirts achterkant</label>
-        <label><input type="checkbox" value="print_sponsor_padded"> Padded (gezamenlijk)</label>
-        <label><input type="checkbox" value="print_sponsor_jacket"> Field jack achterkant</label>
-        <label><input type="checkbox" value="print_sponsor_bag"> Tas</label>
-        <label><input type="checkbox" value="print_name_back"> Nummer</label>
-        <label><input type="checkbox" value="print_staff_text"> Tekst staf</label>
+        <?php foreach (printFlagEditorLabels() as $flag => $label): ?>
+        <label><input type="checkbox" value="<?= h($flag) ?>"> <?= h($label) ?></label>
+        <?php endforeach; ?>
       </div>
       <div class="actions">
         <button type="button" class="btn dark" id="addTypeBtn">Artikel toevoegen</button>

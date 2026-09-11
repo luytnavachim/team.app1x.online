@@ -1253,39 +1253,6 @@ function ensureFieldShortType(mysqli $db): void {
         $ins->execute();
         $foundId = $id > 0 ? $id : (int) $db->insert_id;
     }
-    $tid = $foundId > 0 ? $foundId : $id;
-    $types = loadTypes($db);
-    $opts = sizeOptions($tid);
-    $res = $db->query("SELECT id FROM players WHERE status='active'");
-    if (!$res) {
-        return;
-    }
-    while ($row = $res->fetch_assoc()) {
-        $pid = (int) ($row['id'] ?? 0);
-        if ($pid < 1) {
-            continue;
-        }
-        if (currentItemSize($db, 'player', $pid, $tid) !== '') {
-            continue;
-        }
-        $size = currentItemSize($db, 'player', $pid, 4);
-        if ($size === '') {
-            $size = currentItemSize($db, 'player', $pid, 1);
-        }
-        if ($size === '') {
-            $size = currentItemSize($db, 'player', $pid, 19);
-        }
-        $mapped = normalizeSizeLabel($size);
-        if (in_array($mapped, $opts, true)) {
-            $size = $mapped;
-        } elseif (!in_array($size, $opts, true)) {
-            $size = in_array('164', $opts, true) ? '164' : ($opts[0] ?? '');
-        }
-        if ($size === '' || $size === 'onbekend') {
-            continue;
-        }
-        upsertPersonItem($db, $types, 'player', $pid, $tid, $size, 'pending');
-    }
 }
 
 function ensureSponsorPrintSplit(mysqli $db): void {
@@ -2735,14 +2702,21 @@ function dbHasLiveSlot(mysqli $db, string $who, int $personId, int $tid): bool {
 
 function removePersonItem(mysqli $db, string $who, int $personId, int $typeId): void {
     if ($who === 'player') {
-        $del = $db->prepare('DELETE FROM player_clothing WHERE player_id=? AND clothing_type_id=?');
+        $sql = 'DELETE FROM player_clothing WHERE player_id=? AND clothing_type_id=?';
     } elseif ($who === 'staff') {
-        $del = $db->prepare('DELETE FROM staff_clothing WHERE staff_member_id=? AND clothing_type_id=?');
+        $sql = 'DELETE FROM staff_clothing WHERE staff_member_id=? AND clothing_type_id=?';
     } else {
         throw new RuntimeException('Ongeldig type');
     }
-    $del->bind_param('ii', $personId, $typeId);
-    $del->execute();
+    $del = $db->prepare($sql);
+    foreach (packageEquivalentTypeIds($typeId) as $tid) {
+        $tid = (int) $tid;
+        if ($tid < 1) {
+            continue;
+        }
+        $del->bind_param('ii', $personId, $tid);
+        $del->execute();
+    }
 }
 
 function applyPersonItemChoice(

@@ -2304,6 +2304,7 @@ const TEAM = {
   vat: <?= json_encode(vatRate()) ?>,
   parentFills: <?= json_encode($parentFillJs, JSON_UNESCAPED_UNICODE) ?>,
   packageTypes: <?= json_encode(packageTypeIds()) ?>,
+  shortsTypes: <?= json_encode(shortsSlotTypeIds()) ?>,
   printPrices: <?= json_encode($printPrices, JSON_UNESCAPED_UNICODE) ?>,
   suggest: <?= json_encode(array_reduce($active, static function ($acc, $p) use ($types) {
       $id = (int) $p['id'];
@@ -2505,10 +2506,21 @@ document.addEventListener('change', e=>{
   recalcOrder();
   scheduleSavePerson(who, +id);
 });
+const removedKit=new Set();
+function equivalentTids(tid){
+  tid=+tid;
+  const shorts=(TEAM.shortsTypes||[]).map(Number);
+  return shorts.includes(tid) ? shorts.slice() : [tid];
+}
+function kitKey(who, id, tid){
+  return who+':'+id+':'+tid;
+}
 function itemsFor(who, id, root){
   const items={};
   (root||document).querySelectorAll(`.kit-row[data-who="${who}"][data-id="${id}"]`).forEach(row=>{
     if(!liveKitRow(row)) return;
+    const tid=+row.dataset.tid;
+    if(removedKit.has(kitKey(who, id, tid))) return;
     items[row.dataset.tid]=rowChoice(row);
   });
   return items;
@@ -2709,6 +2721,7 @@ function priceForType(tid, size){
 }
 function pendingWantRows(){
   return [...document.querySelectorAll('.kit-row[data-status="pending"]')].filter(row=>{
+    if(!liveKitRow(row)) return false;
     const box=row.querySelector('.want-check');
     return box?box.checked:true;
   });
@@ -2832,8 +2845,10 @@ function collectAllKitRows(){
   const map=new Map();
   document.querySelectorAll('article.card .kit-row').forEach(row=>{
     if(!liveKitRow(row)) return;
-    const key=row.dataset.who+':'+row.dataset.id;
-    if(!map.has(key)) map.set(key,{who:row.dataset.who,id:+row.dataset.id,items:{}});
+    const who=row.dataset.who, id=+row.dataset.id, tid=+row.dataset.tid;
+    if(removedKit.has(kitKey(who, id, tid))) return;
+    const key=who+':'+id;
+    if(!map.has(key)) map.set(key,{who,id,items:{}});
     map.get(key).items[row.dataset.tid]=rowChoice(row);
   });
   return [...map.values()];
@@ -2931,15 +2946,20 @@ document.querySelectorAll('.assign-package').forEach(btn=>{
 });
 document.querySelectorAll('.item-del').forEach(btn=>{
   btn.addEventListener('click', async ()=>{
-    if(!confirm('Dit item van de speler halen? Alleen Verwijderen wist het. Staat het in bezit, dan verdwijnt die regel ook.')) return;
+    if(!confirm('Dit item wissen? Het verdwijnt uit de bestelling. Staat het in het pakket, dan zie je daarna ‘ontbreekt’.')) return;
     const who=btn.dataset.who;
     const id=+btn.dataset.id;
     const tid=+btn.dataset.tid;
-    const row=btn.closest('.kit-row');
-    if(row){
-      row.dataset.gone='1';
-      row.remove();
-    }
+    const saveKey=who+':'+id;
+    clearTimeout(personSaveTimers[saveKey]);
+    delete personSaveTimers[saveKey];
+    equivalentTids(tid).forEach(t=>{
+      removedKit.add(kitKey(who, id, t));
+      document.querySelectorAll(`.kit-row[data-who="${who}"][data-id="${id}"][data-tid="${t}"]`).forEach(r=>{
+        r.dataset.gone='1';
+        r.remove();
+      });
+    });
     recalcOrder();
     setSaveState(who, id, 'Opslaan…', '');
     const out=await queueClothing(()=>api({action:'remove_item', csrf:TEAM.csrf, who, id, tid}));
@@ -2951,6 +2971,7 @@ document.querySelectorAll('.item-del').forEach(btn=>{
     }
     setSaveState(who, id, 'Verwijderd', 'on');
     toast('Verwijderd');
+    location.reload();
   });
 });
 async function saveKit(payload){

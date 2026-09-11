@@ -109,12 +109,16 @@ body{
 .top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:18px}
 .club b{display:block;font-size:19px;font-weight:800;letter-spacing:-.3px}
 .club small{display:block;color:var(--muted);font-size:12px;font-weight:600}
-.theme-switch{display:flex;border:1px solid var(--line);border-radius:999px;background:var(--surface);overflow:hidden}
+.theme-switch{display:flex;gap:7px;align-items:center}
 .theme-switch button{
-  border:0;background:transparent;color:var(--muted);padding:7px 11px;
-  font-weight:800;font-size:11px;cursor:pointer;font-family:inherit;
+  width:42px;height:42px;padding:0;border:1px solid var(--line);border-radius:999px;
+  background:var(--surface);color:var(--muted);
+  display:inline-flex;align-items:center;justify-content:center;
+  cursor:pointer;font-family:inherit;
 }
-.theme-switch button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.theme-switch button svg{width:20px;height:20px;display:block}
+.theme-switch button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .note{
   background:var(--surface);border:1px solid var(--line);border-left:3px solid var(--accent);
   border-radius:var(--r);padding:13px 14px;font-size:13.5px;color:var(--muted);
@@ -190,8 +194,8 @@ body{
       <small>14-2 · maten invullen</small>
     </div>
     <div class="theme-switch" role="group" aria-label="Thema">
-      <button type="button" data-theme-set="dark" aria-pressed="true">Donker</button>
-      <button type="button" data-theme-set="light" aria-pressed="false">Licht</button>
+      <button type="button" data-theme-set="dark" aria-pressed="true" title="Donker" aria-label="Donker"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 14.3A8.5 8.5 0 1 1 9.7 3 7 7 0 0 0 21 14.3z"/></svg><span class="sr-only">Donker</span></button>
+      <button type="button" data-theme-set="light" aria-pressed="false" title="Licht" aria-label="Licht"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/></svg><span class="sr-only">Licht</span></button>
     </div>
   </header>
 

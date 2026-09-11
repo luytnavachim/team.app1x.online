@@ -127,6 +127,8 @@ function navIconSvg(string $name): string {
         'save' => '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/>',
         'klaar' => '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
         'login' => '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+        'moon' => '<path d="M21 14.3A8.5 8.5 0 1 1 9.7 3 7 7 0 0 0 21 14.3z"/>',
+        'sun' => '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/>',
     ];
     $body = $paths[$name] ?? '';
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'.$body.'</svg>';
@@ -683,14 +685,17 @@ a{color:inherit}
 .top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px}
 .club{display:flex;gap:11px;align-items:center;min-width:0}
 .top-right{display:flex;align-items:center;gap:8px;flex:0 0 auto}
-.theme-switch{
-  display:flex;border:1px solid var(--line);border-radius:999px;background:var(--surface);overflow:hidden;
+.theme-switch{display:flex;gap:7px;align-items:center}
+.theme-switch button,.badge{
+  width:42px;height:42px;padding:0;border:1px solid var(--line);border-radius:999px;
+  background:var(--surface);color:var(--ink);
+  display:inline-flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:10px;letter-spacing:-.2px;line-height:1;
+  cursor:pointer;font-family:inherit;flex:0 0 auto;
 }
-.theme-switch button{
-  border:0;background:transparent;color:var(--muted);padding:7px 11px;
-  font-weight:800;font-size:11px;letter-spacing:.1px;cursor:pointer;font-family:inherit;
-}
-.theme-switch button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent)}
+.theme-switch button svg{width:20px;height:20px;display:block}
+.theme-switch button[aria-pressed="true"]{background:var(--accent);color:var(--on-accent);border-color:var(--accent)}
+.theme-switch button[aria-pressed="false"]{color:var(--muted)}
 .mark{
   width:44px;height:44px;flex:0 0 44px;border-radius:13px;
   background:var(--mark-bg);
@@ -701,9 +706,8 @@ a{color:inherit}
 .club b{display:block;font-size:19px;font-weight:800;letter-spacing:-.3px;line-height:1.15}
 .club small{display:block;color:var(--muted);font-size:11.5px;font-weight:600;letter-spacing:.1px}
 .badge{
-  background:var(--accent);color:var(--on-accent);
-  padding:7px 12px;border-radius:999px;font-size:11px;font-weight:800;
-  letter-spacing:.2px;white-space:nowrap;flex:0 0 auto;
+  background:var(--accent);color:var(--on-accent);border-color:var(--accent);
+  cursor:default;
 }
 
 /* ---------- nav ---------- */
@@ -1222,10 +1226,10 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     </div>
     <div class="top-right">
       <div class="theme-switch" role="group" aria-label="Thema">
-        <button type="button" data-theme-set="dark" aria-pressed="true">Donker</button>
-        <button type="button" data-theme-set="light" aria-pressed="false">Licht</button>
+        <button type="button" data-theme-set="dark" aria-pressed="true" title="Donker" aria-label="Donker"><?= navIconSvg('moon') ?><span class="sr-only">Donker</span></button>
+        <button type="button" data-theme-set="light" aria-pressed="false" title="Licht" aria-label="Licht"><?= navIconSvg('sun') ?><span class="sr-only">Licht</span></button>
       </div>
-      <div class="badge"><?= h($season) ?></div>
+      <div class="badge" title="Seizoen <?= h($season) ?>"><?= h($season) ?></div>
     </div>
   </header>
 

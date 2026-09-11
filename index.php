@@ -114,6 +114,39 @@ foreach ($staff as &$s) {
 unset($s);
 $season = trim((string) ($kitSettings['season'] ?? '26/27')) ?: '26/27';
 
+function navIconSvg(string $name): string {
+    $paths = [
+        'design' => '<path d="M8 4 4 7v3h2v10h12V10h2V7l-4-3-3 2-3-2z"/>',
+        'pakketten' => '<rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/>',
+        'spelers' => '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+        'ouders' => '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',
+        'bestel' => '<path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z"/><path d="M3 6h18"/><path d="M16 10a4 4 0 0 1-8 0"/>',
+        'staf' => '<path d="M12 15a4 4 0 1 0-4-4 4 4 0 0 0 4 4z"/><path d="M4 21v-1a6 6 0 0 1 8-5.65"/><path d="M16 19h6"/><path d="M19 16v6"/>',
+        'catalogus' => '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M8 7h8M8 11h8"/>',
+        'beheer' => '<circle cx="12" cy="12" r="3"/><path d="M12 1v2M12 21v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M1 12h2M21 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/>',
+        'save' => '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/>',
+        'klaar' => '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
+        'login' => '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+    ];
+    $body = $paths[$name] ?? '';
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'.$body.'</svg>';
+}
+
+function navIconLink(string $href, string $label, string $icon, string $extraClass = '', string $badge = ''): string {
+    $cls = trim('nav-ico '.$extraClass);
+    return '<a href="'.h($href).'" class="'.h($cls).'" title="'.h($label).'" aria-label="'.h($label).'">'
+        .navIconSvg($icon)
+        .$badge
+        .'<span class="sr-only">'.h($label).'</span></a>';
+}
+
+function navIconButton(string $id, string $label, string $icon, string $extraClass = ''): string {
+    $cls = trim('btn nav-ico '.$extraClass);
+    return '<button type="button" class="'.h($cls).'" id="'.h($id).'" title="'.h($label).'" aria-label="'.h($label).'">'
+        .navIconSvg($icon)
+        .'<span class="sr-only">'.h($label).'</span></button>';
+}
+
 function parentChecksHtml(string $scope, array $choices, array $selected, int $playerId = 0, array $defaultIds = []): string {
     $html = '<div class="checks" data-parent-scope="'.h($scope).'" data-id="'.$playerId.'" data-default="'.h(implode(',', $defaultIds)).'">';
     foreach ($choices as $tid) {
@@ -676,7 +709,7 @@ a{color:inherit}
 /* ---------- nav ---------- */
 .navwrap{position:sticky;top:0;z-index:20;margin:0 -14px 16px;padding:8px 14px;
   background:linear-gradient(var(--bg) 62%,var(--nav-fade));backdrop-filter:blur(6px)}
-.nav{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.nav{display:flex;gap:7px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px;align-items:center}
 .nav::-webkit-scrollbar{display:none}
 .nav a,.btn{
   border:1px solid var(--line);background:var(--surface);border-radius:999px;
@@ -688,6 +721,16 @@ a{color:inherit}
 .btn.dark,.nav a.dark{background:var(--accent);color:var(--on-accent);border-color:var(--accent);font-weight:800}
 .btn.dark:hover,.nav a.dark:hover{background:var(--accent-dim);border-color:var(--accent-dim);color:var(--on-accent)}
 button.btn{font-family:inherit;cursor:pointer}
+.nav .nav-ico{
+  width:42px;height:42px;padding:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  position:relative;
+}
+.nav .nav-ico svg{width:20px;height:20px;display:block}
+.sr-only{
+  position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0,0,0,0);white-space:nowrap;border:0;
+}
 
 /* ---------- notes ---------- */
 .note{
@@ -710,8 +753,9 @@ body:not(.editing) .stats{grid-template-columns:repeat(3,minmax(0,1fr))}
 .stat.accent b{color:var(--accent-text)}
 .stat a{text-decoration:none}
 .nav .count{
-  display:inline-block;min-width:1.3em;margin-left:5px;padding:1px 6px;border-radius:999px;
+  display:inline-block;min-width:1.15em;margin:0;padding:0 5px;border-radius:999px;
   background:var(--accent);color:var(--on-accent);font-size:10px;font-weight:800;line-height:1.4;text-align:center;
+  position:absolute;top:-3px;right:-3px;
 }
 .nav .count.wait{background:var(--warn);color:#12151A}
 .note.alert{
@@ -1187,23 +1231,21 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <div class="navwrap">
   <nav class="nav">
-    <a href="#design">Design</a>
-    <a href="#pakketten">Pakketten</a>
-    <a href="#spelers">Spelers</a>
+    <?= navIconLink('#design', 'Design', 'design') ?>
+    <?= navIconLink('#pakketten', 'Pakketten', 'pakketten') ?>
+    <?= navIconLink('#spelers', 'Spelers', 'spelers') ?>
     <?php if ($canEdit): ?>
-    <a href="#ouders">Ouders<?php if ($parentFilled): ?> <span class="count" id="ouderNavCount"><?= count($parentFilled) ?></span><?php endif; ?></a>
+    <?= navIconLink('#ouders', 'Ouders', 'ouders', '', $parentFilled ? '<span class="count" id="ouderNavCount">'.count($parentFilled).'</span>' : '<span class="count" id="ouderNavCount" hidden></span>') ?>
     <?php endif; ?>
-    <a href="#bestel">Bestelling</a>
-    <a href="#staf">Staf</a>
-    <a href="#catalogus">Catalogus</a>
+    <?= navIconLink('#bestel', 'Bestelling', 'bestel') ?>
+    <?= navIconLink('#staf', 'Staf', 'staf') ?>
+    <?= navIconLink('#catalogus', 'Catalogus', 'catalogus') ?>
     <?php if ($canEdit): ?>
-    <a href="#beheer">Beheer</a>
-    <?php endif; ?>
-    <?php if ($canEdit): ?>
-      <button type="button" class="btn" id="saveAllBtn">Alles opslaan</button>
-      <button type="button" class="btn" id="logoutBtn">Klaar</button>
+    <?= navIconLink('#beheer', 'Beheer', 'beheer') ?>
+    <?= navIconButton('saveAllBtn', 'Alles opslaan', 'save') ?>
+    <?= navIconButton('logoutBtn', 'Klaar', 'klaar') ?>
     <?php else: ?>
-      <button type="button" class="btn dark" id="editBtn">Beheer</button>
+    <?= navIconButton('editBtn', 'Beheer', 'login', 'dark') ?>
     <?php endif; ?>
   </nav>
   </div>
@@ -2322,12 +2364,12 @@ function toast(msg){
     const latest=fills.reduce((m,f)=>Math.max(m, f.at||0), Date.now());
     try { localStorage.setItem(KEY, String(latest)); } catch(e) {}
     box?.classList.add('hidden');
-    if(nav){ nav.textContent=String(fills.length); nav.classList.remove('wait'); }
+    if(nav){ nav.textContent=String(fills.length); nav.classList.remove('wait'); nav.hidden=fills.length<1; }
   }
   if(neu.length && box && names){
     names.textContent=neu.map(f=>f.name).join(', ');
     box.classList.remove('hidden');
-    if(nav){ nav.textContent=String(neu.length); nav.classList.add('wait'); }
+    if(nav){ nav.textContent=String(neu.length); nav.classList.add('wait'); nav.hidden=false; }
   }
   document.getElementById('parentAlertOk')?.addEventListener('click', markSeen);
 })();

@@ -2304,12 +2304,7 @@ function applyPersonItemChoice(
         return $existing !== null;
     }
     if (!$parsed['want'] || $parsed['size'] === skipSizeToken()) {
-        $existing = personItemRow($db, $who, $personId, $typeId);
-        if ($existing && itemStatus($existing) === 'pending') {
-            removePersonItem($db, $who, $personId, $typeId);
-            return true;
-        }
-        return false;
+        return holdPersonItem($db, $who, $personId, $typeId, (string) $parsed['size']);
     }
     $size = sanitizeSize($parsed['size']);
     if ($size === '') {
@@ -2412,6 +2407,35 @@ function isIssued(?array $it): bool {
 
 function isPendingItem(?array $it): bool {
     return $it !== null && itemStatus($it) === 'pending';
+}
+
+function isHeldItem(?array $it): bool {
+    return $it !== null && itemStatus($it) === 'hold';
+}
+
+function holdPersonItem(mysqli $db, string $who, int $personId, int $typeId, string $size = ''): bool {
+    $existing = personItemRow($db, $who, $personId, $typeId);
+    if (!$existing || itemStatus($existing) === 'active') {
+        return false;
+    }
+    $keepSize = sanitizeSize($size);
+    if ($keepSize === '' || $keepSize === skipSizeToken()) {
+        $keepSize = sanitizeSize((string) ($existing['size'] ?? ''));
+    }
+    if ($keepSize === '') {
+        $keepSize = (string) ($existing['size'] ?? '');
+    }
+    $id = (int) $existing['id'];
+    if ($who === 'player') {
+        $upd = $db->prepare("UPDATE player_clothing SET size=?, status='hold', updated_at=NOW() WHERE id=?");
+    } elseif ($who === 'staff') {
+        $upd = $db->prepare("UPDATE staff_clothing SET size=?, status='hold', updated_at=NOW() WHERE id=?");
+    } else {
+        return false;
+    }
+    $upd->bind_param('si', $keepSize, $id);
+    $upd->execute();
+    return true;
 }
 
 function moneyInput(int $tid, string $field, ?float $value, string $extra = ''): string {

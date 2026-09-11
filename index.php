@@ -1101,7 +1101,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <details class="section fold" id="spelers">
     <summary class="fold-head"><h3>Spelers</h3><span class="fold-meta"><?= count($active) ?></span></summary>
-    <p class="sub"><?= $canEdit ? 'Vink uit wat je niet bestelt; de richtprijs bovenin past meteen. <b>Pakket</b> zet de set in één keer.' : 'Overzicht van maten en rugnummers.' ?></p>
+    <p class="sub"><?= $canEdit ? 'Vink uit wat je niet bestelt; het item blijft staan, maar valt buiten de richtprijs en Excel. Weghalen alleen via <b>Verwijderen</b>. <b>Pakket</b> zet de set in één keer.' : 'Overzicht van maten en rugnummers.' ?></p>
     <div class="filters" id="playerFilters">
       <button class="on" data-f="all">Iedereen</button>
       <?php if ($guestPlayers): ?>
@@ -1163,16 +1163,17 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               $it = itemFor($p, $tid);
               if (!$it) continue;
               $pending = isPendingItem($it);
+              $held = isHeldItem($it);
               $owned = isIssued($it);
-              $cls = $it ? ($pending ? 'wait' : 'ok') : 'extra';
+              $cls = $owned ? 'ok' : ($pending ? 'wait' : 'extra');
               $val = $it ? (string) $it['size'] : '—';
-              $tag = $pending ? ' · bestellen' : ($owned ? ' · in bezit' : '');
-              $unit = ($canEdit && $pending) ? priceFor($t, (string) ($it['size'] ?? '')) : null;
+              $tag = $pending ? ' · bestellen' : ($owned ? ' · in bezit' : ($held ? ' · niet in bestelling' : ''));
+              $unit = ($canEdit && ($pending || $held)) ? priceFor($t, (string) ($it['size'] ?? '')) : null;
             ?>
-            <div class="row <?= $cls ?> kit-row<?= $it ? '' : ' off' ?>" data-who="player" data-id="<?= (int) $p['id'] ?>" data-tid="<?= $tid ?>" data-status="<?= $pending ? 'pending' : ($owned ? 'owned' : '') ?>">
+            <div class="row <?= $cls ?> kit-row<?= $pending ? '' : ' off' ?>" data-who="player" data-id="<?= (int) $p['id'] ?>" data-tid="<?= $tid ?>" data-status="<?= ($pending || $held) ? 'pending' : ($owned ? 'owned' : '') ?>">
               <label class="want">
                 <?php if ($canEdit): ?>
-                <input type="checkbox" class="want-check"<?= $it ? ' checked' : '' ?><?= $owned ? ' disabled title="In bezit"' : '' ?>>
+                <input type="checkbox" class="want-check"<?= $pending ? ' checked' : '' ?><?= $owned ? ' disabled title="In bezit"' : '' ?>>
                 <?php endif; ?>
                 <?= h(shortTypeName($tid, $types)) ?><?= $tag ?><?php if ($unit !== null): ?> · <?= euroPair($unit) ?><?php endif; ?>
               </label>
@@ -1316,7 +1317,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <details class="section fold" id="bestel">
     <summary class="fold-head"><h3>Bestelling</h3><span class="fold-meta" id="bestelMeta"><?= (int) $orderPieces ?> stuks</span></summary>
-    <p class="sub" id="bestelSub"><?= (int) $orderPieces ?> stuks<?php if ($canEdit && $orderTotal > 0): ?> · <?= euro($orderTotal) ?> excl. · <?= euroIncl($orderTotal) ?><?php endif; ?> · artikelnummers, maten en print.<?= $canEdit ? ' Vink een product of speler-item uit om de nieuwe totaalprijs te zien.' : '' ?></p>
+    <p class="sub" id="bestelSub"><?= (int) $orderPieces ?> stuks<?php if ($canEdit && $orderTotal > 0): ?> · <?= euro($orderTotal) ?> excl. · <?= euroIncl($orderTotal) ?><?php endif; ?> · artikelnummers, maten en print.<?= $canEdit ? ' Uitvinken haalt het item uit prijs en Excel, niet van de speler.' : '' ?></p>
     <p class="shop-rule"><b>Rohda-logo:</b> jassen, shirt, keeperstenue, tas · <b>Sponsor shirts:</b> voor- en achterkant op shirt/keeperstenue (niet de jassen) · <b>Sponsor padded:</b> gezamenlijk blok op de winterjas · <b>Sponsor field jack:</b> achterkant regenjas · <b>Sponsor tas:</b> 1 kleur · <b>Initialen:</b> jassen, shirt, broekje, keeperstenue, tas · <b>Nummer:</b> shirt</p>
 
     <div class="actions">
@@ -1335,7 +1336,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         <span><b id="liveExcl"><?= euro($orderTotal) ?></b> excl.</span>
         <span class="incl" id="liveIncl"><?= euroIncl($orderTotal) ?></span>
       </div>
-      <p class="hint">Uitvinken haalt het item uit de richtprijs. Na een korte pauze wordt dat opgeslagen.</p>
+      <p class="hint">Uitvinken haalt het item uit de richtprijs en de Excel-lijst. Het blijft bij de speler staan. Weghalen alleen via Verwijderen.</p>
     </div>
     <?php endif; ?>
 
@@ -1512,16 +1513,17 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               $it = itemFor($s, $tid);
               if (!$it) continue;
               $pending = isPendingItem($it);
+              $held = isHeldItem($it);
               $owned = isIssued($it);
               $cls = $owned ? 'ok' : ($pending ? 'wait' : 'extra');
-              $unit = ($canEdit && $pending) ? priceFor($types[$tid], (string) ($it['size'] ?? '')) : null;
+              $unit = ($canEdit && ($pending || $held)) ? priceFor($types[$tid], (string) ($it['size'] ?? '')) : null;
           ?>
-            <div class="row <?= $cls ?> kit-row<?= $it ? '' : ' off' ?>" data-who="staff" data-id="<?= (int) $s['id'] ?>" data-tid="<?= $tid ?>" data-status="<?= $pending ? 'pending' : ($owned ? 'owned' : '') ?>">
+            <div class="row <?= $cls ?> kit-row<?= $pending ? '' : ' off' ?>" data-who="staff" data-id="<?= (int) $s['id'] ?>" data-tid="<?= $tid ?>" data-status="<?= ($pending || $held) ? 'pending' : ($owned ? 'owned' : '') ?>">
               <label class="want">
                 <?php if ($canEdit): ?>
-                <input type="checkbox" class="want-check"<?= $it ? ' checked' : '' ?><?= $owned ? ' disabled title="In bezit"' : '' ?>>
+                <input type="checkbox" class="want-check"<?= $pending ? ' checked' : '' ?><?= $owned ? ' disabled title="In bezit"' : '' ?>>
                 <?php endif; ?>
-                <?= h(shortTypeName($tid, $types)) ?><?= $pending ? ' · bestellen' : ($owned ? ' · in bezit' : '') ?><?php if ($unit !== null): ?> · <?= euroPair($unit) ?><?php endif; ?>
+                <?= h(shortTypeName($tid, $types)) ?><?= $pending ? ' · bestellen' : ($owned ? ' · in bezit' : ($held ? ' · niet in bestelling' : '')) ?><?php if ($unit !== null): ?> · <?= euroPair($unit) ?><?php endif; ?>
               </label>
               <?php if ($canEdit): ?>
                 <?= sizeSelect($tid, (string) ($it['size'] ?? ''), 'staff', (int) $s['id']) ?>
@@ -2327,7 +2329,7 @@ function recalcOrder(){
   setText(document.getElementById('bestelMeta'), pieces+' stuks');
   const sub=document.getElementById('bestelSub');
   if(sub){
-    sub.textContent=pieces+' stuks · '+euroJs(total)+' excl. · '+euroInclJs(total)+' · artikelnummers, maten en print. Vink een product of speler-item uit om de nieuwe totaalprijs te zien.';
+    sub.textContent=pieces+' stuks · '+euroJs(total)+' excl. · '+euroInclJs(total)+' · artikelnummers, maten en print. Uitvinken haalt het item uit prijs en Excel, niet van de speler.';
   }
   setText(document.getElementById('orderPiecesCell'), String(pieces));
   setText(document.getElementById('orderCostCell'), euroPairJs(clothing));
@@ -2475,7 +2477,7 @@ document.querySelectorAll('.assign-package').forEach(btn=>{
 });
 document.querySelectorAll('.item-del').forEach(btn=>{
   btn.addEventListener('click', async ()=>{
-    if(!confirm('Dit item van de speler halen? Staat het in bezit, dan verdwijnt die regel ook.')) return;
+    if(!confirm('Dit item van de speler halen? Alleen Verwijderen wist het. Staat het in bezit, dan verdwijnt die regel ook.')) return;
     const out=await api({action:'remove_item', csrf:TEAM.csrf, who:btn.dataset.who, id:+btn.dataset.id, tid:+btn.dataset.tid});
     if(!out.ok){ toast(out.error||'Verwijderen mislukt'); return; }
     toast('Verwijderd');

@@ -126,6 +126,14 @@ if ($action === 'parent_save') {
     if ($allowed === []) {
         jsonOut(['ok' => false, 'error' => 'Er staat niets klaar om in te vullen. Vraag de trainer of manager.'], 400);
     }
+    if ($who === 'player' && ($person['position'] ?? '') === 'goalkeeper') {
+        $gkTid = packageColumnTid($person, 1, 'player');
+        $shirtVal = trim((string) ($items[1] ?? $items['1'] ?? ''));
+        $gkVal = trim((string) ($items[$gkTid] ?? $items[(string) $gkTid] ?? ''));
+        if ($gkTid !== 1 && $shirtVal !== '' && ($gkVal === '' || $gkVal === skipSizeToken())) {
+            $items[$gkTid] = $shirtVal;
+        }
+    }
     $types = loadTypes($mysqli);
     $saved = 0;
     $jerseySaved = null;
@@ -147,9 +155,6 @@ if ($action === 'parent_save') {
             }
             if (sanitizeSize($size) === '') {
                 throw new RuntimeException('Vul alle maten in of kies n.v.t.');
-            }
-            if ($who === 'player' && !typeAllowedForPlayer($person, (int) $tid)) {
-                continue;
             }
             upsertPersonItem($mysqli, $types, $who, (int) $person['id'], (int) $tid, $size, 'pending');
             $saved++;

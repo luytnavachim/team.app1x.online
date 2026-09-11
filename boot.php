@@ -1961,13 +1961,37 @@ function parentDefaultTypeIds(array $p): array {
     return (($p['position'] ?? '') === 'goalkeeper') ? $settings['keeper'] : $settings['field'];
 }
 
+function filterParentTypeIdsForPerson(array $ids, array $person): array {
+    $isKeeper = ($person['position'] ?? '') === 'goalkeeper';
+    $out = [];
+    foreach ($ids as $tid) {
+        $tid = (int) $tid;
+        if ($tid < 1) {
+            continue;
+        }
+        if ($isKeeper) {
+            if (in_array($tid, fieldOnlyTypeIds(), true)) {
+                $mapped = packageColumnTid($person, $tid, 'player');
+                if (in_array($mapped, fieldOnlyTypeIds(), true)) {
+                    continue;
+                }
+                $tid = $mapped;
+            }
+        } elseif (in_array($tid, keeperOnlyTypeIds(), true)) {
+            continue;
+        }
+        $out[$tid] = $tid;
+    }
+    return array_values($out);
+}
+
 function parentAllowedTypeIds(array $p): array {
     $settings = loadParentFormSettings();
     $pid = (int) ($p['id'] ?? 0);
-    if ($pid > 0 && isset($settings['players'][$pid])) {
-        return $settings['players'][$pid];
-    }
-    return parentDefaultTypeIds($p);
+    $ids = ($pid > 0 && isset($settings['players'][$pid]))
+        ? $settings['players'][$pid]
+        : parentDefaultTypeIds($p);
+    return filterParentTypeIdsForPerson($ids, $p);
 }
 
 function parentUsesCustomTypes(array $p): bool {
@@ -2692,7 +2716,7 @@ function moneyInput(int $tid, string $field, ?float $value, string $extra = ''):
     return '<span class="money-wrap">'.$input.'<small class="vat-hint">'.euro(withVat($value)).' incl.</small></span>';
 }
 
-function sizeSelect(int $tid, string $current, string $who, int $id, bool $na = false, bool $allowSkip = false): string {
+function sizeSelect(int $tid, string $current, string $who, int $id, bool $na = false, bool $allowSkip = false, ?array $person = null): string {
     if ($na) {
         return '<span class="muted">n.v.t.</span>';
     }
@@ -2700,13 +2724,17 @@ function sizeSelect(int $tid, string $current, string $who, int $id, bool $na = 
     if ($current !== '' && $current !== skipSizeToken() && !in_array($current, $opts, true)) {
         array_unshift($opts, $current);
     }
+    $shirtTid = 1;
+    if ($who === 'player' && (($person['position'] ?? '') === 'goalkeeper')) {
+        $shirtTid = packageColumnTid($person, 1, 'player');
+    }
     $copy = '';
     if ($tid === 4 || $tid === fieldShortTypeId()) {
-        $copy = ' data-copy-from="1"';
+        $copy = ' data-copy-from="' . (int) $shirtTid . '"';
     } elseif ($tid === 7) {
         $copy = ' data-copy-from="3"';
     } elseif ($tid === 13 || $tid === 14) {
-        $copy = ' data-copy-from="1"';
+        $copy = ' data-copy-from="' . (int) $shirtTid . '"';
     }
     $html = '<select class="size-select" data-who="'.h($who).'" data-id="'.$id.'" data-tid="'.$tid.'"'.$copy.'>';
     $html .= '<option value="">—</option>';

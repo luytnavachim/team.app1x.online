@@ -239,14 +239,13 @@ body{
           <?php endif; ?>
           <?php foreach ($typeOrder as $tid):
             if (!isset($types[$tid])) continue;
-            $t = $types[$tid];
             $it = itemFor($person, $tid);
             $pending = isPendingItem($it);
             $cls = $it ? ($pending ? 'wait' : 'ok') : 'no';
           ?>
           <div class="row <?= $cls ?>">
-            <span><?= h($t['display_name']) ?><?= $pending ? ' · bestellen' : '' ?></span>
-            <?= sizeSelect($tid, (string) ($it['size'] ?? ''), $who, (int) $person['id'], false, true) ?>
+            <span><?= h(shortTypeName($tid, $types)) ?><?= $pending ? ' · bestellen' : '' ?></span>
+            <?= sizeSelect($tid, (string) ($it['size'] ?? ''), $who, (int) $person['id'], false, true, $person) ?>
           </div>
           <?php endforeach; ?>
         </div>

@@ -1383,7 +1383,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               </label>
               <div class="kit-tools">
               <?php if ($canEdit): ?>
-                <?= sizeSelect($tid, (string) ($it['size'] ?? ''), 'player', (int) $p['id']) ?>
+                <?= sizeSelect($tid, (string) ($it['size'] ?? ''), 'player', (int) $p['id'], false, false, $p) ?>
                 <?php if ($it): ?>
                 <button type="button" class="del item-del" data-who="player" data-id="<?= (int) $p['id'] ?>" data-tid="<?= $tid ?>" title="Verwijderen">Wis</button>
                 <?php endif; ?>

@@ -733,6 +733,9 @@ details.fold[open] > summary.fold-head{margin-bottom:2px;border-bottom:1px solid
 .order-live .hint{margin:0;font-size:12px}
 .card .actions{margin-top:auto;padding-top:4px}
 .card .actions .btn{padding:8px 12px;font-size:12px}
+.save-state{font-size:11px;font-weight:800;color:var(--muted);min-height:16px}
+.save-state.on{color:var(--green)}
+.save-state.err{color:var(--miss)}
 .add-type{
   display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px;margin-top:12px;align-items:end;
 }
@@ -1101,7 +1104,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <details class="section fold" id="spelers">
     <summary class="fold-head"><h3>Spelers</h3><span class="fold-meta"><?= count($active) ?></span></summary>
-    <p class="sub"><?= $canEdit ? 'Vink uit wat je niet bestelt; het item blijft staan, maar valt buiten de richtprijs en Excel. Weghalen alleen via <b>Verwijderen</b>. <b>Pakket</b> zet de set in één keer.' : 'Overzicht van maten en rugnummers.' ?></p>
+    <p class="sub"><?= $canEdit ? 'Maat of vinkje wordt meteen opgeslagen. Uitvinken houdt het item op de kaart, buiten prijs en Excel. Weghalen alleen via <b>Verwijderen</b>. <b>Pakket</b> zet de set in één keer.' : 'Overzicht van maten en rugnummers.' ?></p>
     <div class="filters" id="playerFilters">
       <button class="on" data-f="all">Iedereen</button>
       <?php if ($guestPlayers): ?>
@@ -1175,7 +1178,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
                 <?php if ($canEdit): ?>
                 <input type="checkbox" class="want-check"<?= $pending ? ' checked' : '' ?><?= $owned ? ' disabled title="In bezit"' : '' ?>>
                 <?php endif; ?>
-                <?= h(shortTypeName($tid, $types)) ?><?= $tag ?><?php if ($unit !== null): ?> · <?= euroPair($unit) ?><?php endif; ?>
+                <?= h(shortTypeName($tid, $types)) ?><span class="kit-tag"><?= $tag ?></span><?php if ($unit !== null): ?><span class="kit-price"> · <?= euroPair($unit) ?></span><?php endif; ?>
               </label>
               <?php if ($canEdit): ?>
                 <?= sizeSelect($tid, (string) ($it['size'] ?? ''), 'player', (int) $p['id']) ?>
@@ -1194,7 +1197,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
                 <button type="button" class="btn dark assign-add">Toevoegen</button>
               </div>
               <div class="actions">
-                <button type="button" class="btn dark save-one" data-who="player" data-id="<?= (int) $p['id'] ?>">Opslaan</button>
+                <span class="save-state" data-who="player" data-id="<?= (int) $p['id'] ?>"></span>
                 <button type="button" class="btn save-one" data-who="player" data-id="<?= (int) $p['id'] ?>" data-mode="active">In bezit</button>
                 <button type="button" class="btn assign-package" data-who="player" data-id="<?= (int) $p['id'] ?>">Pakket</button>
                 <?php if (isset($parentLinks[(int) $p['id']])): $pl = $parentLinks[(int) $p['id']]; ?>
@@ -1492,7 +1495,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <details class="section fold" id="staf">
     <summary class="fold-head"><h3>Staf</h3><span class="fold-meta"><?= count($staff) ?></span></summary>
-    <p class="sub">Polo en quarter zip.<?= $canEdit ? ' Stuur een link zodat ze zelf hun maten invullen, of vul hier in.' : '' ?></p>
+    <p class="sub">Polo en quarter zip.<?= $canEdit ? ' Maat of vinkje wordt meteen opgeslagen. Stuur een link zodat ze zelf hun maten invullen, of vul hier in.' : '' ?></p>
     <div class="cards">
       <?php foreach ($staff as $s): ?>
       <article class="card" id="card-s-<?= (int) $s['id'] ?>">
@@ -1523,7 +1526,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
                 <?php if ($canEdit): ?>
                 <input type="checkbox" class="want-check"<?= $pending ? ' checked' : '' ?><?= $owned ? ' disabled title="In bezit"' : '' ?>>
                 <?php endif; ?>
-                <?= h(shortTypeName($tid, $types)) ?><?= $pending ? ' · bestellen' : ($owned ? ' · in bezit' : ($held ? ' · niet in bestelling' : '')) ?><?php if ($unit !== null): ?> · <?= euroPair($unit) ?><?php endif; ?>
+                <?= h(shortTypeName($tid, $types)) ?><span class="kit-tag"><?= $pending ? ' · bestellen' : ($owned ? ' · in bezit' : ($held ? ' · niet in bestelling' : '')) ?></span><?php if ($unit !== null): ?><span class="kit-price"> · <?= euroPair($unit) ?></span><?php endif; ?>
               </label>
               <?php if ($canEdit): ?>
                 <?= sizeSelect($tid, (string) ($it['size'] ?? ''), 'staff', (int) $s['id']) ?>
@@ -1542,7 +1545,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               <button type="button" class="btn dark assign-add">Toevoegen</button>
             </div>
             <div class="actions">
-              <button type="button" class="btn dark save-one" data-who="staff" data-id="<?= (int) $s['id'] ?>">Opslaan</button>
+              <span class="save-state" data-who="staff" data-id="<?= (int) $s['id'] ?>"></span>
               <button type="button" class="btn save-one" data-who="staff" data-id="<?= (int) $s['id'] ?>" data-mode="active">In bezit</button>
               <?php if (isset($staffLinks[(int) $s['id']])): $sl = $staffLinks[(int) $s['id']]; ?>
               <button type="button" class="btn parent-copy" data-url="<?= h($sl['url']) ?>">Link staf</button>
@@ -2072,11 +2075,39 @@ document.getElementById('logoutBtn')?.addEventListener('click', async ()=>{
   await api({action:'logout'});
   location.reload();
 });
+let clothingChain=Promise.resolve();
+function queueClothing(fn){
+  const run=clothingChain.then(fn, fn);
+  clothingChain=run.then(()=>undefined, ()=>undefined);
+  return run;
+}
+function liveKitRow(row){
+  return !!row && row.dataset.gone!=='1' && row.isConnected;
+}
+function syncKitRow(row){
+  if(!liveKitRow(row) || row.dataset.status==='owned') return;
+  const box=row.querySelector('.want-check');
+  const on=!!box?.checked;
+  row.classList.toggle('off', !on);
+  row.classList.toggle('wait', on);
+  row.classList.toggle('extra', !on);
+  const tag=row.querySelector('.kit-tag');
+  if(tag) tag.textContent=on?' · bestellen':' · niet in bestelling';
+  const price=priceForType(+row.dataset.tid, row.querySelector('.size-select')?.value||'');
+  const priceEl=row.querySelector('.kit-price');
+  if(priceEl) priceEl.textContent=price!=null?' · '+euroPairJs(price):'';
+}
+function rowChoice(row){
+  const owned=row.dataset.status==='owned';
+  return {
+    want: owned || !!row.querySelector('.want-check')?.checked,
+    size: row.querySelector('.size-select')?.value||''
+  };
+}
 document.addEventListener('change', e=>{
   const box=e.target.closest?.('.want-check');
   if(box){
     const row=box.closest('.kit-row');
-    row?.classList.toggle('off', !box.checked);
     if(box.checked){
       const sel=row?.querySelector('.size-select');
       if(sel && !sel.value){
@@ -2088,8 +2119,9 @@ document.addEventListener('change', e=>{
         if(pick && sizes.includes(pick)) sel.value=pick;
       }
     }
+    syncKitRow(row);
     recalcOrder();
-    scheduleSaveOrder();
+    if(row) scheduleSavePerson(row.dataset.who, +row.dataset.id);
   }
   const include=e.target.closest?.('.shop-include-check');
   if(include){
@@ -2106,7 +2138,7 @@ document.addEventListener('change', e=>{
     document.querySelectorAll('.kit-row[data-status="pending"] .want-check').forEach(b=>{
       if(b.disabled) return;
       b.checked=on;
-      b.closest('.kit-row')?.classList.toggle('off', !on);
+      syncKitRow(b.closest('.kit-row'));
     });
     recalcOrder();
     scheduleSaveOrder();
@@ -2116,28 +2148,63 @@ document.addEventListener('change', e=>{
   const tid=sel.dataset.tid, who=sel.dataset.who, id=sel.dataset.id;
   document.querySelectorAll(`.size-select[data-who="${who}"][data-id="${id}"][data-copy-from="${tid}"]`).forEach(t=>{
     const val=sel.value;
-    if(!t.value && [...t.options].some(o=>o.value===val)) t.value=val;
     const row=t.closest('.kit-row');
-    const want=row?.querySelector('.want-check');
-    if(want && !want.checked && sel.value){ want.checked=true; row.classList.remove('off'); }
+    if(!liveKitRow(row)) return;
+    if(!t.value && val && [...t.options].some(o=>o.value===val)) t.value=val;
+    syncKitRow(row);
   });
+  syncKitRow(sel.closest('.kit-row'));
   recalcOrder();
-  scheduleSaveOrder();
+  scheduleSavePerson(who, +id);
 });
 function itemsFor(who, id, root){
   const items={};
   (root||document).querySelectorAll(`.kit-row[data-who="${who}"][data-id="${id}"]`).forEach(row=>{
-    const tid=row.dataset.tid;
-    const want=!!row.querySelector('.want-check')?.checked;
-    const size=row.querySelector('.size-select')?.value||'';
-    items[tid]={want, size};
+    if(!liveKitRow(row)) return;
+    items[row.dataset.tid]=rowChoice(row);
   });
   return items;
 }
+function cardRoot(who, id){
+  return document.getElementById(who==='staff' ? 'card-s-'+id : 'card-p-'+id);
+}
+function setSaveState(who, id, text, cls){
+  const el=document.querySelector(`.save-state[data-who="${who}"][data-id="${id}"]`);
+  if(!el) return;
+  el.textContent=text;
+  el.classList.remove('on','err');
+  if(cls) el.classList.add(cls);
+}
+const personSaveTimers={};
+let saveOrderTimer=null;
+function scheduleSavePerson(who, id){
+  if(!TEAM.editing || !who || !id) return;
+  const key=who+':'+id;
+  setSaveState(who, id, 'Opslaan…', '');
+  clearTimeout(personSaveTimers[key]);
+  personSaveTimers[key]=setTimeout(()=>savePerson(who, id), 250);
+}
+async function savePerson(who, id){
+  const key=who+':'+id;
+  delete personSaveTimers[key];
+  return queueClothing(async ()=>{
+    const root=cardRoot(who, id);
+    const out=await api({action:'save', csrf:TEAM.csrf, who, id, mode:'pending', items: itemsFor(who, id, root)});
+    if(!out.ok){
+      setSaveState(who, id, out.error||'Niet opgeslagen', 'err');
+      toast(out.error||'Opslaan mislukt');
+      return;
+    }
+    setSaveState(who, id, 'Opgeslagen', 'on');
+  });
+}
 async function saveRow(who, id, mode, root){
-  const out=await api({action:'save', csrf:TEAM.csrf, who, id, mode: mode||'pending', items: itemsFor(who, id, root)});
+  const key=who+':'+id;
+  clearTimeout(personSaveTimers[key]);
+  delete personSaveTimers[key];
+  const out=await queueClothing(()=>api({action:'save', csrf:TEAM.csrf, who, id, mode: mode||'pending', items: itemsFor(who, id, root)}));
   if(!out.ok){ toast(out.error||'Opslaan mislukt'); return; }
-  toast('Opgeslagen');
+  toast(mode==='active' ? 'Op in bezit gezet' : 'Opgeslagen');
   location.reload();
 }
 document.querySelectorAll('.save-one').forEach(btn=>{
@@ -2147,21 +2214,25 @@ document.querySelectorAll('.jersey-select').forEach(sel=>{
   sel.addEventListener('change', async ()=>{
     const id=+sel.dataset.id;
     if(!id) return;
+    setSaveState('player', id, 'Opslaan…', '');
     const out=await api({action:'save_jersey', csrf:TEAM.csrf, id, jersey_number:sel.value||''});
     if(!out.ok){
+      setSaveState('player', id, out.error||'Nummer mislukt', 'err');
       toast(out.error||'Nummer opslaan mislukt');
-      location.reload();
       return;
     }
-    toast(out.jersey ? 'Rugnummer #'+out.jersey : 'Rugnummer gewist');
-    location.reload();
+    setSaveState('player', id, 'Opgeslagen', 'on');
   });
 });
 document.getElementById('saveAllBtn')?.addEventListener('click', async ()=>{
-  const out=await api({action:'save_all', csrf:TEAM.csrf, mode:'pending', rows:collectAllKitRows()});
+  Object.keys(personSaveTimers).forEach(k=>{
+    clearTimeout(personSaveTimers[k]);
+    delete personSaveTimers[k];
+  });
+  clearTimeout(saveOrderTimer);
+  const out=await queueClothing(()=>api({action:'save_all', csrf:TEAM.csrf, mode:'pending', rows:collectAllKitRows()}));
   if(!out.ok){ toast(out.error||'Opslaan mislukt'); return; }
   toast('Alles opgeslagen');
-  location.reload();
 });
 async function copyText(text){
   try {
@@ -2369,41 +2440,32 @@ function recalcOrder(){
     el.classList.toggle('accent', unit!=null && n>0);
   });
 }
-let saveOrderTimer=null, saveOrderBusy=false, saveOrderAgain=false;
 function collectAllKitRows(){
   const map=new Map();
   document.querySelectorAll('article.card .kit-row').forEach(row=>{
+    if(!liveKitRow(row)) return;
     const key=row.dataset.who+':'+row.dataset.id;
     if(!map.has(key)) map.set(key,{who:row.dataset.who,id:+row.dataset.id,items:{}});
-    map.get(key).items[row.dataset.tid]={
-      want: !!row.querySelector('.want-check')?.checked,
-      size: row.querySelector('.size-select')?.value||''
-    };
+    map.get(key).items[row.dataset.tid]=rowChoice(row);
   });
   return [...map.values()];
 }
 function scheduleSaveOrder(){
   if(!TEAM.editing) return;
   clearTimeout(saveOrderTimer);
-  saveOrderTimer=setTimeout(runSaveOrder, 800);
-}
-async function runSaveOrder(){
-  if(saveOrderBusy){ saveOrderAgain=true; return; }
-  saveOrderBusy=true;
-  try{
-    const out=await api({action:'save_all', csrf:TEAM.csrf, mode:'pending', rows:collectAllKitRows()});
-    if(!out.ok) toast(out.error||'Opslaan mislukt');
-  } finally {
-    saveOrderBusy=false;
-    if(saveOrderAgain){ saveOrderAgain=false; scheduleSaveOrder(); }
-  }
+  saveOrderTimer=setTimeout(()=>{
+    queueClothing(async ()=>{
+      const out=await api({action:'save_all', csrf:TEAM.csrf, mode:'pending', rows:collectAllKitRows()});
+      if(!out.ok) toast(out.error||'Opslaan mislukt');
+    });
+  }, 800);
 }
 function setPendingTypeWant(tid, on){
   document.querySelectorAll(`.kit-row[data-status="pending"][data-tid="${tid}"]`).forEach(row=>{
     const box=row.querySelector('.want-check');
     if(!box || box.disabled) return;
     box.checked=on;
-    row.classList.toggle('off', !on);
+    syncKitRow(row);
   });
 }
 function fillSizeSelect(sel, tid, current, who, id){
@@ -2478,10 +2540,25 @@ document.querySelectorAll('.assign-package').forEach(btn=>{
 document.querySelectorAll('.item-del').forEach(btn=>{
   btn.addEventListener('click', async ()=>{
     if(!confirm('Dit item van de speler halen? Alleen Verwijderen wist het. Staat het in bezit, dan verdwijnt die regel ook.')) return;
-    const out=await api({action:'remove_item', csrf:TEAM.csrf, who:btn.dataset.who, id:+btn.dataset.id, tid:+btn.dataset.tid});
-    if(!out.ok){ toast(out.error||'Verwijderen mislukt'); return; }
+    const who=btn.dataset.who;
+    const id=+btn.dataset.id;
+    const tid=+btn.dataset.tid;
+    const row=btn.closest('.kit-row');
+    if(row){
+      row.dataset.gone='1';
+      row.remove();
+    }
+    recalcOrder();
+    setSaveState(who, id, 'Opslaan…', '');
+    const out=await queueClothing(()=>api({action:'remove_item', csrf:TEAM.csrf, who, id, tid}));
+    if(!out.ok){
+      setSaveState(who, id, out.error||'Verwijderen mislukt', 'err');
+      toast(out.error||'Verwijderen mislukt');
+      location.reload();
+      return;
+    }
+    setSaveState(who, id, 'Verwijderd', 'on');
     toast('Verwijderd');
-    location.reload();
   });
 });
 async function saveKit(payload){

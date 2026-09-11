@@ -600,8 +600,12 @@ function packageSlotIsFilled(array $person, int $tid, string $who): bool {
 function packageMissingIds(array $person, string $who): array {
     $miss = [];
     $seen = [];
-    foreach (packageTypeIdsFor($who, $person) as $tid) {
+    $types = rememberTypes();
+    foreach (personFormTypeIdSet($person, $who) as $tid) {
         $tid = (int) $tid;
+        if ($tid < 1 || !isset($types[$tid])) {
+            continue;
+        }
         $key = implode(',', packageEquivalentTypeIds($tid));
         if (isset($seen[$key])) {
             continue;
@@ -610,7 +614,7 @@ function packageMissingIds(array $person, string $who): array {
         if (packageSlotIsFilled($person, $tid, $who)) {
             continue;
         }
-        $miss[] = $tid;
+        $miss[] = packageColumnTid($person, $tid, $who);
     }
     return $miss;
 }
@@ -640,7 +644,7 @@ function collapseCardTypeIds(array $ids, array $person): array {
 }
 
 /** Pakketkolommen plus extra items die iemand écht heeft (bestellen, in bezit of n.v.t.). */
-function packOverviewTypeIds(array $packageIds, array $people): array {
+function packOverviewTypeIds(array $packageIds, array $people, string $who = 'player'): array {
     $types = rememberTypes();
     $out = [];
     foreach ($packageIds as $tid) {
@@ -653,7 +657,7 @@ function packOverviewTypeIds(array $packageIds, array $people): array {
         $ids = [];
         foreach (array_keys($person['items'] ?? []) as $tid) {
             $tid = (int) $tid;
-            if ($tid < 1 || !itemFor($person, $tid)) {
+            if ($tid < 1 || !itemFor($person, $tid) || !personShowsType($person, $tid, $who)) {
                 continue;
             }
             $t = $types[$tid] ?? null;
@@ -1818,7 +1822,7 @@ function catalogPrintPrices(array $types): array {
 }
 
 /** Kleding + print voor items die iemand krijgt (bestellen of in bezit), niet n.v.t. */
-function personKitCost(array $person, array $types, array $printPrices): array {
+function personKitCost(array $person, array $types, array $printPrices, string $who = 'player'): array {
     $map = [
         'rohda' => 'print_rohda',
         'initials' => 'print_initials',
@@ -1838,6 +1842,9 @@ function personKitCost(array $person, array $types, array $printPrices): array {
         $t = $types[$tid] ?? null;
         $it = itemFor($person, $tid);
         if (!$t || !$it || isPrintCatalogType($t)) {
+            continue;
+        }
+        if (!personShowsType($person, $tid, $who)) {
             continue;
         }
         if (!isPendingItem($it) && !isIssued($it)) {
@@ -2193,6 +2200,25 @@ function staffAllowedTypeIds(array $s): array {
 function staffUsesCustomTypes(array $s): bool {
     $settings = loadParentFormSettings();
     return isset($settings['staff_members'][(int) ($s['id'] ?? 0)]);
+}
+
+/** Types die op het ouder-/stafformulier van deze persoon staan, inclusief broek-alias. */
+function personFormTypeIdSet(array $person, string $who = 'player'): array {
+    $ids = $who === 'staff' ? staffAllowedTypeIds($person) : parentAllowedTypeIds($person);
+    $out = [];
+    foreach ($ids as $tid) {
+        foreach (packageEquivalentTypeIds((int) $tid) as $cid) {
+            $cid = (int) $cid;
+            if ($cid > 0) {
+                $out[$cid] = $cid;
+            }
+        }
+    }
+    return $out;
+}
+
+function personShowsType(array $person, int $tid, string $who = 'player'): bool {
+    return isset(personFormTypeIdSet($person, $who)[$tid]);
 }
 
 function ensureParentSavedAtColumn(mysqli $db): void {

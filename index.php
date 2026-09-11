@@ -34,22 +34,9 @@ foreach ($catalogPrint as $key => $unit) {
 
 function cardTypeIds(array $p, array $types, array $packageIds, array $keeperOnly): array {
     $out = [];
-    foreach ($packageIds as $tid) {
+    foreach (personFormTypeIdSet($p, 'player') as $tid) {
         $tid = (int) $tid;
         if ($tid < 1 || !isset($types[$tid]) || !typeAllowedForPlayer($p, $tid)) {
-            continue;
-        }
-        $out[$tid] = $tid;
-    }
-    foreach (array_keys($p['items'] ?? []) as $tid) {
-        $tid = (int) $tid;
-        if ($tid < 1 || !isset($types[$tid]) || isset($out[$tid])) {
-            continue;
-        }
-        if (!itemFor($p, $tid)) {
-            continue;
-        }
-        if (!typeAllowedForPlayer($p, $tid)) {
             continue;
         }
         $out[$tid] = $tid;
@@ -96,20 +83,14 @@ foreach ($staff as &$s) {
     $s['missing'] = packageMissingIds($s, 'staff');
     $s['pack_ok'] = $s['missing'] === [];
     $card = [];
-    foreach ($s['need'] as $tid) {
+    foreach (personFormTypeIdSet($s, 'staff') as $tid) {
         $tid = (int) $tid;
         if ($tid > 0 && isset($types[$tid])) {
             $card[$tid] = $tid;
         }
     }
-    foreach (array_keys($s['items'] ?? []) as $tid) {
-        $tid = (int) $tid;
-        if ($tid > 0 && isset($types[$tid]) && itemFor($s, $tid)) {
-            $card[$tid] = $tid;
-        }
-    }
     $s['card_types'] = collapseCardTypeIds(array_values($card), $s);
-    $s['kit_cost'] = personKitCost($s, $types, $printPrices);
+    $s['kit_cost'] = personKitCost($s, $types, $printPrices, 'staff');
 }
 unset($s);
 $season = trim((string) ($kitSettings['season'] ?? '26/27')) ?: '26/27';
@@ -185,6 +166,9 @@ function packageCellLabel(?array $it): string {
 
 function packageCellView(array $person, int $colTid, string $who): array {
     $cellTid = packageColumnTid($person, $colTid, $who);
+    if (!personShowsType($person, $colTid, $who) && !personShowsType($person, $cellTid, $who)) {
+        return ['class' => 'extra', 'label' => 'n.v.t.'];
+    }
     $need = packageTypeIdsFor($who, $person);
     $it = itemFor($person, $cellTid);
     if (isHeldItem($it) || itemStatus($it) === 'nvt') {
@@ -236,7 +220,7 @@ foreach ($active as &$p) {
     $p['miss'] = count($p['to_order']);
     $p['pack_ok'] = $p['missing'] === [];
     $p['complete'] = $p['pack_ok'];
-    $p['kit_cost'] = personKitCost($p, $types, $printPrices);
+    $p['kit_cost'] = personKitCost($p, $types, $printPrices, 'player');
 }
 unset($p);
 
@@ -284,7 +268,7 @@ $keeperPackOk = count(array_filter($keeperPlayers, static fn($p) => !empty($p['p
 $staffPackOk = count(array_filter($staff, static fn($s) => !empty($s['pack_ok'])));
 $PLAYER_OVERVIEW = packOverviewTypeIds($PACKAGE_CORE, $fieldPlayers);
 $KEEPER_OVERVIEW = packOverviewTypeIds($KEEPER_PACKAGE, $keeperPlayers);
-$STAFF_OVERVIEW = packOverviewTypeIds($STAFF_PACKAGE, $staff);
+$STAFF_OVERVIEW = packOverviewTypeIds($STAFF_PACKAGE, $staff, 'staff');
 
 $parentFilled = array_values(array_filter($active, static fn($p) => !empty($p['parent_saved_at'])));
 usort($parentFilled, static fn($a, $b) => strcmp((string) ($b['parent_saved_at'] ?? ''), (string) ($a['parent_saved_at'] ?? '')));
@@ -363,7 +347,7 @@ $addGap = static function (array $person, int $tid, string $whoLabel) use (&$gap
 foreach ($active as $p) {
     foreach (array_keys($p['items']) as $tid) {
         $tid = (int) $tid;
-        if (!typeAllowedForPlayer($p, $tid)) {
+        if (!typeAllowedForPlayer($p, $tid) || !personShowsType($p, $tid, 'player')) {
             continue;
         }
         $addGap($p, $tid, fullName($p));
@@ -371,7 +355,11 @@ foreach ($active as $p) {
 }
 foreach ($staff as $s) {
     foreach (array_keys($s['items']) as $tid) {
-        $addGap($s, (int) $tid, fullName($s) . ' (staf)');
+        $tid = (int) $tid;
+        if (!personShowsType($s, $tid, 'staff')) {
+            continue;
+        }
+        $addGap($s, $tid, fullName($s) . ' (staf)');
     }
 }
 $orderGroups = [];
@@ -1439,7 +1427,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
           if ($p['voet']) {
               $meta[] = $voetLabel((string) $p['voet']);
           }
-          $meta[] = !empty($p['missing']) ? count($p['missing']).' ontbreekt in pakket' : ($p['to_order'] ? count($p['to_order']).' te bestellen' : 'pakket compleet');
+          $meta[] = !empty($p['missing']) ? count($p['missing']).' ontbreekt' : ($p['to_order'] ? count($p['to_order']).' te bestellen' : 'compleet');
           if (!empty($p['parent_saved_at'])) {
               $meta[] = 'ouder ingevuld';
           }
@@ -1815,7 +1803,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
       <?php foreach ($staff as $s): ?>
       <article class="card<?= !empty($s['missing']) ? ' gap' : '' ?>" id="card-s-<?= (int) $s['id'] ?>">
         <div class="who"><b><?= h(fullName($s)) ?></b><span class="nr"><?= h($s['role']) ?></span></div>
-        <?php if ($canEdit): ?><div class="meta"><?= !empty($s['missing']) ? count($s['missing']).' ontbreekt in pakket' : 'pakket compleet' ?> · <a href="#cms-s-<?= (int) $s['id'] ?>">Wijzigen</a></div><?php endif; ?>
+        <?php if ($canEdit): ?><div class="meta"><?= !empty($s['missing']) ? count($s['missing']).' ontbreekt' : 'compleet' ?> · <a href="#cms-s-<?= (int) $s['id'] ?>">Wijzigen</a></div><?php endif; ?>
         <div class="kit">
           <?php foreach (($s['card_types'] ?? []) as $tid):
               if (!isset($types[$tid])) continue;
@@ -2287,6 +2275,10 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   document.querySelectorAll('details').forEach(d=>{
     d.open = d.id==='pakketten';
   });
+  if(location.hash){
+    const el=document.getElementById(location.hash.slice(1));
+    if(el) openFor(el);
+  }
   document.addEventListener('click', e=>{
     const a=e.target.closest?.('a[href^="#"]');
     if(!a) return;
@@ -2639,6 +2631,8 @@ async function saveParentDefaults(){
   const out=await api({action:'parent_form', csrf:TEAM.csrf, scope:'defaults', field, keeper, staff, note});
   if(!out.ok){ toast(out.error||'Mislukt'); return; }
   toast('Formulier opgeslagen');
+  location.hash='ouders';
+  location.reload();
 }
 document.getElementById('parentDefaults')?.addEventListener('change', e=>{
   if(e.target.id==='parentNote') return;
@@ -2662,6 +2656,8 @@ document.querySelectorAll('[data-parent-scope="player"]').forEach(box=>{
       box.querySelectorAll('input[type=checkbox]').forEach(cb=>{ cb.checked=on.has(+cb.value); });
     }
     toast(out.custom ? 'Aangepast voor deze speler' : 'Standaard voor deze speler');
+    location.hash='ouders';
+    location.reload();
   });
 });
 document.querySelectorAll('[data-parent-scope="staff-one"]').forEach(box=>{
@@ -2673,6 +2669,8 @@ document.querySelectorAll('[data-parent-scope="staff-one"]').forEach(box=>{
     const out=await api({action:'parent_form', csrf:TEAM.csrf, scope:'staff', id:+box.dataset.id, types, reset:reset});
     if(!out.ok){ toast(out.error||'Mislukt'); return; }
     toast(out.custom ? 'Aangepast voor deze staf' : 'Standaard voor deze staf');
+    location.hash='ouders';
+    location.reload();
   });
 });
 document.querySelectorAll('.parent-reset').forEach(btn=>{

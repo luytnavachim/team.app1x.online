@@ -108,6 +108,8 @@ function navIconSvg(string $name): string {
         'save' => '<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/>',
         'klaar' => '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
         'login' => '<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+        'collapse' => '<path d="m17 14-5-5-5 5"/>',
+        'expand' => '<path d="m7 10 5 5 5-5"/>',
         'moon' => '<path d="M21 14.3A8.5 8.5 0 1 1 9.7 3 7 7 0 0 0 21 14.3z"/>',
         'sun' => '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.2 4.2l1.4 1.4M18.4 18.4l1.4 1.4M2 12h2M20 12h2M4.2 19.8l1.4-1.4M18.4 5.6l1.4-1.4"/>',
     ];
@@ -719,6 +721,9 @@ button.btn{font-family:inherit;cursor:pointer}
   position:relative;
 }
 .nav .nav-ico svg{width:20px;height:20px;display:block}
+#foldAllBtn .fold-ico-open{display:none}
+#foldAllBtn.is-closed .fold-ico-close{display:none}
+#foldAllBtn.is-closed .fold-ico-open{display:block}
 .sr-only{
   position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
   clip:rect(0,0,0,0);white-space:nowrap;border:0;
@@ -1223,6 +1228,11 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <div class="navwrap">
   <nav class="nav">
+    <button type="button" class="btn nav-ico is-closed" id="foldAllBtn" title="Alles open" aria-label="Alles open">
+      <span class="fold-ico fold-ico-close"><?= navIconSvg('collapse') ?></span>
+      <span class="fold-ico fold-ico-open"><?= navIconSvg('expand') ?></span>
+      <span class="sr-only">Alles open of dicht</span>
+    </button>
     <?= navIconLink('#design', 'Design', 'design') ?>
     <?= navIconLink('#pakketten', 'Pakketten', 'pakketten') ?>
     <?= navIconLink('#spelers', 'Spelers', 'spelers') ?>
@@ -1267,16 +1277,19 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     <?php endif; ?>
   </div>
 
-  <section class="kit-design" id="design">
+  <details class="section fold" id="design">
+    <summary class="fold-head"><h3>Design</h3><span class="fold-meta">speler · kader</span></summary>
+    <div class="kit-design">
     <figure>
       <img src="<?= assetUrl('speler-kit.png') ?>" width="1024" height="1020" alt="Spelerstenue 14-2: tas, jassen, shirt, broekje, footless en gripsokken">
     </figure>
     <figure>
       <img src="<?= assetUrl('kader-kit.png') ?>" width="530" height="1024" alt="Kadertenue 14-2: padded, shirt, polo en broekje">
     </figure>
-  </section>
+    </div>
+  </details>
 
-  <details class="section fold" id="pakketten" open>
+  <details class="section fold" id="pakketten">
     <summary class="fold-head"><h3>Pakketten</h3><span class="fold-meta"><?= (int) $playerPackOk ?>/<?= count($fieldPlayers) ?> spelers · <?= (int) $keeperPackOk ?>/<?= count($keeperPlayers) ?> keepers · <?= (int) $staffPackOk ?>/<?= count($staff) ?> staf</span></summary>
     <p class="sub">Drie sets, zoals op de foto’s. Groen is in bezit, geel te bestellen, rood ontbreekt. <?= $canEdit ? '<b>Pakket</b> vult ontbrekende items in één keer.' : '' ?></p>
     <div class="legend">
@@ -2248,6 +2261,9 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   apply(theme());
 })();
 (function(){
+  function mainFolds(){
+    return [...document.querySelectorAll('details.fold')];
+  }
   function openFor(el){
     let n=el;
     while(n){
@@ -2255,13 +2271,28 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
       n=n.parentElement;
     }
   }
-  document.querySelectorAll('details').forEach(d=>{
-    d.open = d.id==='pakketten';
-  });
+  function syncFoldBtn(){
+    const btn=document.getElementById('foldAllBtn');
+    if(!btn) return;
+    const anyOpen=mainFolds().some(d=>d.open);
+    btn.classList.toggle('is-closed', !anyOpen);
+    const label=anyOpen?'Alles dicht':'Alles open';
+    btn.title=label;
+    btn.setAttribute('aria-label', label);
+  }
+  mainFolds().forEach(d=>{ d.open=false; });
+  document.querySelectorAll('details.shop-more').forEach(d=>{ d.open=false; });
   if(location.hash){
     const el=document.getElementById(location.hash.slice(1));
     if(el) openFor(el);
   }
+  syncFoldBtn();
+  mainFolds().forEach(d=>d.addEventListener('toggle', syncFoldBtn));
+  document.getElementById('foldAllBtn')?.addEventListener('click', ()=>{
+    const open=!mainFolds().some(d=>d.open);
+    mainFolds().forEach(d=>{ d.open=open; });
+    syncFoldBtn();
+  });
   document.addEventListener('click', e=>{
     const a=e.target.closest?.('a[href^="#"]');
     if(!a) return;
@@ -2270,7 +2301,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     if(el) openFor(el);
   });
   window.addEventListener('beforeprint', ()=>{
-    document.querySelectorAll('details.fold').forEach(d=>{ d.open=true; });
+    mainFolds().forEach(d=>{ d.open=true; });
   });
 })();
 const TEAM = {

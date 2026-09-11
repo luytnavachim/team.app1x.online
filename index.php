@@ -601,7 +601,7 @@ $voetLabel = static function (string $v): string {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Kitroom · 14-2</title>
-<meta name="theme-color" content="#090A0C">
+<meta name="theme-color" content="#0B0B0D">
 <script>
 (function(){
   var t='dark';
@@ -615,43 +615,43 @@ $voetLabel = static function (string $v): string {
 <meta name="description" content="Kleding- en selectieoverzicht voor 14-2.">
 <style>
 :root,html[data-theme="dark"]{
-  --bg:#090A0C; --surface:#121417; --surface2:#181B20; --raise:#22262C;
-  --line:#2C323A; --line2:#3D454E;
-  --ink:#F4F1EC; --muted:#9A9388; --dim:#6B655C;
-  --accent:#E11D2E; --accent-dim:#C41424; --on-accent:#FFFFFF; --accent-text:#FF6B76;
-  --green:#3DCC8A; --greenbg:rgba(61,204,138,.14);
-  --miss:#FF6B6B; --missbg:rgba(255,107,107,.14);
-  --warn:#E8B84A; --warnbg:rgba(232,184,74,.14);
-  --na:#6B655C; --nabg:rgba(255,255,255,.04);
-  --glow-a:rgba(225,29,46,.14); --glow-b:rgba(232,184,74,.07);
-  --nav-fade:rgba(9,10,12,0);
-  --featured:linear-gradient(140deg,#1A1516,#121417 62%);
-  --mark-bg:linear-gradient(155deg,#1A1516,#0C0D10);
-  --overlay:rgba(8,8,10,.76);
-  --hover:rgba(255,255,255,.03);
-  --editbar-bg:rgba(225,29,46,.10); --editbar-ink:#F4F1EC;
-  --pill-ink:#D6CFC4;
+  --bg:#0B0B0D; --surface:#141416; --surface2:#1C1C20; --raise:#26262B;
+  --line:#2E2E34; --line2:#45454E;
+  --ink:#F5F5F6; --muted:#9A9AA3; --dim:#6E6E76;
+  --accent:#E31C24; --accent-dim:#C41018; --on-accent:#FFFFFF; --accent-text:#FF5A62;
+  --green:#2FBE7A; --greenbg:rgba(47,190,122,.14);
+  --miss:#FF7A59; --missbg:rgba(255,122,89,.14);
+  --warn:#E0A83A; --warnbg:rgba(224,168,58,.14);
+  --na:#6E6E76; --nabg:rgba(255,255,255,.045);
+  --glow-a:rgba(227,28,36,.16); --glow-b:rgba(227,28,36,.05);
+  --nav-fade:rgba(11,11,13,0);
+  --featured:linear-gradient(140deg,#1A1214,#141416 64%);
+  --mark-bg:#141416;
+  --overlay:rgba(8,8,10,.78);
+  --hover:rgba(255,255,255,.035);
+  --editbar-bg:rgba(227,28,36,.10); --editbar-ink:#F5F5F6;
+  --pill-ink:#D4D4D8;
   --modal-shadow:0 24px 60px rgba(0,0,0,.55);
   --r:14px; --r-lg:20px;
 }
 html[data-theme="light"]{
-  --bg:#F4F1EC; --surface:#FFFFFF; --surface2:#F7F4EF; --raise:#EFEBE4;
-  --line:#E4DED4; --line2:#D0C8BB;
-  --ink:#14110F; --muted:#6A635A; --dim:#8A8378;
-  --accent:#E11D2E; --accent-dim:#C41424; --on-accent:#FFFFFF; --accent-text:#B91C1C;
-  --green:#0F7A4F; --greenbg:rgba(15,122,79,.12);
-  --miss:#C62828; --missbg:rgba(198,40,40,.10);
-  --warn:#A67C12; --warnbg:rgba(166,124,18,.12);
-  --na:#8A8378; --nabg:rgba(20,17,15,.04);
-  --glow-a:rgba(225,29,46,.10); --glow-b:rgba(232,184,74,.08);
-  --nav-fade:rgba(244,241,236,0);
-  --featured:linear-gradient(140deg,#FFFFFF,#F4F1EC 62%);
-  --mark-bg:linear-gradient(155deg,#FFFFFF,#EFEBE4);
-  --overlay:rgba(20,17,15,.42);
-  --hover:rgba(20,17,15,.03);
-  --editbar-bg:rgba(225,29,46,.10); --editbar-ink:#14110F;
-  --pill-ink:#3D3832;
-  --modal-shadow:0 24px 60px rgba(20,17,15,.14);
+  --bg:#F3F4F6; --surface:#FFFFFF; --surface2:#F6F7F9; --raise:#ECEEF2;
+  --line:#E2E4E8; --line2:#C8CCD4;
+  --ink:#121214; --muted:#5C5F66; --dim:#8B8E96;
+  --accent:#E31C24; --accent-dim:#C41018; --on-accent:#FFFFFF; --accent-text:#C41018;
+  --green:#0E7A4A; --greenbg:rgba(14,122,74,.11);
+  --miss:#D6452F; --missbg:rgba(214,69,47,.10);
+  --warn:#9A7400; --warnbg:rgba(154,116,0,.11);
+  --na:#8B8E96; --nabg:rgba(18,18,20,.04);
+  --glow-a:rgba(227,28,36,.08); --glow-b:transparent;
+  --nav-fade:rgba(243,244,246,0);
+  --featured:linear-gradient(140deg,#FFFFFF,#F3F4F6 64%);
+  --mark-bg:#FFFFFF;
+  --overlay:rgba(18,18,20,.40);
+  --hover:rgba(18,18,20,.035);
+  --editbar-bg:rgba(227,28,36,.08); --editbar-ink:#121214;
+  --pill-ink:#3A3A40;
+  --modal-shadow:0 24px 60px rgba(18,18,20,.12);
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth;color-scheme:dark;-webkit-text-size-adjust:100%}
@@ -2249,7 +2249,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     const next=t==='light' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', next);
     document.documentElement.style.colorScheme=next;
-    if(meta) meta.setAttribute('content', next==='light' ? '#F4F1EC' : '#090A0C');
+    if(meta) meta.setAttribute('content', next==='light' ? '#F3F4F6' : '#0B0B0D');
     document.querySelectorAll('[data-theme-set]').forEach(btn=>{
       btn.setAttribute('aria-pressed', btn.getAttribute('data-theme-set')===next ? 'true' : 'false');
     });

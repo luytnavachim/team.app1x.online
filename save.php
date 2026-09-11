@@ -398,6 +398,7 @@ if ($action === 'delete_type') {
         $kit = loadKitSettings();
         $drop = static fn(int $tid): bool => $tid !== $id;
         $kit['package'] = array_values(array_filter(array_map('intval', $kit['package'] ?? []), $drop));
+        $kit['package_keeper'] = array_values(array_filter(array_map('intval', $kit['package_keeper'] ?? []), $drop));
         $kit['package_staff'] = array_values(array_filter(array_map('intval', $kit['package_staff'] ?? []), $drop));
         saveKitSettings($kit);
         $mysqli->commit();
@@ -443,7 +444,8 @@ if ($action === 'add_package_all') {
         jsonOut(['ok' => false, 'error' => 'Sessie verlopen. Vernieuw de pagina.'], 403);
     }
     $mode = (($body['mode'] ?? '') === 'active') ? 'active' : 'pending';
-    $who = (($body['who'] ?? 'player') === 'staff') ? 'staff' : 'player';
+    $whoRaw = (string) ($body['who'] ?? 'player');
+    $who = in_array($whoRaw, ['staff', 'keeper', 'player'], true) ? $whoRaw : 'player';
     $types = loadTypes($mysqli);
     $saved = 0;
     $people = 0;
@@ -463,6 +465,20 @@ if ($action === 'add_package_all') {
             $portal = loadScoutPortal();
             while ($row = $res->fetch_assoc()) {
                 if (!playerOnScoutTeam14($row, $portal)) {
+                    continue;
+                }
+                $info = findScoutForPlayer($row, $portal);
+                if ($info) {
+                    $line = scoutLineFromPos($info['pos'] ?? '');
+                    if ($line !== '') {
+                        $row['position'] = $line;
+                    }
+                }
+                $isKeeper = playerIsKeeper($row);
+                if ($who === 'keeper' && !$isKeeper) {
+                    continue;
+                }
+                if ($who === 'player' && $isKeeper) {
                     continue;
                 }
                 $out = assignPackageToPerson($mysqli, $types, 'player', (int) $row['id'], $mode, true);
@@ -646,6 +662,9 @@ if ($action === 'save_kit') {
     $kit = loadKitSettings();
     if (isset($body['package']) && is_array($body['package'])) {
         $kit['package'] = $body['package'];
+    }
+    if (isset($body['package_keeper']) && is_array($body['package_keeper'])) {
+        $kit['package_keeper'] = $body['package_keeper'];
     }
     if (isset($body['package_staff']) && is_array($body['package_staff'])) {
         $kit['package_staff'] = $body['package_staff'];

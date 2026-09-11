@@ -18,6 +18,7 @@ $typeAssigned = clothingTypeAssignmentCounts($mysqli);
 $FIELD_CORE = [1, 4, 24, 7];
 $KEEPER_CORE = keeperCoreTypeIds($types);
 $PACKAGE_CORE = packageTypeIds();
+$KEEPER_PACKAGE = keeperPackageTypeIds();
 $STAFF_PACKAGE = staffPackageTypeIds();
 $KEEPER_ONLY = keeperOnlyTypeIds($types);
 $STAFF_CORE = $STAFF_PACKAGE;
@@ -242,7 +243,10 @@ foreach ($guestPlayers as &$p) {
 }
 unset($p);
 
-$playerPackOk = count(array_filter($active, static fn($p) => !empty($p['pack_ok'])));
+$fieldPlayers = array_values(array_filter($active, static fn($p) => !playerIsKeeper($p)));
+$keeperPlayers = array_values(array_filter($active, static fn($p) => playerIsKeeper($p)));
+$playerPackOk = count(array_filter($fieldPlayers, static fn($p) => !empty($p['pack_ok'])));
+$keeperPackOk = count(array_filter($keeperPlayers, static fn($p) => !empty($p['pack_ok'])));
 $staffPackOk = count(array_filter($staff, static fn($s) => !empty($s['pack_ok'])));
 
 $parentFilled = array_values(array_filter($active, static fn($p) => !empty($p['parent_saved_at'])));
@@ -752,6 +756,7 @@ details.fold[open] > summary.fold-head{margin-bottom:2px;border-bottom:1px solid
 .section .sub b{color:var(--ink);font-weight:700}
 .pack-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:start}
 @media(max-width:860px){.pack-grid{grid-template-columns:1fr}}
+.pack-block.pack-keepers{grid-column:1/-1}
 .pack-block h4{margin:0 0 4px;font-size:15px;font-weight:800}
 .pack-block .sub{margin:0 0 10px}
 .pack-tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border:1px solid var(--line);border-radius:12px;background:var(--surface2)}
@@ -1214,8 +1219,8 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   </section>
 
   <details class="section fold" id="pakketten" open>
-    <summary class="fold-head"><h3>Pakketten</h3><span class="fold-meta"><?= (int) $playerPackOk ?>/<?= count($active) ?> spelers · <?= (int) $staffPackOk ?>/<?= count($staff) ?> staf</span></summary>
-    <p class="sub">Twee sets, zoals op de foto’s. Groen is in bezit, geel te bestellen, rood ontbreekt. <?= $canEdit ? '<b>Pakket</b> vult ontbrekende items in één keer.' : '' ?></p>
+    <summary class="fold-head"><h3>Pakketten</h3><span class="fold-meta"><?= (int) $playerPackOk ?>/<?= count($fieldPlayers) ?> spelers · <?= (int) $keeperPackOk ?>/<?= count($keeperPlayers) ?> keepers · <?= (int) $staffPackOk ?>/<?= count($staff) ?> staf</span></summary>
+    <p class="sub">Drie sets, zoals op de foto’s. Groen is in bezit, geel te bestellen, rood ontbreekt. <?= $canEdit ? '<b>Pakket</b> vult ontbrekende items in één keer.' : '' ?></p>
     <div class="legend">
       <span><i class="dot" style="background:var(--green)"></i>In bezit</span>
       <span><i class="dot" style="background:var(--warn)"></i>Te bestellen</span>
@@ -1225,7 +1230,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     <div class="pack-grid">
       <div class="pack-block">
         <h4>Spelers</h4>
-        <p class="sub">Tas, regenjas, padded, shirt, footless, broek, grip. Keepers vullen hetzelfde in, plus extra keeperkleding. Wat ze niet nodig hebben: n.v.t.</p>
+        <p class="sub">Tas, regenjas, padded, shirt, footless, broek, grip.</p>
         <?php if ($canEdit): ?>
         <div class="actions" style="margin:0 0 10px">
           <button type="button" class="btn dark assign-package-all" data-who="player">Pakket aan alle spelers</button>
@@ -1242,7 +1247,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               </tr>
             </thead>
             <tbody>
-              <?php foreach ($active as $p): ?>
+              <?php foreach ($fieldPlayers as $p): ?>
               <tr>
                 <td class="name"><a href="#card-p-<?= (int) $p['id'] ?>"><?= h(fullName($p)) ?></a><?php if (!empty($p['missing'])): ?><span class="tiny"><?= count($p['missing']) ?> ontbreekt</span><?php endif; ?></td>
                 <?php foreach ($PACKAGE_CORE as $colTid):
@@ -1283,6 +1288,42 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
                 <td class="name"><a href="#card-s-<?= (int) $s['id'] ?>"><?= h(fullName($s)) ?></a><?php if (!empty($s['missing'])): ?><span class="tiny"><?= count($s['missing']) ?> ontbreekt</span><?php endif; ?></td>
                 <?php foreach ($STAFF_PACKAGE as $colTid):
                     $cell = packageCellView($s, (int) $colTid, 'staff');
+                ?>
+                <td class="<?= h($cell['class']) ?>"><?= h($cell['label']) ?></td>
+                <?php endforeach; ?>
+              </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="pack-block pack-keepers">
+        <h4>Keepers</h4>
+        <p class="sub">Tas, regenjas, padded, keeperstenue, keepersokken, keepersbroek.</p>
+        <?php if ($canEdit): ?>
+        <div class="actions" style="margin:0 0 10px">
+          <button type="button" class="btn dark assign-package-all" data-who="keeper">Pakket aan keepers</button>
+        </div>
+        <?php endif; ?>
+        <div class="pack-tablewrap">
+          <table class="pack-table">
+            <thead>
+              <tr>
+                <th class="name">Keeper</th>
+                <?php foreach ($KEEPER_PACKAGE as $tid): ?>
+                <th><?= h(cardTypeName((int) $tid, $types)) ?></th>
+                <?php endforeach; ?>
+              </tr>
+            </thead>
+            <tbody>
+              <?php if (!$keeperPlayers): ?>
+              <tr><td class="name" colspan="<?= count($KEEPER_PACKAGE) + 1 ?>">Nog geen keepers.</td></tr>
+              <?php endif; ?>
+              <?php foreach ($keeperPlayers as $p): ?>
+              <tr>
+                <td class="name"><a href="#card-p-<?= (int) $p['id'] ?>"><?= h(fullName($p)) ?></a><?php if (!empty($p['missing'])): ?><span class="tiny"><?= count($p['missing']) ?> ontbreekt</span><?php endif; ?></td>
+                <?php foreach ($KEEPER_PACKAGE as $colTid):
+                    $cell = packageCellView($p, (int) $colTid, 'player');
                 ?>
                 <td class="<?= h($cell['class']) ?>"><?= h($cell['label']) ?></td>
                 <?php endforeach; ?>
@@ -1778,6 +1819,16 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
           if (!typeIsActive($t) || isPrintCatalogType($t)) continue;
           $tid = (int) $t['id'];
           $on = in_array($tid, $PACKAGE_CORE, true) ? ' checked' : '';
+        ?>
+        <label><input type="checkbox" value="<?= $tid ?>"<?= $on ?>> <?= h(shortTypeName($tid, $types)) ?></label>
+        <?php endforeach; ?>
+      </div>
+      <div class="line">Keepers</div>
+      <div class="checks" id="packageKeeperChecks">
+        <?php foreach ($types as $t):
+          if (!typeIsActive($t) || isPrintCatalogType($t)) continue;
+          $tid = (int) $t['id'];
+          $on = in_array($tid, $KEEPER_PACKAGE, true) ? ' checked' : '';
         ?>
         <label><input type="checkbox" value="<?= $tid ?>"<?= $on ?>> <?= h(shortTypeName($tid, $types)) ?></label>
         <?php endforeach; ?>
@@ -2742,8 +2793,8 @@ document.getElementById('assignPackage')?.addEventListener('click', ()=>{
 });
 document.querySelectorAll('.assign-package-all').forEach(btn=>{
   btn.addEventListener('click', async ()=>{
-    const who=btn.dataset.who==='staff'?'staff':'player';
-    const label=who==='staff'?'alle staf':'alle spelers';
+    const who=btn.dataset.who||'player';
+    const label=who==='staff'?'alle staf':(who==='keeper'?'keepers':'alle spelers');
     if(!confirm('Pakket op bestellen zetten voor '+label+' die die items nog niet hebben?')) return;
     const out=await api({action:'add_package_all', csrf:TEAM.csrf, mode:'pending', who});
     if(!out.ok){ toast(out.error||'Mislukt'); return; }
@@ -2805,12 +2856,14 @@ document.querySelectorAll('.print-price').forEach(el=>{
   });
 });
 document.getElementById('packageChecks')?.addEventListener('change', savePackages);
+document.getElementById('packageKeeperChecks')?.addEventListener('change', savePackages);
 document.getElementById('packageStaffChecks')?.addEventListener('change', savePackages);
 function savePackages(){
   const pkg=checkedTypes(document.getElementById('packageChecks'));
+  const keeper=checkedTypes(document.getElementById('packageKeeperChecks'));
   const staff=checkedTypes(document.getElementById('packageStaffChecks'));
-  if(pkg.length<1 || staff.length<1){ toast('Kies minstens één item per pakket'); return; }
-  saveKit({package: pkg, package_staff: staff});
+  if(pkg.length<1 || keeper.length<1 || staff.length<1){ toast('Kies minstens één item per pakket'); return; }
+  saveKit({package: pkg, package_keeper: keeper, package_staff: staff});
 }
 document.getElementById('addTypeBtn')?.addEventListener('click', async ()=>{
   const prints={};

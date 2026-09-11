@@ -367,6 +367,10 @@ function defaultPlayerPackageIds(): array {
     return [15, 13, 14, 1, 24, 4, 7];
 }
 
+function defaultKeeperPackageIds(): array {
+    return [15, 13, 14, 19, 10, 25];
+}
+
 function defaultStaffPackageIds(): array {
     return [14, 23, 11, 4];
 }
@@ -385,6 +389,7 @@ function sanitizeTypeIdList(mixed $raw, array $fallback): array {
 function defaultKitSettings(): array {
     return [
         'package' => defaultPlayerPackageIds(),
+        'package_keeper' => defaultKeeperPackageIds(),
         'package_staff' => defaultStaffPackageIds(),
         'print' => [
             'rohda' => null,
@@ -419,6 +424,7 @@ function loadKitSettings(bool $reload = false): array {
         return $cached = $def;
     }
     $package = sanitizeTypeIdList($raw['package'] ?? null, $def['package']);
+    $packageKeeper = sanitizeTypeIdList($raw['package_keeper'] ?? null, $def['package_keeper']);
     $packageStaff = sanitizeTypeIdList($raw['package_staff'] ?? null, $def['package_staff']);
     $print = $def['print'];
     foreach (array_keys($print) as $key) {
@@ -430,6 +436,7 @@ function loadKitSettings(bool $reload = false): array {
     }
     $cached = [
         'package' => $package,
+        'package_keeper' => $packageKeeper,
         'package_staff' => $packageStaff,
         'print' => $print,
         'season' => substr($season, 0, 16),
@@ -444,6 +451,7 @@ function saveKitSettings(array $settings): void {
     }
     $def = defaultKitSettings();
     $package = sanitizeTypeIdList($settings['package'] ?? null, $def['package']);
+    $packageKeeper = sanitizeTypeIdList($settings['package_keeper'] ?? null, $def['package_keeper']);
     $packageStaff = sanitizeTypeIdList($settings['package_staff'] ?? null, $def['package_staff']);
     $print = [];
     foreach (array_keys($def['print']) as $key) {
@@ -455,6 +463,7 @@ function saveKitSettings(array $settings): void {
     }
     $clean = [
         'package' => $package,
+        'package_keeper' => $packageKeeper,
         'package_staff' => $packageStaff,
         'print' => $print,
         'season' => substr($season, 0, 16),
@@ -471,26 +480,22 @@ function staffPackageTypeIds(): array {
     return sanitizeTypeIdList(loadKitSettings()['package_staff'] ?? null, defaultStaffPackageIds());
 }
 
-function fieldKitTypeIds(): array {
-    return [1, 3, 4, 7, 24, 31];
+function keeperPackageTypeIds(): array {
+    return sanitizeTypeIdList(loadKitSettings()['package_keeper'] ?? null, defaultKeeperPackageIds());
+}
+
+function playerIsKeeper(?array $person): bool {
+    return ($person['position'] ?? '') === 'goalkeeper';
 }
 
 function packageTypeIdsFor(string $who, ?array $person = null): array {
     if ($who === 'staff') {
         return staffPackageTypeIds();
     }
-    $ids = packageTypeIds();
-    if (($person['position'] ?? '') !== 'goalkeeper') {
-        return $ids;
+    if ($who === 'keeper' || playerIsKeeper($person)) {
+        return keeperPackageTypeIds();
     }
-    $out = [];
-    foreach ($ids as $tid) {
-        $out[(int) $tid] = (int) $tid;
-    }
-    foreach (keeperCoreTypeIds() as $kid) {
-        $out[(int) $kid] = (int) $kid;
-    }
-    return array_values($out);
+    return packageTypeIds();
 }
 
 function packageColumnTid(array $person, int $tid, string $who): int {
@@ -618,7 +623,9 @@ function cleanupMismatchedPlayerKit(mysqli $db): int {
 }
 
 function isPackageType(int $tid): bool {
-    return in_array($tid, packageTypeIds(), true) || in_array($tid, staffPackageTypeIds(), true);
+    return in_array($tid, packageTypeIds(), true)
+        || in_array($tid, keeperPackageTypeIds(), true)
+        || in_array($tid, staffPackageTypeIds(), true);
 }
 
 function rememberTypes(?array $types = null): array {
@@ -1545,6 +1552,7 @@ function cardTypeName(int $tid, array $types = []): string {
         14 => 'Padded',
         15 => 'Tas',
         24 => 'Footless',
+        25 => 'Keepersbroek',
         default => shortTypeName($tid, $types),
     };
 }

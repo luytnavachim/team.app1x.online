@@ -485,45 +485,21 @@ function packageTypeIdsFor(string $who, ?array $person = null): array {
     }
     $out = [];
     foreach ($ids as $tid) {
-        if (!in_array($tid, fieldKitTypeIds(), true)) {
-            $out[$tid] = $tid;
-        }
+        $out[(int) $tid] = (int) $tid;
     }
     foreach (keeperCoreTypeIds() as $kid) {
-        $out[$kid] = $kid;
+        $out[(int) $kid] = (int) $kid;
     }
     return array_values($out);
 }
 
 function packageColumnTid(array $person, int $tid, string $who): int {
-    if ($who === 'player' && ($person['position'] ?? '') === 'goalkeeper' && $tid === 1) {
-        $types = rememberTypes();
-        $fallback = $tid;
-        foreach (keeperCoreTypeIds($types) as $kid) {
-            $t = $types[$kid] ?? null;
-            if ($t && keeperKitTypeHasSet($t)) {
-                return (int) $kid;
-            }
-            $fallback = (int) $kid;
-        }
-        return $fallback;
-    }
     return $tid;
 }
 
 function personChoseSkip(array $person, int $tid, string $who): bool {
     $it = itemFor($person, $tid);
-    if (isHeldItem($it) || itemStatus($it) === 'nvt') {
-        return true;
-    }
-    if ($it) {
-        return false;
-    }
-    if (empty($person['parent_saved_at'])) {
-        return false;
-    }
-    $allowed = $who === 'staff' ? staffAllowedTypeIds($person) : parentAllowedTypeIds($person);
-    return in_array($tid, $allowed, true);
+    return isHeldItem($it) || itemStatus($it) === 'nvt';
 }
 
 function personHasType(array $person, int $tid): bool {
@@ -617,44 +593,24 @@ function keeperCoreTypeIds(?array $types = null): array {
 }
 
 function fieldOnlyTypeIds(): array {
-    return [1, 3]; // veldshirt, veldsokken — grip mag ook voor keepers
+    return [1, 3];
 }
 
-/** Keeper: veldshirt wordt keeperstenue. Veldsokken vallen weg. */
-function remapPlayerKitType(array $person, int $tid): int {
-    if ($tid < 1 || ($person['position'] ?? '') !== 'goalkeeper') {
-        return $tid;
-    }
-    if (!in_array($tid, fieldOnlyTypeIds(), true)) {
-        return $tid;
-    }
-    $mapped = packageColumnTid($person, $tid, 'player');
-    if ($mapped < 1 || in_array($mapped, fieldOnlyTypeIds(), true)) {
-        return 0;
-    }
-    return $mapped;
-}
-
-/** Keeper krijgt geen veldshirt/veldsokken; veldspeler geen keepershirt/-sokken. */
+/** Veldspeler krijgt geen keepershirt/-sokken; keepers mogen wel veld- én keeperkleding. */
 function typeAllowedForPlayer(array $player, int $tid): bool {
     $isKeeper = ($player['position'] ?? '') === 'goalkeeper';
-    if ($isKeeper && in_array($tid, fieldOnlyTypeIds(), true)) {
-        return false;
-    }
     if (!$isKeeper && in_array($tid, keeperOnlyTypeIds(), true)) {
         return false;
     }
     return true;
 }
 
-/** Ruimt verkeerde shirt/sok-types op (bv. keeper met gewoon shirt). */
+/** Haalt keeperskleding weg bij veldspelers. */
 function cleanupMismatchedPlayerKit(mysqli $db): int {
-    $field = implode(',', array_map('intval', fieldOnlyTypeIds())) ?: '1,3';
     $keeper = implode(',', array_map('intval', keeperOnlyTypeIds())) ?: '9,10';
     $sql = "DELETE pc FROM player_clothing pc
             INNER JOIN players p ON p.id = pc.player_id
-            WHERE (p.position = 'goalkeeper' AND pc.clothing_type_id IN ({$field}))
-               OR ((p.position IS NULL OR p.position <> 'goalkeeper') AND pc.clothing_type_id IN ({$keeper}))";
+            WHERE (p.position IS NULL OR p.position <> 'goalkeeper') AND pc.clothing_type_id IN ({$keeper})";
     if (!$db->query($sql)) {
         return 0;
     }
@@ -1541,9 +1497,6 @@ function parentFillableTypeIds(?array $types = null): array {
 
 function parentTypeChoices(string $kind = 'field'): array {
     $ids = parentFillableTypeIds();
-    if ($kind === 'keeper') {
-        return filterParentTypeIdsForPerson($ids, ['position' => 'goalkeeper']);
-    }
     if ($kind === 'field') {
         return filterParentTypeIdsForPerson($ids, ['position' => 'midfielder']);
     }
@@ -1591,7 +1544,6 @@ function cardTypeName(int $tid, array $types = []): string {
         13 => 'Regenjas',
         14 => 'Padded',
         15 => 'Tas',
-        19 => 'Shirt',
         24 => 'Footless',
         default => shortTypeName($tid, $types),
     };
@@ -1813,7 +1765,10 @@ function defaultParentFormSettings(): array {
     return [
         'note' => '',
         'field' => [1, 4, 13, 14, 24, 7],
-        'keeper' => array_values(array_unique(array_merge(keeperCoreTypeIds(), [13, 14]))),
+        'keeper' => array_values(array_unique(array_merge(
+            [1, 4, 13, 14, 24, 7],
+            keeperCoreTypeIds()
+        ))),
         'staff' => defaultStaffPackageIds(),
         'players' => [],
         'staff_members' => [],
@@ -1850,13 +1805,6 @@ function replaceRetiredKeeperParentTypes(array $ids): array {
         $t = $types[$kid] ?? null;
         if ($t && isKeeperKitType($t) && typeIsActive($t)) {
             $out[$kid] = $kid;
-        }
-    }
-    foreach ($out as $id) {
-        $t = $types[$id] ?? null;
-        if ($t && isKeeperKitType($t) && keeperKitTypeHasSet($t)) {
-            unset($out[4]);
-            break;
         }
     }
     return array_values($out);
@@ -1992,12 +1940,7 @@ function filterParentTypeIdsForPerson(array $ids, array $person): array {
         if ($tid < 1) {
             continue;
         }
-        if ($isKeeper) {
-            $tid = remapPlayerKitType($person, $tid);
-            if ($tid < 1) {
-                continue;
-            }
-        } elseif (in_array($tid, keeperOnlyTypeIds(), true)) {
+        if (!$isKeeper && in_array($tid, keeperOnlyTypeIds(), true)) {
             continue;
         }
         $out[$tid] = $tid;
@@ -2554,12 +2497,8 @@ function applyPersonItemChoice(
         $st->bind_param('i', $personId);
         $st->execute();
         $player = $st->get_result()->fetch_assoc();
-        if ($player) {
-            $mapped = remapPlayerKitType($player, $typeId);
-            if ($mapped < 1) {
-                return false;
-            }
-            $typeId = $mapped;
+        if ($player && !typeAllowedForPlayer($player, $typeId)) {
+            return false;
         }
     }
     $parsed = parseItemInput($input);
@@ -2742,17 +2681,13 @@ function sizeSelect(int $tid, string $current, string $who, int $id, bool $na = 
     if ($current !== '' && $current !== skipSizeToken() && !in_array($current, $opts, true)) {
         array_unshift($opts, $current);
     }
-    $shirtTid = 1;
-    if ($who === 'player' && (($person['position'] ?? '') === 'goalkeeper')) {
-        $shirtTid = packageColumnTid($person, 1, 'player');
-    }
     $copy = '';
     if ($tid === 4 || $tid === fieldShortTypeId()) {
-        $copy = ' data-copy-from="' . (int) $shirtTid . '"';
+        $copy = ' data-copy-from="1"';
     } elseif ($tid === 7) {
         $copy = ' data-copy-from="3"';
     } elseif ($tid === 13 || $tid === 14) {
-        $copy = ' data-copy-from="' . (int) $shirtTid . '"';
+        $copy = ' data-copy-from="1"';
     }
     $html = '<select class="size-select" data-who="'.h($who).'" data-id="'.$id.'" data-tid="'.$tid.'"'.$copy.'>';
     $html .= '<option value="">—</option>';

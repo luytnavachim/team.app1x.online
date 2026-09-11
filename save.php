@@ -126,14 +126,6 @@ if ($action === 'parent_save') {
     if ($allowed === []) {
         jsonOut(['ok' => false, 'error' => 'Er staat niets klaar om in te vullen. Vraag de trainer of manager.'], 400);
     }
-    if ($who === 'player' && ($person['position'] ?? '') === 'goalkeeper') {
-        $gkTid = packageColumnTid($person, 1, 'player');
-        $shirtVal = trim((string) ($items[1] ?? $items['1'] ?? ''));
-        $gkVal = trim((string) ($items[$gkTid] ?? $items[(string) $gkTid] ?? ''));
-        if ($gkTid !== 1 && $shirtVal !== '' && ($gkVal === '' || $gkVal === skipSizeToken())) {
-            $items[$gkTid] = $shirtVal;
-        }
-    }
     $types = loadTypes($mysqli);
     $saved = 0;
     $jerseySaved = null;
@@ -273,18 +265,6 @@ if ($action === 'add_item') {
     }
     $types = loadTypes($mysqli);
     try {
-        if ($who === 'player') {
-            $st = $mysqli->prepare('SELECT id, position FROM players WHERE id=? LIMIT 1');
-            $st->bind_param('i', $id);
-            $st->execute();
-            $player = $st->get_result()->fetch_assoc();
-            if ($player) {
-                $tid = remapPlayerKitType($player, $tid);
-            }
-        }
-        if ($tid < 1) {
-            jsonOut(['ok' => false, 'error' => 'Dit item hoort niet bij deze speler.'], 400);
-        }
         upsertPersonItem($mysqli, $types, $who, $id, $tid, $size, $mode);
     } catch (Throwable $e) {
         jsonOut(['ok' => false, 'error' => $e->getMessage()], 400);

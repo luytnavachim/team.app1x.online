@@ -1225,7 +1225,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     <div class="pack-grid">
       <div class="pack-block">
         <h4>Spelers</h4>
-        <p class="sub">Tas, regenjas, padded, shirt, footless, broek, grip. Keepers: keeperstenue i.p.v. veldshirt; broek, grip en footless zijn n.v.t.</p>
+        <p class="sub">Tas, regenjas, padded, shirt, footless, broek, grip. Keepers vullen hetzelfde in, plus extra keeperkleding. Wat ze niet nodig hebben: n.v.t.</p>
         <?php if ($canEdit): ?>
         <div class="actions" style="margin:0 0 10px">
           <button type="button" class="btn dark assign-package-all" data-who="player">Pakket aan alle spelers</button>

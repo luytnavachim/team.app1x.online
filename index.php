@@ -716,6 +716,21 @@ details.fold[open] > summary.fold-head{margin-bottom:2px;border-bottom:1px solid
   font-size:11px;font-weight:800;cursor:pointer;padding:0 2px;white-space:nowrap;
 }
 .kit-row.off{opacity:.55}
+.shop-card.off{opacity:.48}
+.shop-include{
+  display:inline-flex;align-items:center;gap:6px;margin:6px 0 0;
+  font-size:11.5px;font-weight:800;color:var(--muted);cursor:pointer;
+}
+.shop-include input{margin:0;accent-color:var(--accent)}
+.order-live{
+  display:flex;flex-wrap:wrap;gap:12px 16px;align-items:center;justify-content:space-between;
+  border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;
+  background:var(--surface2);margin:12px 0 4px;
+}
+.order-live-total{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:baseline}
+.order-live-total b{font-size:18px;font-weight:800}
+.order-live-total .incl{font-size:13px;font-weight:700;color:var(--muted)}
+.order-live .hint{margin:0;font-size:12px}
 .card .actions{margin-top:auto;padding-top:4px}
 .card .actions .btn{padding:8px 12px;font-size:12px}
 .add-type{
@@ -955,6 +970,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     min-height:42px;display:inline-flex;align-items:center;justify-content:center;
   }
   .checks label{min-height:40px}
+  .shop-include{min-height:40px}
   .row .want{white-space:normal;line-height:1.35;overflow-wrap:anywhere}
   .shop-card h4{overflow-wrap:anywhere}
   .who b{white-space:normal}
@@ -1057,9 +1073,9 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <div class="stats">
     <a class="stat" href="#spelers"><b><?= count($active) ?></b><span>spelers</span></a>
-    <a class="stat accent" href="#bestel"><b><?= (int) $orderPieces ?></b><span>stuks te bestellen</span></a>
+    <a class="stat accent" href="#bestel"><b id="statPieces"><?= (int) $orderPieces ?></b><span>stuks te bestellen</span></a>
     <?php if ($canEdit): ?>
-    <div class="stat"><b><?= euro($orderTotal) ?></b><span class="incl"><?= euroIncl($orderTotal) ?></span><span>richtprijs excl. btw<?= $printCost > 0 ? ' · kleding + print' : '' ?></span></div>
+    <div class="stat"><b id="statTotal"><?= euro($orderTotal) ?></b><span class="incl" id="statTotalIncl"><?= euroIncl($orderTotal) ?></span><span>richtprijs excl. btw<?= $printCost > 0 ? ' · kleding + print' : '' ?></span></div>
     <?php endif; ?>
     <?php if ($canEdit): ?>
     <a class="stat accent" href="#ouders">
@@ -1085,7 +1101,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <details class="section fold" id="spelers">
     <summary class="fold-head"><h3>Spelers</h3><span class="fold-meta"><?= count($active) ?></span></summary>
-    <p class="sub"><?= $canEdit ? 'Vink wat hij krijgt en kies de maat. <b>Pakket</b> zet de set in één keer.' : 'Overzicht van maten en rugnummers.' ?></p>
+    <p class="sub"><?= $canEdit ? 'Vink uit wat je niet bestelt; de richtprijs bovenin past meteen. <b>Pakket</b> zet de set in één keer.' : 'Overzicht van maten en rugnummers.' ?></p>
     <div class="filters" id="playerFilters">
       <button class="on" data-f="all">Iedereen</button>
       <?php if ($guestPlayers): ?>
@@ -1153,10 +1169,10 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               $tag = $pending ? ' · bestellen' : ($owned ? ' · in bezit' : '');
               $unit = ($canEdit && $pending) ? priceFor($t, (string) ($it['size'] ?? '')) : null;
             ?>
-            <div class="row <?= $cls ?> kit-row<?= $it ? '' : ' off' ?>" data-who="player" data-id="<?= (int) $p['id'] ?>" data-tid="<?= $tid ?>">
+            <div class="row <?= $cls ?> kit-row<?= $it ? '' : ' off' ?>" data-who="player" data-id="<?= (int) $p['id'] ?>" data-tid="<?= $tid ?>" data-status="<?= $pending ? 'pending' : ($owned ? 'owned' : '') ?>">
               <label class="want">
                 <?php if ($canEdit): ?>
-                <input type="checkbox" class="want-check"<?= $it ? ' checked' : '' ?>>
+                <input type="checkbox" class="want-check"<?= $it ? ' checked' : '' ?><?= $owned ? ' disabled title="In bezit"' : '' ?>>
                 <?php endif; ?>
                 <?= h(shortTypeName($tid, $types)) ?><?= $tag ?><?php if ($unit !== null): ?> · <?= euroPair($unit) ?><?php endif; ?>
               </label>
@@ -1299,8 +1315,8 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   <?php endif; ?>
 
   <details class="section fold" id="bestel">
-    <summary class="fold-head"><h3>Bestelling</h3><span class="fold-meta"><?= (int) $orderPieces ?> stuks</span></summary>
-    <p class="sub"><?= (int) $orderPieces ?> stuks<?php if ($canEdit && $orderTotal > 0): ?> · <?= euro($orderTotal) ?> excl. · <?= euroIncl($orderTotal) ?><?php endif; ?> · artikelnummers, maten en print.</p>
+    <summary class="fold-head"><h3>Bestelling</h3><span class="fold-meta" id="bestelMeta"><?= (int) $orderPieces ?> stuks</span></summary>
+    <p class="sub" id="bestelSub"><?= (int) $orderPieces ?> stuks<?php if ($canEdit && $orderTotal > 0): ?> · <?= euro($orderTotal) ?> excl. · <?= euroIncl($orderTotal) ?><?php endif; ?> · artikelnummers, maten en print.<?= $canEdit ? ' Vink een product of speler-item uit om de nieuwe totaalprijs te zien.' : '' ?></p>
     <p class="shop-rule"><b>Rohda-logo:</b> jassen, shirt, keeperstenue, tas · <b>Sponsor shirts:</b> voor- en achterkant op shirt/keeperstenue (niet de jassen) · <b>Sponsor padded:</b> gezamenlijk blok op de winterjas · <b>Sponsor field jack:</b> achterkant regenjas · <b>Sponsor tas:</b> 1 kleur · <b>Initialen:</b> jassen, shirt, broekje, keeperstenue, tas · <b>Nummer:</b> shirt</p>
 
     <div class="actions">
@@ -1311,6 +1327,18 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
       <?php endif; ?>
     </div>
 
+    <?php if ($canEdit): ?>
+    <div class="order-live" id="orderLive">
+      <label class="shop-include"><input type="checkbox" id="orderSelectAll" checked> Alles meetellen</label>
+      <div class="order-live-total">
+        <span><b id="livePieces"><?= (int) $orderPieces ?></b> stuks</span>
+        <span><b id="liveExcl"><?= euro($orderTotal) ?></b> excl.</span>
+        <span class="incl" id="liveIncl"><?= euroIncl($orderTotal) ?></span>
+      </div>
+      <p class="hint">Uitvinken haalt het item uit de richtprijs. Na een korte pauze wordt dat opgeslagen.</p>
+    </div>
+    <?php endif; ?>
+
     <?php if (!$shopByType): ?>
       <p class="sub">Nog niets te bestellen. Zet per speler producten op bestellen met maat.</p>
     <?php else: ?>
@@ -1318,12 +1346,13 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     <div class="shop-prints">
       <h4>Totaal bedrukken</h4>
       <div class="shop-prints-grid">
-        <?php foreach ($printRows as $row): ?>
-        <div class="stat<?= ($row['unit'] !== null && $row['count'] > 0) ? ' accent' : '' ?>">
-          <b><?= (int) $row['count'] ?></b>
+        <?php foreach ($printRows as $key => $row): ?>
+        <div class="stat<?= ($row['unit'] !== null && $row['count'] > 0) ? ' accent' : '' ?>" data-print-key="<?= h((string) $key) ?>" data-print-unit="<?= $row['unit'] !== null ? h((string) $row['unit']) : '' ?>">
+          <b class="print-count"><?= (int) $row['count'] ?></b>
           <span><?= h($row['label']) ?><?php if ($canEdit && $row['unit'] !== null): ?> · <?= euro($row['unit']) ?> / <?= euro(withVat($row['unit'])) ?> incl. p.st.<?php endif; ?></span>
           <?php if ($canEdit): ?>
-          <?php if ($row['sum'] !== null): ?><span><?= euro($row['sum']) ?></span><span class="vat-hint"><?= euroIncl($row['sum']) ?></span><?php elseif ($row['count'] > 0 && $row['unit'] === null): ?><span>geen prijs in catalogus</span><?php endif; ?>
+          <span class="print-sum"><?php if ($row['sum'] !== null): ?><?= euro($row['sum']) ?><?php endif; ?></span>
+          <span class="vat-hint print-sum-incl"><?php if ($row['sum'] !== null): ?><?= euroIncl($row['sum']) ?><?php elseif ($row['count'] > 0 && $row['unit'] === null): ?>geen prijs in catalogus<?php endif; ?></span>
           <?php endif; ?>
         </div>
         <?php endforeach; ?>
@@ -1332,10 +1361,13 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
     <div class="shop-grid">
       <?php foreach ($shopByType as $shop): ?>
-      <div class="shop-card">
+      <div class="shop-card" data-tid="<?= (int) $shop['tid'] ?>">
         <div class="shop-card-top">
           <div>
             <h4><?= h($shop['label']) ?></h4>
+            <?php if ($canEdit): ?>
+            <label class="shop-include"><input type="checkbox" class="shop-include-check" checked> Meetellen</label>
+            <?php endif; ?>
             <?php if ($shop['article'] !== ''): ?>
             <div class="art">Art. <?= h($shop['article']) ?></div>
             <?php else: ?>
@@ -1351,7 +1383,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               ?>
             </div>
           </div>
-          <div class="total"><?= (int) $shop['count'] ?><span>stuks</span><?php if ($canEdit && ($shop['cost'] ?? 0) > 0): ?><span class="shop-eur"><?= euro((float) $shop['cost']) ?></span><span class="shop-eur vat-hint"><?= euroIncl((float) $shop['cost']) ?></span><?php endif; ?></div>
+          <div class="total"><span class="shop-count"><?= (int) $shop['count'] ?></span><span>stuks</span><?php if ($canEdit && ($shop['cost'] ?? 0) > 0): ?><span class="shop-eur"><?= euro((float) $shop['cost']) ?></span><span class="shop-eur vat-hint"><?= euroIncl((float) $shop['cost']) ?></span><?php elseif ($canEdit): ?><span class="shop-eur"></span><span class="shop-eur vat-hint"></span><?php endif; ?></div>
         </div>
         <div class="size-grid">
           <?php foreach ($shop['sizes'] as $sz => $cnt): ?>
@@ -1427,9 +1459,9 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             <tr>
               <td class="name">Kleding</td>
               <td></td>
-              <td><b><?= (int) $orderPieces ?></b></td>
+              <td><b id="orderPiecesCell"><?= (int) $orderPieces ?></b></td>
               <td></td>
-              <td><b><?= euroPair($orderCost) ?></b></td>
+              <td><b id="orderCostCell"><?= euroPair($orderCost) ?></b></td>
             </tr>
             <?php foreach ($printRows as $row):
               if ($row['count'] < 1) continue;
@@ -1447,7 +1479,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               <td></td>
               <td></td>
               <td></td>
-              <td><b><?= euroPair($orderTotal) ?></b></td>
+              <td><b id="orderTotalCell"><?= euroPair($orderTotal) ?></b></td>
             </tr>
           </tbody>
         </table>
@@ -1484,10 +1516,10 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
               $cls = $owned ? 'ok' : ($pending ? 'wait' : 'extra');
               $unit = ($canEdit && $pending) ? priceFor($types[$tid], (string) ($it['size'] ?? '')) : null;
           ?>
-            <div class="row <?= $cls ?> kit-row<?= $it ? '' : ' off' ?>" data-who="staff" data-id="<?= (int) $s['id'] ?>" data-tid="<?= $tid ?>">
+            <div class="row <?= $cls ?> kit-row<?= $it ? '' : ' off' ?>" data-who="staff" data-id="<?= (int) $s['id'] ?>" data-tid="<?= $tid ?>" data-status="<?= $pending ? 'pending' : ($owned ? 'owned' : '') ?>">
               <label class="want">
                 <?php if ($canEdit): ?>
-                <input type="checkbox" class="want-check"<?= $it ? ' checked' : '' ?>>
+                <input type="checkbox" class="want-check"<?= $it ? ' checked' : '' ?><?= $owned ? ' disabled title="In bezit"' : '' ?>>
                 <?php endif; ?>
                 <?= h(shortTypeName($tid, $types)) ?><?= $pending ? ' · bestellen' : ($owned ? ' · in bezit' : '') ?><?php if ($unit !== null): ?> · <?= euroPair($unit) ?><?php endif; ?>
               </label>
@@ -1919,8 +1951,10 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 const TEAM = {
   csrf: <?= json_encode($csrf) ?>,
   editing: <?= $canEdit ? 'true' : 'false' ?>,
+  vat: <?= json_encode(vatRate()) ?>,
   parentFills: <?= json_encode($parentFillJs, JSON_UNESCAPED_UNICODE) ?>,
   packageTypes: <?= json_encode(packageTypeIds()) ?>,
+  printPrices: <?= json_encode($printPrices, JSON_UNESCAPED_UNICODE) ?>,
   suggest: <?= json_encode(array_reduce($active, static function ($acc, $p) use ($types) {
       $id = (int) $p['id'];
       $jacket = suggestedJacketSize($p);
@@ -1937,7 +1971,32 @@ const TEAM = {
   }, []), JSON_UNESCAPED_UNICODE) ?>,
   types: <?= json_encode(array_values(array_map(static function ($t) use ($types) {
       $id = (int) $t['id'];
-      return ['id' => $id, 'name' => shortTypeName($id, $types), 'sizes' => sizeOptions($id)];
+      $prints = [];
+      foreach ([
+          'rohda' => 'print_rohda',
+          'initials' => 'print_initials',
+          'sponsor' => 'print_sponsor',
+          'sponsor_back' => 'print_sponsor_back',
+          'sponsor_padded' => 'print_sponsor_padded',
+          'sponsor_jacket' => 'print_sponsor_jacket',
+          'sponsor_bag' => 'print_sponsor_bag',
+          'name_back' => 'print_name_back',
+          'staff_text' => 'print_staff_text',
+      ] as $key => $flag) {
+          if (typePrints($t, $flag)) {
+              $prints[] = $key;
+          }
+      }
+      $small = isset($t['price_small']) && $t['price_small'] !== '' && $t['price_small'] !== null ? (float) $t['price_small'] : null;
+      $large = isset($t['price_large']) && $t['price_large'] !== '' && $t['price_large'] !== null ? (float) $t['price_large'] : (isset($t['price']) && $t['price'] !== '' && $t['price'] !== null ? (float) $t['price'] : null);
+      return [
+          'id' => $id,
+          'name' => shortTypeName($id, $types),
+          'sizes' => sizeOptions($id),
+          'small' => $small,
+          'large' => $large,
+          'prints' => $prints,
+      ];
   }, $types)), JSON_UNESCAPED_UNICODE) ?>
 };
 function toast(msg){
@@ -2027,9 +2086,31 @@ document.addEventListener('change', e=>{
         if(pick && sizes.includes(pick)) sel.value=pick;
       }
     }
+    recalcOrder();
+    scheduleSaveOrder();
+  }
+  const include=e.target.closest?.('.shop-include-check');
+  if(include){
+    const card=include.closest('.shop-card');
+    const tid=+card?.dataset.tid;
+    if(tid){
+      setPendingTypeWant(tid, include.checked);
+      recalcOrder();
+      scheduleSaveOrder();
+    }
+  }
+  if(e.target?.id==='orderSelectAll'){
+    const on=e.target.checked;
+    document.querySelectorAll('.kit-row[data-status="pending"] .want-check').forEach(b=>{
+      if(b.disabled) return;
+      b.checked=on;
+      b.closest('.kit-row')?.classList.toggle('off', !on);
+    });
+    recalcOrder();
+    scheduleSaveOrder();
   }
   const sel=e.target.closest?.('.size-select');
-  if(!sel || sel.dataset.jersey) return;
+  if(!sel || sel.dataset.jersey || !sel.closest('.kit-row')) return;
   const tid=sel.dataset.tid, who=sel.dataset.who, id=sel.dataset.id;
   document.querySelectorAll(`.size-select[data-who="${who}"][data-id="${id}"][data-copy-from="${tid}"]`).forEach(t=>{
     const val=sel.value;
@@ -2038,6 +2119,8 @@ document.addEventListener('change', e=>{
     const want=row?.querySelector('.want-check');
     if(want && !want.checked && sel.value){ want.checked=true; row.classList.remove('off'); }
   });
+  recalcOrder();
+  scheduleSaveOrder();
 });
 function itemsFor(who, id, root){
   const items={};
@@ -2073,16 +2156,7 @@ document.querySelectorAll('.jersey-select').forEach(sel=>{
   });
 });
 document.getElementById('saveAllBtn')?.addEventListener('click', async ()=>{
-  const map=new Map();
-  document.querySelectorAll('article.card .kit-row').forEach(row=>{
-    const key=row.dataset.who+':'+row.dataset.id;
-    if(!map.has(key)) map.set(key,{who:row.dataset.who,id:+row.dataset.id,items:{}});
-    map.get(key).items[row.dataset.tid]={
-      want: !!row.querySelector('.want-check')?.checked,
-      size: row.querySelector('.size-select')?.value||''
-    };
-  });
-  const out=await api({action:'save_all', csrf:TEAM.csrf, mode:'pending', rows:[...map.values()]});
+  const out=await api({action:'save_all', csrf:TEAM.csrf, mode:'pending', rows:collectAllKitRows()});
   if(!out.ok){ toast(out.error||'Opslaan mislukt'); return; }
   toast('Alles opgeslagen');
   location.reload();
@@ -2175,6 +2249,160 @@ document.querySelectorAll('.parent-reset').forEach(btn=>{
 function typeSizes(tid){
   const t=(TEAM.types||[]).find(x=>x.id===tid);
   return t && Array.isArray(t.sizes) ? t.sizes : [];
+}
+function typeById(tid){
+  return (TEAM.types||[]).find(x=>x.id===+tid)||null;
+}
+function euroJs(n){
+  if(n==null || Number.isNaN(n)) return '—';
+  const neg=n<0;
+  const [a,b]=Math.abs(n).toFixed(2).split('.');
+  return (neg?'-':'')+'€ '+a.replace(/\B(?=(\d{3})+(?!\d))/g,'.')+','+b;
+}
+function withVatJs(n){
+  return Math.round(n*(1+(TEAM.vat||0.21))*100)/100;
+}
+function euroInclJs(n){
+  return euroJs(withVatJs(n))+' incl. btw';
+}
+function euroPairJs(n){
+  return euroJs(n)+' · '+euroJs(withVatJs(n))+' incl.';
+}
+function isYouthSize(size){
+  const s=String(size||'').toUpperCase().trim();
+  if(!s) return true;
+  const small=['XS','XXS','XXXS','32','33','34','35','36','37','38','39','40','41','42','116','128','140','152','164','JR','25/29','30/35','36/40','25-29','30-35','31-35','36-40'];
+  return small.includes(s) || /^(1[2-6]4|140|152|176)$/.test(s);
+}
+function priceForType(tid, size){
+  const t=typeById(tid);
+  if(!t) return null;
+  const small=t.small!=null?+t.small:null;
+  const large=t.large!=null?+t.large:small;
+  const pick=isYouthSize(size)?(small??large):(large??small);
+  return pick==null?null:pick;
+}
+function pendingWantRows(){
+  return [...document.querySelectorAll('.kit-row[data-status="pending"]')].filter(row=>{
+    const box=row.querySelector('.want-check');
+    return box?box.checked:true;
+  });
+}
+function setText(el, text){
+  if(el) el.textContent=text;
+}
+function recalcOrder(){
+  if(!TEAM.editing) return;
+  const rows=pendingWantRows();
+  let pieces=0, clothing=0;
+  const byTid={};
+  const prints={};
+  (TEAM.types||[]).forEach(t=>{
+    (t.prints||[]).forEach(k=>{ prints[k]=prints[k]||0; });
+  });
+  rows.forEach(row=>{
+    const tid=+row.dataset.tid;
+    const size=row.querySelector('.size-select')?.value||'';
+    const price=priceForType(tid, size);
+    pieces+=1;
+    if(price!=null) clothing+=price;
+    if(!byTid[tid]) byTid[tid]={count:0, cost:0};
+    byTid[tid].count+=1;
+    if(price!=null) byTid[tid].cost+=price;
+    const t=typeById(tid);
+    (t?.prints||[]).forEach(k=>{ prints[k]=(prints[k]||0)+1; });
+  });
+  let printCost=0;
+  Object.entries(prints).forEach(([k,n])=>{
+    const unit=TEAM.printPrices&&TEAM.printPrices[k]!=null?+TEAM.printPrices[k]:null;
+    if(unit!=null) printCost+=unit*n;
+  });
+  const total=clothing+printCost;
+  setText(document.getElementById('statPieces'), String(pieces));
+  setText(document.getElementById('statTotal'), euroJs(total));
+  setText(document.getElementById('statTotalIncl'), euroInclJs(total));
+  setText(document.getElementById('livePieces'), String(pieces));
+  setText(document.getElementById('liveExcl'), euroJs(total));
+  setText(document.getElementById('liveIncl'), euroInclJs(total));
+  setText(document.getElementById('bestelMeta'), pieces+' stuks');
+  const sub=document.getElementById('bestelSub');
+  if(sub){
+    sub.textContent=pieces+' stuks · '+euroJs(total)+' excl. · '+euroInclJs(total)+' · artikelnummers, maten en print. Vink een product of speler-item uit om de nieuwe totaalprijs te zien.';
+  }
+  setText(document.getElementById('orderPiecesCell'), String(pieces));
+  setText(document.getElementById('orderCostCell'), euroPairJs(clothing));
+  setText(document.getElementById('orderTotalCell'), euroPairJs(total));
+  document.querySelectorAll('.shop-card[data-tid]').forEach(card=>{
+    const tid=+card.dataset.tid;
+    const info=byTid[tid]||{count:0, cost:0};
+    const countEl=card.querySelector('.shop-count');
+    if(countEl) countEl.textContent=String(info.count);
+    const eur=card.querySelectorAll('.shop-eur');
+    if(eur[0]) eur[0].textContent=info.cost>0?euroJs(info.cost):'';
+    if(eur[1]) eur[1].textContent=info.cost>0?euroInclJs(info.cost):'';
+    const box=card.querySelector('.shop-include-check');
+    const pending=[...document.querySelectorAll(`.kit-row[data-status="pending"][data-tid="${tid}"] .want-check`)];
+    const on=pending.filter(b=>b.checked).length;
+    if(box){
+      box.checked=pending.length>0 && on===pending.length;
+      box.indeterminate=on>0 && on<pending.length;
+    }
+    card.classList.toggle('off', on<1);
+  });
+  const allBox=document.getElementById('orderSelectAll');
+  if(allBox){
+    const pending=[...document.querySelectorAll('.kit-row[data-status="pending"] .want-check')].filter(b=>!b.disabled);
+    const on=pending.filter(b=>b.checked).length;
+    allBox.checked=pending.length>0 && on===pending.length;
+    allBox.indeterminate=on>0 && on<pending.length;
+  }
+  document.querySelectorAll('[data-print-key]').forEach(el=>{
+    const key=el.dataset.printKey;
+    const n=prints[key]||0;
+    const unit=el.dataset.printUnit!=='' && el.dataset.printUnit!=null?+el.dataset.printUnit:(TEAM.printPrices&&TEAM.printPrices[key]!=null?+TEAM.printPrices[key]:null);
+    setText(el.querySelector('.print-count'), String(n));
+    const sum=unit!=null && n>0?unit*n:null;
+    setText(el.querySelector('.print-sum'), sum!=null?euroJs(sum):'');
+    setText(el.querySelector('.print-sum-incl'), sum!=null?euroInclJs(sum):(n>0 && unit==null?'geen prijs in catalogus':''));
+    el.classList.toggle('accent', unit!=null && n>0);
+  });
+}
+let saveOrderTimer=null, saveOrderBusy=false, saveOrderAgain=false;
+function collectAllKitRows(){
+  const map=new Map();
+  document.querySelectorAll('article.card .kit-row').forEach(row=>{
+    const key=row.dataset.who+':'+row.dataset.id;
+    if(!map.has(key)) map.set(key,{who:row.dataset.who,id:+row.dataset.id,items:{}});
+    map.get(key).items[row.dataset.tid]={
+      want: !!row.querySelector('.want-check')?.checked,
+      size: row.querySelector('.size-select')?.value||''
+    };
+  });
+  return [...map.values()];
+}
+function scheduleSaveOrder(){
+  if(!TEAM.editing) return;
+  clearTimeout(saveOrderTimer);
+  saveOrderTimer=setTimeout(runSaveOrder, 800);
+}
+async function runSaveOrder(){
+  if(saveOrderBusy){ saveOrderAgain=true; return; }
+  saveOrderBusy=true;
+  try{
+    const out=await api({action:'save_all', csrf:TEAM.csrf, mode:'pending', rows:collectAllKitRows()});
+    if(!out.ok) toast(out.error||'Opslaan mislukt');
+  } finally {
+    saveOrderBusy=false;
+    if(saveOrderAgain){ saveOrderAgain=false; scheduleSaveOrder(); }
+  }
+}
+function setPendingTypeWant(tid, on){
+  document.querySelectorAll(`.kit-row[data-status="pending"][data-tid="${tid}"]`).forEach(row=>{
+    const box=row.querySelector('.want-check');
+    if(!box || box.disabled) return;
+    box.checked=on;
+    row.classList.toggle('off', !on);
+  });
 }
 function fillSizeSelect(sel, tid, current, who, id){
   const sizes=typeSizes(tid);
@@ -2416,6 +2644,7 @@ document.querySelectorAll('.cms-t-restore').forEach(btn=>{
     await cmsOk(await api({action:'restore_type', csrf:TEAM.csrf, id:+btn.dataset.id}), 'Artikel teruggezet');
   });
 });
+recalcOrder();
 </script>
 </body>
 </html>

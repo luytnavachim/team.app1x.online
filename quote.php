@@ -88,6 +88,8 @@ function quoteSizeKey(string $size): string {
         'ONESIZE' => 'één maat',
         'ONSIZE' => 'één maat',
         'OS' => 'één maat',
+        '45/47' => '45/48',
+        '45-47' => '45/48',
         'MAATONBEKEND' => 'maat onbekend',
         'ONBEKEND' => 'onbekend',
         'JR' => 'JR',
@@ -120,15 +122,15 @@ function quotePrintKeyFromName(string $name): ?string {
         return null;
     }
     $map = [
-        'rohda' => ['clublogo', 'club logo', 'rohda', 'clubembleem', 'clublogo', 'logo club'],
+        'rohda' => ['clublogo', 'club logo', 'rohda', 'clubembleem', 'logo club', 'logo rohda', 'linkerborst'],
         'initials' => ['initialen', 'initiaal', 'initials', 'letters'],
-        'sponsor' => ['sponsor voorkant', 'logo sponsor voorkant', 'sponsor shirts voorkant', 'bedrijfslogo voor'],
-        'sponsor_back' => ['sponsor achterkant', 'logo sponsor achterkant', 'sponsor shirts achterkant', 'bedrijfslogo achter'],
-        'sponsor_padded' => ['sponsor padded', 'logo sponsor padded', 'sponsor winterjas'],
-        'sponsor_jacket' => ['sponsor regenjas', 'logo sponsor regenjas', 'sponsor field jack', 'sponsor jack achterkant'],
-        'sponsor_bag' => ['sponsor tas', 'logo sponsor tas'],
-        'name_back' => ['nummer achterop', 'rugnummer', 'nummer shirt'],
-        'staff_text' => ['tekst staf', 'staf tekst', 'staff text'],
+        'sponsor_padded' => ['sponsor padded', 'logo sponsor padded', 'sponsor winterjas', 'rechterborst padded', 'chterborst padded', 'padded jack', 'padded ja'],
+        'sponsor_jacket' => ['sponsor regenjas', 'logo sponsor regenjas', 'sponsor field jack', 'sponsor jack achterkant', 'achterzijde field', 'achterzijde field jack'],
+        'sponsor_bag' => ['sponsor tas', 'logo sponsor tas', 'sporttas', 'op de sporttas'],
+        'name_back' => ['nummer achterop', 'rugnummer', 'nummer shirt', 'nummers achterzijde', 'nummer achterzijde', 'nummers achterzijde shirts'],
+        'sponsor_back' => ['sponsor achterkant', 'logo sponsor achterkant', 'sponsor shirts achterkant', 'bedrijfslogo achter', 'sponsoren op shirts achter', 'achterzijde shirts', 'shirts achterzijde'],
+        'sponsor' => ['sponsor voorkant', 'logo sponsor voorkant', 'sponsor shirts voorkant', 'bedrijfslogo voor', 'sponsoren op shirts voor', 'shirts voorzijde'],
+        'staff_text' => ['tekst staf', 'staf tekst', 'staff text', 'teksten trainer', 'trainer en staf'],
     ];
     foreach ($map as $key => $needles) {
         foreach ($needles as $needle) {
@@ -667,6 +669,17 @@ function parseQuoteBytes(string $bytes, string $filename): array {
                 throw new RuntimeException('Deze PDF is geen tekstbestand. Sla hem op als Excel/CSV of plak de tabel.');
             }
         }
+        if (quoteLooksLikeProseOffer($text)) {
+            $prose = quoteLinesFromProse($text);
+            if ($prose !== []) {
+                return [
+                    'lines' => $prose,
+                    'warnings' => [],
+                    'format' => ($ext === 'pdf' || str_starts_with($bytes, '%PDF')) ? 'pdf' : 'text',
+                    'sheets' => ['offerte'],
+                ];
+            }
+        }
         $rows = quoteParseCsvText($text);
         if (count($rows) > 0 && max(array_map('count', $rows)) < 2) {
             $loose = quoteLooseTextRows($text);
@@ -683,21 +696,207 @@ function parseQuoteBytes(string $bytes, string $filename): array {
     }
 }
 
-function quotePdfToText(string $bytes): string {
-    $out = [];
-    if (preg_match_all('/\((?:\\\\.|[^\\\\)]){1,200}\)\s*Tj/s', $bytes, $m)) {
-        foreach ($m[0] as $chunk) {
-            if (preg_match('/^\((.*)\)\s*Tj$/s', $chunk, $mm)) {
-                $t = str_replace(['\\(', '\\)', '\\\\', '\\n'], ['(', ')', '\\', ' '], $mm[1]);
-                $out[] = $t;
+function quotePdfDecodeString(string $s): string {
+    $s = str_replace(['\\(', '\\)', '\\\\', '\\n', '\\r', '\\t'], ['(', ')', '\\', ' ', ' ', ' '], $s);
+    $s = preg_replace_callback('/\\\\([0-7]{3})/', static fn($m) => chr(octdec($m[1])), $s) ?? $s;
+    return $s;
+}
+
+function quotePdfItemsToLines(array $items): array {
+    if ($items === []) {
+        return [];
+    }
+    usort($items, static fn($a, $b) => [-$a[0], $a[1]] <=> [-$b[0], $b[1]]);
+    $lines = [];
+    $curY = null;
+    $curX = null;
+    $cur = '';
+    foreach ($items as [$y, $x, $t]) {
+        if ($curY !== null && abs($curY - $y) > 3) {
+            $line = trim($cur);
+            if ($line !== '') {
+                $lines[] = $line;
             }
+            $cur = '';
+            $curX = null;
+        }
+        $gap = $curX === null ? 0 : ($x - $curX);
+        $sep = ($cur !== '' && $gap > 7) ? ' ' : '';
+        $cur .= $sep . $t;
+        $curY = $y;
+        $curX = $x + max(3, mb_strlen($t) * 3.2);
+    }
+    $line = trim($cur);
+    if ($line !== '') {
+        $lines[] = $line;
+    }
+    return $lines;
+}
+
+function quotePdfToText(string $bytes): string {
+    $pages = [];
+    if (!preg_match_all('/stream\r?\n(.*?)endstream/s', $bytes, $streams)) {
+        return '';
+    }
+    foreach ($streams[1] as $raw) {
+        $raw = rtrim($raw, "\r\n");
+        $dec = @gzuncompress($raw);
+        if (!is_string($dec) || $dec === '' || !str_contains($dec, ' TJ')) {
+            continue;
+        }
+        if (!preg_match_all('/1 0 0 1 ([0-9.]+) ([0-9.]+) Tm(.*?)TJ/s', $dec, $mm, PREG_SET_ORDER)) {
+            continue;
+        }
+        $items = [];
+        foreach ($mm as $m) {
+            $text = '';
+            if (preg_match_all('/\((?:\\\\.|[^\\\\)])*\)/', $m[3], $parts)) {
+                foreach ($parts[0] as $part) {
+                    $text .= quotePdfDecodeString(substr($part, 1, -1));
+                }
+            }
+            $text = str_replace("\x00", '', $text);
+            if (trim($text) === '') {
+                continue;
+            }
+            $items[] = [(float) $m[2], (float) $m[1], $text];
+        }
+        $page = quotePdfItemsToLines($items);
+        if ($page !== []) {
+            $pages[] = implode("\n", $page);
         }
     }
-    if ($out !== []) {
-        return implode("\n", $out);
+    return implode("\n", $pages);
+}
+
+function quoteLooksLikeProseOffer(string $text): bool {
+    return (bool) preg_match('/\b\d{5,7}(?:-\d{3,4})?\b/', $text)
+        && (bool) preg_match('/\b(Junior|Senior|Maten|Stanno|Footless|Bedrukkingen|initialen)\b/iu', $text);
+}
+
+function quoteParseQtySizeList(string $chunk): array {
+    $chunk = trim($chunk);
+    $chunk = preg_replace('/€\s*[\d.,]+.*$/', '', $chunk) ?? $chunk;
+    $chunk = preg_replace('/(\d)\s+(\d)\s*\//', '$1$2/', $chunk) ?? $chunk;
+    $out = [];
+    if (preg_match_all('/(\d+)\s*\/\s*([A-Za-z]{1,4}|\d{2,3}(?:\s*[-\/]\s*\d{2,3})?)/u', $chunk, $m, PREG_SET_ORDER)) {
+        foreach ($m as $hit) {
+            $out[] = ['qty' => (int) $hit[1], 'size' => trim(str_replace(' ', '', $hit[2]))];
+        }
     }
-    $plain = preg_replace('/[^\x09\x0A\x0D\x20-\x7E\xA0-\xFF]+/', "\n", $bytes) ?? '';
-    return $plain;
+    $compact = strtolower(preg_replace('/\s+/', '', $chunk) ?? $chunk);
+    if ($out === [] && (str_contains($compact, 'onesize') || preg_match('/\b(jr|sr)\b/iu', $chunk))) {
+        $size = str_contains($compact, 'onesize') ? 'één maat' : (preg_match('/\b(jr|sr)\b/iu', $chunk, $m) ? $m[1] : '');
+        $out[] = ['qty' => 0, 'size' => $size];
+    }
+    return $out;
+}
+
+/**
+ * Offerte van de sponsorcommissie: "19 Stanno Bolt T-shirt, 410014-8000" + "Senior: 14/S, 1/M".
+ *
+ * @return list<array{article:string,name:string,size:string,qty:int,price:?float,print:?string,raw:string}>
+ */
+function quoteLinesFromProse(string $text): array {
+    $text = str_replace(["\r\n", "\r"], "\n", $text);
+    $rows = preg_split('/\n+/', $text) ?: [];
+    $lines = [];
+    $pending = null;
+    $flush = static function () use (&$pending, &$lines): void {
+        if (!is_array($pending) || empty($pending['sizes'])) {
+            $pending = null;
+            return;
+        }
+        foreach ($pending['sizes'] as $sz) {
+            $qty = (int) $sz['qty'];
+            if ($qty < 1) {
+                $qty = (int) ($pending['qty'] ?? 0);
+            }
+            if ($qty < 1) {
+                continue;
+            }
+            $lines[] = [
+                'article' => (string) ($pending['article'] ?? ''),
+                'name' => (string) ($pending['name'] ?? ''),
+                'size' => (string) $sz['size'],
+                'qty' => $qty,
+                'price' => $pending['price'] ?? null,
+                'print' => null,
+                'raw' => (string) ($pending['raw'] ?? ''),
+            ];
+        }
+        $pending = null;
+    };
+
+    foreach ($rows as $row) {
+        $row = trim(preg_replace('/\s+/u', ' ', $row) ?? $row);
+        if ($row === '' || preg_match('/^(beste |hartelijk |hierbij |totaalprijs|drukwerk |prijzen:|betaling:|levertijd:|ik vertrouw|met vriendelijke|sponsorcommissie|tino |raalte,|sponsor:|pagina )/iu', $row)) {
+            continue;
+        }
+        if (preg_match('/^(\d+)\s+(.+?)(?:\s+€\s*([\d.,]+))?\s*$/u', $row, $m)) {
+            $name = trim($m[2]);
+            $print = quotePrintKeyFromName($name);
+            $hasArt = (bool) preg_match('/\d{5,7}/', $name);
+            if ($print !== null && !$hasArt) {
+                $flush();
+                $lines[] = [
+                    'article' => '',
+                    'name' => $name,
+                    'size' => '',
+                    'qty' => (int) $m[1],
+                    'price' => isset($m[3]) ? quoteParseNumber($m[3]) : null,
+                    'print' => $print,
+                    'raw' => $row,
+                ];
+                continue;
+            }
+        }
+        if (preg_match('/^(Junior|Senior|Maten)\s*:\s*(.+)$/iu', $row, $m)) {
+            if (!is_array($pending)) {
+                continue;
+            }
+            $sizes = quoteParseQtySizeList($m[2]);
+            $price = null;
+            if (preg_match('/€\s*([\d.,]+)/u', $m[2], $pm)) {
+                $price = quoteParseNumber($pm[1]);
+            }
+            if ($price !== null) {
+                $pending['price'] = $price;
+            }
+            foreach ($sizes as $sz) {
+                if ($sz['qty'] < 1) {
+                    $sz['qty'] = (int) ($pending['qty'] ?? 0);
+                }
+                $pending['sizes'][] = $sz;
+            }
+            continue;
+        }
+        if (preg_match('/^(\d+)\s+(.+)$/u', $row, $m) && preg_match('/(\d{5,7}(?:\s*-\s*\d{3,4})?)/', $m[2], $am)) {
+            $flush();
+            $rest = $m[2];
+            $article = preg_replace('/\s+/', '', $am[1]) ?? $am[1];
+            $name = trim((string) preg_replace('/,?\s*' . preg_quote($article, '/') . '.*/', '', $rest));
+            $name = trim($name, " \t,");
+            $pending = [
+                'qty' => (int) $m[1],
+                'article' => $article,
+                'name' => $name !== '' ? $name : $rest,
+                'price' => preg_match('/€\s*([\d.,]+)/u', $rest, $pm) ? quoteParseNumber($pm[1]) : null,
+                'sizes' => [],
+                'raw' => $row,
+            ];
+            $inline = quoteParseQtySizeList($rest);
+            foreach ($inline as $sz) {
+                if ($sz['qty'] < 1) {
+                    $sz['qty'] = (int) $pending['qty'];
+                }
+                $pending['sizes'][] = $sz;
+            }
+            continue;
+        }
+    }
+    $flush();
+    return $lines;
 }
 
 function parseQuoteUpload(?array $file, string $pasted): array {
@@ -734,6 +933,19 @@ function parseQuoteUpload(?array $file, string $pasted): array {
         return $parsed;
     }
     throw new RuntimeException('Kies een offertebestand of plak de tabel.');
+}
+
+function quoteArticleAliases(string $base): array {
+    $groups = [
+        ['420000', '420004'],
+        ['484837', '484838'],
+    ];
+    foreach ($groups as $group) {
+        if (in_array($base, $group, true)) {
+            return $group;
+        }
+    }
+    return $base !== '' ? [$base] : [];
 }
 
 function expectedQuoteGarments(array $shopByType): array {
@@ -814,6 +1026,7 @@ function compareQuoteToOrder(array $shopByType, array $printRows, array $quoteLi
     }
     $quoteQty = [];
     $quoteMeta = [];
+    $skuDiff = [];
     $unknown = [];
     $quotePieces = 0;
 
@@ -837,6 +1050,16 @@ function compareQuoteToOrder(array $shopByType, array $printRows, array $quoteLi
             $key = 'p:' . $print;
         } elseif ($base !== '') {
             $key = 'a:' . $base . '|' . $sizeKey;
+            if (!isset($expected[$key])) {
+                foreach (quoteArticleAliases($base) as $alias) {
+                    $try = 'a:' . $alias . '|' . $sizeKey;
+                    if (isset($expected[$try])) {
+                        $key = $try;
+                        $skuDiff[$try] = $article !== '' ? $article : $base;
+                        break;
+                    }
+                }
+            }
             if (!isset($expected[$key]) && $sizeKey === '') {
                 $cands = [];
                 foreach (array_keys($expected) as $ek) {
@@ -914,6 +1137,9 @@ function compareQuoteToOrder(array $shopByType, array $printRows, array $quoteLi
         } elseif ($got > $need) {
             $status = 'over';
             $extra++;
+        } elseif (!empty($skuDiff[$key])) {
+            $status = 'sku';
+            $ok++;
         } else {
             $status = 'ok';
             $ok++;
@@ -923,6 +1149,7 @@ function compareQuoteToOrder(array $shopByType, array $printRows, array $quoteLi
             'kind' => $ex['kind'],
             'name' => implode(' + ', array_keys($ex['names'])),
             'article' => $ex['article'],
+            'quote_article' => (string) ($skuDiff[$key] ?? ''),
             'size' => $ex['size'],
             'app' => $need,
             'quote' => $got,
@@ -945,19 +1172,21 @@ function compareQuoteToOrder(array $shopByType, array $printRows, array $quoteLi
     }
 
     usort($rows, static function (array $a, array $b): int {
-        $rank = ['missing' => 0, 'short' => 1, 'over' => 2, 'ok' => 3];
+        $rank = ['missing' => 0, 'short' => 1, 'sku' => 2, 'over' => 3, 'ok' => 4];
         return [($rank[$a['status']] ?? 9), $a['name'], $a['size']] <=> [($rank[$b['status']] ?? 9), $b['name'], $b['size']];
     });
 
+    $skuN = count(array_filter($rows, static fn($r) => ($r['status'] ?? '') === 'sku'));
     $problems = $missing + $short;
     return [
-        'ok' => $problems === 0 && $unknown === [],
+        'ok' => $problems === 0 && $unknown === [] && $skuN === 0,
         'complete' => $problems === 0,
         'counts' => [
             'ok' => $ok,
             'short' => $short,
             'over' => $extra,
             'missing' => $missing,
+            'sku' => $skuN,
             'unknown' => count($unknown),
             'app_pieces' => $appPieces,
             'quote_pieces' => $quotePieces,

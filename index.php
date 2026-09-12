@@ -928,7 +928,7 @@ details.fold[open] > summary.fold-head{margin-bottom:2px;border-bottom:1px solid
 .quote-check table td.status{font-weight:800}
 .quote-check tr.is-ok td.status{color:var(--green)}
 .quote-check tr.is-short td.status,.quote-check tr.is-missing td.status{color:var(--miss)}
-.quote-check tr.is-over td.status{color:var(--warn)}
+.quote-check tr.is-over td.status,.quote-check tr.is-sku td.status{color:var(--warn)}
 .card .actions{margin-top:auto;padding-top:4px}
 .card .actions .btn{padding:8px 12px;font-size:12px}
 .save-state{font-size:11px;font-weight:800;color:var(--muted);min-height:16px}
@@ -1681,6 +1681,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         'short' => 'Te weinig',
         'over' => 'Te veel',
         'missing' => 'Ontbreekt op offerte',
+        'sku' => 'Ander artikelnummer',
       ];
     ?>
     <div class="quote-check" id="offerte">
@@ -1705,12 +1706,14 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         $qc = $quoteReport['counts'];
         $complete = !empty($quoteReport['complete']);
         $boxClass = $complete ? (!empty($quoteReport['ok']) ? 'ok' : 'warn') : 'no';
-        if ($complete && empty($quoteReport['ok'])) {
-            $boxText = 'Alles uit de app staat op de offerte. Extra regels hieronder zijn niet nodig voor Kitroom.';
-        } elseif ($complete) {
-            $boxText = 'De offerte dekt de bestelling in de app: artikel, maat en aantal kloppen.';
-        } else {
+        if (!$complete) {
             $boxText = $qc['missing'] . ' ontbreken, ' . $qc['short'] . ' te weinig. Nog niet alles uit de app staat op de offerte.';
+        } elseif (!empty($qc['sku'])) {
+            $boxText = 'Aantallen dekken de app, maar ' . (int) $qc['sku'] . ' regels hebben een ander artikelnummer.';
+        } elseif (empty($quoteReport['ok'])) {
+            $boxText = 'Alles uit de app staat op de offerte. Extra regels hieronder zijn niet nodig voor Kitroom.';
+        } else {
+            $boxText = 'De offerte dekt de bestelling in de app: artikel, maat en aantal kloppen.';
         }
       ?>
       <p class="quote-status <?= h($boxClass) ?>"><?= h($boxText) ?> App <?= (int) $qc['app_pieces'] ?> stuks · offerte <?= (int) $qc['quote_pieces'] ?> stuks.</p>
@@ -1734,7 +1737,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             <?php foreach ($quoteReport['rows'] as $qr): ?>
             <tr class="is-<?= h((string) $qr['status']) ?>">
               <td class="name"><?= h((string) $qr['name']) ?><?= ($qr['kind'] ?? '') === 'print' ? ' <span class="muted">print</span>' : '' ?></td>
-              <td><?= h((string) $qr['article']) ?></td>
+              <td><?= h((string) $qr['article']) ?><?php if (($qr['quote_article'] ?? '') !== '' && quoteArticleBase((string) $qr['quote_article']) !== quoteArticleBase((string) $qr['article'])): ?><div class="place">offerte <?= h((string) $qr['quote_article']) ?></div><?php endif; ?></td>
               <td><?= h((string) $qr['size']) ?></td>
               <td><?= (int) $qr['app'] ?></td>
               <td><?= (int) $qr['quote'] ?></td>

@@ -816,6 +816,36 @@ if ($action === 'set_staff_status') {
     jsonOut(['ok' => true, 'status' => $status]);
 }
 
+if ($action === 'check_quote') {
+    requireEditor($body);
+    try {
+        $parsed = parseQuoteUpload($_FILES['quote'] ?? null, (string) ($body['text'] ?? ''));
+        $lines = $parsed['lines'] ?? [];
+        if ($lines === []) {
+            jsonOut(['ok' => false, 'error' => (string) (($parsed['warnings'][0] ?? '') !== '' ? $parsed['warnings'][0] : 'Geen bestelregels herkend in dit bestand.')], 400);
+        }
+        $stamp = new DateTimeImmutable('now', new DateTimeZone('Europe/Amsterdam'));
+        saveQuoteCheck([
+            'file' => (string) ($parsed['file'] ?? 'offerte'),
+            'at' => $stamp->getTimestamp(),
+            'when' => $stamp->format('d-m-Y H:i'),
+            'format' => (string) ($parsed['format'] ?? ''),
+            'sheets' => $parsed['sheets'] ?? [],
+            'warnings' => $parsed['warnings'] ?? [],
+            'lines' => array_values($lines),
+        ]);
+        jsonOut(['ok' => true, 'count' => count($lines)]);
+    } catch (Throwable $e) {
+        jsonOut(['ok' => false, 'error' => $e->getMessage() !== '' ? $e->getMessage() : 'Kon offerte niet lezen.'], 400);
+    }
+}
+
+if ($action === 'clear_quote') {
+    requireEditor($body);
+    clearQuoteCheck();
+    jsonOut(['ok' => true]);
+}
+
 if ($action === 'restore_type') {
     requireEditor($body);
     $id = (int) ($body['id'] ?? 0);

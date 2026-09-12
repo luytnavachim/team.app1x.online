@@ -569,6 +569,13 @@ uksort($shopByType, static function ($a, $b) use ($types) {
     return [$rank((int) $a), (int) $a] <=> [$rank((int) $b), (int) $b];
 });
 
+$quoteStored = $canEdit ? loadQuoteCheck() : null;
+$quoteReport = null;
+if (is_array($quoteStored)) {
+    $quoteReport = compareQuoteToOrder($shopByType, $printRows, $quoteStored['lines'] ?? []);
+}
+$quoteIssues = is_array($quoteReport) ? ((int) ($quoteReport['counts']['missing'] ?? 0) + (int) ($quoteReport['counts']['short'] ?? 0)) : 0;
+
 $csvKind = (string) ($_GET['csv'] ?? $_GET['xls'] ?? '');
 
 if ($csvKind === 'bestel' || $csvKind === 'regels') {
@@ -901,6 +908,27 @@ details.fold[open] > summary.fold-head{margin-bottom:2px;border-bottom:1px solid
 .order-live-total b{font-size:18px;font-weight:800}
 .order-live-total .incl{font-size:13px;font-weight:700;color:var(--muted)}
 .order-live .hint{margin:0;font-size:12px}
+.quote-check{
+  border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;
+  background:var(--surface2);margin:14px 0;
+}
+.quote-check h4{margin:0 0 4px;font-size:15px;font-weight:800}
+.quote-check .quote-status{margin:10px 0 0;padding:10px 12px;border-radius:12px;font-size:13px;font-weight:700}
+.quote-check .quote-status.ok{background:var(--greenbg);color:var(--green)}
+.quote-check .quote-status.no{background:var(--missbg);color:var(--miss)}
+.quote-check .quote-status.warn{background:var(--warnbg);color:var(--warn)}
+.quote-upload{display:grid;gap:10px;margin-top:10px}
+.quote-upload .fileline{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.quote-upload input[type=file]{max-width:100%;font-size:12.5px}
+.quote-upload textarea{
+  width:100%;min-height:90px;border:1px solid var(--line2);border-radius:12px;
+  background:var(--surface);color:var(--ink);padding:10px 12px;font:inherit;font-size:12.5px;
+}
+.quote-meta{margin:8px 0 0;font-size:12px;color:var(--muted);font-weight:600}
+.quote-check table td.status{font-weight:800}
+.quote-check tr.is-ok td.status{color:var(--green)}
+.quote-check tr.is-short td.status,.quote-check tr.is-missing td.status{color:var(--miss)}
+.quote-check tr.is-over td.status{color:var(--warn)}
 .card .actions{margin-top:auto;padding-top:4px}
 .card .actions .btn{padding:8px 12px;font-size:12px}
 .save-state{font-size:11px;font-weight:800;color:var(--muted);min-height:16px}
@@ -1190,7 +1218,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         --warn:#a16207;--warnbg:#fef3c7;--na:#71717a;--nabg:#fafafa}
   html{color-scheme:light}
   body{background:#fff;color:#111}
-  .navwrap,.filters,.actions,.note,.toast,.modal,.theme-switch,#parentAlert,.assign,.addrow,.money,.cat-input,#printPrices,.parent-defaults,.packfold > summary,#beheer{display:none !important}
+  .navwrap,.filters,.actions,.note,.toast,.modal,.theme-switch,#parentAlert,.assign,.addrow,.money,.cat-input,#printPrices,.parent-defaults,.packfold > summary,#beheer,.quote-upload{display:none !important}
   .packfold{display:block}
   .packshot{max-width:360px}
   .kit-design{grid-template-columns:1fr 1fr;break-inside:avoid}
@@ -1239,7 +1267,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     <?php if ($canEdit): ?>
     <?= navIconLink('#ouders', 'Ouders', 'ouders', '', $parentFilled ? '<span class="count" id="ouderNavCount">'.count($parentFilled).'</span>' : '<span class="count" id="ouderNavCount" hidden></span>') ?>
     <?php endif; ?>
-    <?= navIconLink('#bestel', 'Bestelling', 'bestel') ?>
+    <?= navIconLink('#bestel', 'Bestelling', 'bestel', '', $canEdit && $quoteIssues > 0 ? '<span class="count wait">'.$quoteIssues.'</span>' : '') ?>
     <?= navIconLink('#staf', 'Staf', 'staf') ?>
     <?= navIconLink('#catalogus', 'Catalogus', 'catalogus') ?>
     <?php if ($canEdit): ?>
@@ -1646,6 +1674,105 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
       <button type="button" class="btn assign-package-all" data-who="player">Pakket aan alle spelers</button>
       <?php endif; ?>
     </div>
+
+    <?php if ($canEdit):
+      $qStatus = [
+        'ok' => 'Klopt',
+        'short' => 'Te weinig',
+        'over' => 'Te veel',
+        'missing' => 'Ontbreekt op offerte',
+      ];
+    ?>
+    <div class="quote-check" id="offerte">
+      <h4>Offerte controleren</h4>
+      <p class="hint">Laad de offerte van de winkel (Excel, CSV of PDF). We zetten artikel, maat en aantal naast wat er in Kitroom besteld moet worden.</p>
+      <form class="quote-upload" id="quoteForm">
+        <div class="fileline">
+          <input type="file" id="quoteFile" name="quote" accept=".xlsx,.xlsm,.csv,.txt,.pdf,.tsv">
+          <button type="submit" class="btn dark" id="quoteBtn">Controleren</button>
+          <?php if ($quoteStored): ?>
+          <button type="button" class="btn" id="quoteClear">Offerte wissen</button>
+          <?php endif; ?>
+        </div>
+        <details class="shop-more">
+          <summary>Of plak de tabel</summary>
+          <textarea id="quoteText" placeholder="Artikel; Product; Maat; Aantal"></textarea>
+        </details>
+      </form>
+      <?php if ($quoteStored && $quoteReport): ?>
+      <p class="quote-meta"><?= h((string) $quoteStored['file']) ?> · <?= h((string) ($quoteStored['when'] ?? '')) ?> · <?= (int) count($quoteStored['lines'] ?? []) ?> regels</p>
+      <?php
+        $qc = $quoteReport['counts'];
+        $complete = !empty($quoteReport['complete']);
+        $boxClass = $complete ? (!empty($quoteReport['ok']) ? 'ok' : 'warn') : 'no';
+        if ($complete && empty($quoteReport['ok'])) {
+            $boxText = 'Alles uit de app staat op de offerte. Extra regels hieronder zijn niet nodig voor Kitroom.';
+        } elseif ($complete) {
+            $boxText = 'De offerte dekt de bestelling in de app: artikel, maat en aantal kloppen.';
+        } else {
+            $boxText = $qc['missing'] . ' ontbreken, ' . $qc['short'] . ' te weinig. Nog niet alles uit de app staat op de offerte.';
+        }
+      ?>
+      <p class="quote-status <?= h($boxClass) ?>"><?= h($boxText) ?> App <?= (int) $qc['app_pieces'] ?> stuks · offerte <?= (int) $qc['quote_pieces'] ?> stuks.</p>
+      <?php if (!empty($quoteStored['warnings'])): ?>
+      <p class="hint"><?= h(implode(' ', $quoteStored['warnings'])) ?></p>
+      <?php endif; ?>
+      <div class="tablewrap" style="margin-top:12px">
+        <table>
+          <thead>
+            <tr>
+              <th class="name">In de app</th>
+              <th>Artikel</th>
+              <th>Maat</th>
+              <th>App</th>
+              <th>Offerte</th>
+              <th>Verschil</th>
+              <th>Status</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach ($quoteReport['rows'] as $qr): ?>
+            <tr class="is-<?= h((string) $qr['status']) ?>">
+              <td class="name"><?= h((string) $qr['name']) ?><?= ($qr['kind'] ?? '') === 'print' ? ' <span class="muted">print</span>' : '' ?></td>
+              <td><?= h((string) $qr['article']) ?></td>
+              <td><?= h((string) $qr['size']) ?></td>
+              <td><?= (int) $qr['app'] ?></td>
+              <td><?= (int) $qr['quote'] ?></td>
+              <td><?= (int) $qr['diff'] === 0 ? '0' : ((int) $qr['diff'] > 0 ? '+' . (int) $qr['diff'] : (string) (int) $qr['diff']) ?></td>
+              <td class="status"><?= h($qStatus[$qr['status']] ?? $qr['status']) ?></td>
+            </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+      <?php if (!empty($quoteReport['unknown'])): ?>
+      <p class="hint" style="margin-top:12px">Staat op de offerte, niet in de app-bestelling:</p>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th class="name">Offerte</th>
+              <th>Artikel</th>
+              <th>Maat</th>
+              <th>Aantal</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php foreach ($quoteReport['unknown'] as $uq): ?>
+            <tr>
+              <td class="name"><?= h((string) $uq['name']) ?></td>
+              <td><?= h((string) $uq['article']) ?></td>
+              <td><?= h((string) $uq['size']) ?></td>
+              <td><?= (int) $uq['qty'] ?></td>
+            </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+      <?php endif; ?>
+      <?php endif; ?>
+    </div>
+    <?php endif; ?>
 
     <?php if ($canEdit): ?>
     <div class="order-live" id="orderLive">
@@ -3152,6 +3279,37 @@ document.querySelectorAll('.cms-t-restore').forEach(btn=>{
   btn.addEventListener('click', async ()=>{
     await cmsOk(await api({action:'restore_type', csrf:TEAM.csrf, id:+btn.dataset.id}), 'Artikel teruggezet');
   });
+});
+document.getElementById('quoteForm')?.addEventListener('submit', async e=>{
+  e.preventDefault();
+  const file=document.getElementById('quoteFile')?.files?.[0];
+  const text=document.getElementById('quoteText')?.value||'';
+  if(!file && !text.trim()){ toast('Kies een bestand of plak de tabel'); return; }
+  const fd=new FormData();
+  fd.append('action','check_quote');
+  fd.append('csrf', TEAM.csrf);
+  if(file) fd.append('quote', file);
+  if(text.trim()) fd.append('text', text);
+  const btn=document.getElementById('quoteBtn');
+  if(btn) btn.disabled=true;
+  try{
+    const res=await fetch('save.php', {method:'POST', body:fd, credentials:'same-origin'});
+    let out={};
+    try{ out=await res.json(); }catch(err){ out={ok:false,error:'Geen antwoord'}; }
+    if(!out.ok){ toast(out.error||'Offerte niet gelezen'); return; }
+    toast('Offerte geladen · '+(out.count||0)+' regels');
+    location.hash='bestel';
+    location.reload();
+  } finally {
+    if(btn) btn.disabled=false;
+  }
+});
+document.getElementById('quoteClear')?.addEventListener('click', async ()=>{
+  if(!confirm('Ingeladen offerte wissen?')) return;
+  const out=await api({action:'clear_quote', csrf:TEAM.csrf});
+  if(!out.ok){ toast(out.error||'Wissen mislukt'); return; }
+  location.hash='bestel';
+  location.reload();
 });
 recalcOrder();
 </script>

@@ -3560,6 +3560,8 @@ function makeKitroomBackup(mysqli $db): array {
     return ['path' => $path, 'filename' => $filename];
 }
 
+require_once __DIR__ . '/quote.php';
+
 ensureParentTokenColumn($mysqli);
 ensureParentSavedAtColumn($mysqli);
 ensureStaffFillColumns($mysqli);

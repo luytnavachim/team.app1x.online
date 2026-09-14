@@ -59,13 +59,37 @@ function quoteParseNumber(mixed $v): ?float {
     return (float) $s;
 }
 
-function quoteArticleBase(string $article): string {
+function quoteNormalizeArticle(string $article): string {
     $s = strtoupper(trim($article));
+    $s = preg_replace('/(\d)\s+(\d)/', '$1$2', $s) ?? $s;
     $s = str_replace([' ', '.', '_'], '', $s);
+    $s = preg_replace('/-+/', '-', $s) ?? $s;
+    return $s;
+}
+
+function quoteArticleBase(string $article): string {
+    $s = quoteNormalizeArticle($article);
+    if (preg_match('/(\d{6})/', $s, $m)) {
+        return $m[1];
+    }
     if (preg_match('/(\d{4,8})/', $s, $m)) {
         return $m[1];
     }
     return $s;
+}
+
+/** PDF-extractie zet spaties in artikelnummers en maten: "42000 0-8200", "1 4/S", "On e SIZE". */
+function quoteHealOfferText(string $text): string {
+    $text = str_replace("\x00", '', $text);
+    $text = preg_replace('/(\d{4,6})\s+(\d)\s*-\s*(\d{3,4})/', '$1$2-$3', $text) ?? $text;
+    $text = preg_replace('/(\d{5,7})\s*-\s*(\d{3,4})/', '$1-$2', $text) ?? $text;
+    $text = preg_replace('/(\d)\s+(\d)\s*\//', '$1$2/', $text) ?? $text;
+    $text = preg_replace('/(\d+)\s*\/\s+/', '$1/', $text) ?? $text;
+    $text = preg_replace('/(\d{2})\s*[\-–]\s*(\d{2})\b/', '$1-$2', $text) ?? $text;
+    $text = preg_replace('/\bO\s*n\s*e\s+SIZE\b/i', 'One SIZE', $text) ?? $text;
+    $text = preg_replace('/\b(Junior|Senior|Maten)\s*:/i', '$1:', $text) ?? $text;
+    $text = preg_replace('/\bzwar\s+t\b/i', 'zwart', $text) ?? $text;
+    return $text;
 }
 
 function quoteSizeKey(string $size): string {
@@ -669,6 +693,7 @@ function parseQuoteBytes(string $bytes, string $filename): array {
                 throw new RuntimeException('Deze PDF is geen tekstbestand. Sla hem op als Excel/CSV of plak de tabel.');
             }
         }
+        $text = quoteHealOfferText($text);
         if (quoteLooksLikeProseOffer($text)) {
             $prose = quoteLinesFromProse($text);
             if ($prose !== []) {
@@ -798,7 +823,7 @@ function quoteParseQtySizeList(string $chunk): array {
  * @return list<array{article:string,name:string,size:string,qty:int,price:?float,print:?string,raw:string}>
  */
 function quoteLinesFromProse(string $text): array {
-    $text = str_replace(["\r\n", "\r"], "\n", $text);
+    $text = quoteHealOfferText(str_replace(["\r\n", "\r"], "\n", $text));
     $rows = preg_split('/\n+/', $text) ?: [];
     $lines = [];
     $pending = null;
@@ -874,8 +899,11 @@ function quoteLinesFromProse(string $text): array {
         if (preg_match('/^(\d+)\s+(.+)$/u', $row, $m) && preg_match('/(\d{5,7}(?:\s*-\s*\d{3,4})?)/', $m[2], $am)) {
             $flush();
             $rest = $m[2];
-            $article = preg_replace('/\s+/', '', $am[1]) ?? $am[1];
-            $name = trim((string) preg_replace('/,?\s*' . preg_quote($article, '/') . '.*/', '', $rest));
+            $article = quoteNormalizeArticle($am[1]);
+            $name = trim((string) preg_replace('/,?\s*' . preg_quote($am[1], '/') . '.*/', '', $rest));
+            if ($name === $rest || $name === '') {
+                $name = trim((string) preg_replace('/,?\s*' . preg_quote($article, '/') . '.*/', '', $rest));
+            }
             $name = trim($name, " \t,");
             $pending = [
                 'qty' => (int) $m[1],
@@ -1055,7 +1083,6 @@ function compareQuoteToOrder(array $shopByType, array $printRows, array $quoteLi
                     $try = 'a:' . $alias . '|' . $sizeKey;
                     if (isset($expected[$try])) {
                         $key = $try;
-                        $skuDiff[$try] = $article !== '' ? $article : $base;
                         break;
                     }
                 }

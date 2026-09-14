@@ -62,10 +62,60 @@ function quoteParseNumber(mixed $v): ?float {
 function quoteArticleBase(string $article): string {
     $s = strtoupper(trim($article));
     $s = str_replace([' ', '.', '_'], '', $s);
+    // Stanno: 6 cijfers, vaak met kleurcode 410014-8000 of aan elkaar 4100148000.
+    if (preg_match('/(\d{6})(?:-?\d{3,4})?/', $s, $m)) {
+        return $m[1];
+    }
     if (preg_match('/(\d{4,8})/', $s, $m)) {
         return $m[1];
     }
     return $s;
+}
+
+function quoteExtractArticle(string $text): string {
+    $s = trim($text);
+    if (preg_match('/(\d{6}(?:\s*-\s*\d{3,4})?|\d{10})/', $s, $m)) {
+        return preg_replace('/\s+/', '', $m[1]) ?? $m[1];
+    }
+    return '';
+}
+
+function quoteExtractSizeFromText(string $text): string {
+    $s = trim($text);
+    if ($s === '') {
+        return '';
+    }
+    if (preg_match('/\b(onesize|one\s*size|een\s*maat|één\s*maat)\b/iu', $s)) {
+        return 'één maat';
+    }
+    if (preg_match('/\b(116|128|140|152|164|2XL|3XL|XXL|XXXL|XL|JR|SR|S|M|L)\b/u', $s, $m)) {
+        return quoteSizeKey($m[1]);
+    }
+    if (preg_match('/\b(\d{2,3}\s*[\/-]\s*\d{2,3})\b/u', $s, $m)) {
+        return quoteSizeKey($m[1]);
+    }
+    return '';
+}
+
+function quoteYouthSizeKeys(): array {
+    return ['116', '128', '140', '152', '164', 'JR'];
+}
+
+function quoteSeniorSizeKeys(): array {
+    return ['S', 'M', 'L', 'XL', 'XXL', 'XXXL', 'SR'];
+}
+
+function quoteSizeBand(string $sizeKey): string {
+    if ($sizeKey === '' || $sizeKey === 'één maat') {
+        return $sizeKey === 'één maat' ? 'onesize' : '';
+    }
+    if (in_array($sizeKey, quoteYouthSizeKeys(), true)) {
+        return 'youth';
+    }
+    if (in_array($sizeKey, quoteSeniorSizeKeys(), true)) {
+        return 'senior';
+    }
+    return 'other';
 }
 
 function quoteSizeKey(string $size): string {
@@ -116,9 +166,27 @@ function quoteNormText(string $s): string {
     return trim((string) $s);
 }
 
+function quoteLooksLikeGarmentName(string $n): bool {
+    return (bool) preg_match('/\b(jacket|jack|shirt|polo|short|sock|sokken|sok|broek|tas|bag|set|tenue|padded|kous)\b/i', $n);
+}
+
+function quoteLooksLikePrintPhrase(string $n): bool {
+    if ($n === '') {
+        return false;
+    }
+    if (preg_match('/\b(logo|sponsor|bedruk|initial|nummer|nummers|tekst|teksten|clublogo|clubembleem|achterzijde|voorzijde|achterkant|voorkant|linkerborst|rechterborst|rohda)\b/', $n)) {
+        return true;
+    }
+    return str_contains($n, 'op de sporttas') || str_contains($n, 'op de tas') || str_starts_with($n, 'op de ');
+}
+
 function quotePrintKeyFromName(string $name): ?string {
     $n = quoteNormText($name);
     if ($n === '') {
+        return null;
+    }
+    $printish = quoteLooksLikePrintPhrase($n);
+    if (quoteLooksLikeGarmentName($n) && !$printish) {
         return null;
     }
     $map = [
@@ -126,7 +194,7 @@ function quotePrintKeyFromName(string $name): ?string {
         'initials' => ['initialen', 'initiaal', 'initials', 'letters'],
         'sponsor_padded' => ['sponsor padded', 'logo sponsor padded', 'sponsor winterjas', 'rechterborst padded', 'chterborst padded', 'padded jack', 'padded ja'],
         'sponsor_jacket' => ['sponsor regenjas', 'logo sponsor regenjas', 'sponsor field jack', 'sponsor jack achterkant', 'achterzijde field', 'achterzijde field jack'],
-        'sponsor_bag' => ['sponsor tas', 'logo sponsor tas', 'sporttas', 'op de sporttas'],
+        'sponsor_bag' => ['sponsor tas', 'logo sponsor tas', 'op de sporttas', 'op de tas'],
         'name_back' => ['nummer achterop', 'rugnummer', 'nummer shirt', 'nummers achterzijde', 'nummer achterzijde', 'nummers achterzijde shirts'],
         'sponsor_back' => ['sponsor achterkant', 'logo sponsor achterkant', 'sponsor shirts achterkant', 'bedrijfslogo achter', 'sponsoren op shirts achter', 'achterzijde shirts', 'shirts achterzijde'],
         'sponsor' => ['sponsor voorkant', 'logo sponsor voorkant', 'sponsor shirts voorkant', 'bedrijfslogo voor', 'sponsoren op shirts voor', 'shirts voorzijde'],
@@ -141,6 +209,9 @@ function quotePrintKeyFromName(string $name): ?string {
     }
     if ($n === 'nummer' || $n === 'nummers') {
         return 'name_back';
+    }
+    if ($printish && str_contains($n, 'sporttas')) {
+        return 'sponsor_bag';
     }
     return null;
 }
@@ -172,7 +243,8 @@ function quoteHeaderKind(string $cell): string {
     if (in_array($n, ['maat', 'size', 'sz', 'maten'], true)) {
         return 'size';
     }
-    if (in_array($n, ['aantal', 'qty', 'quantity', 'stuks', 'stuk', 'aant', 'qty ordered', 'besteld'], true)) {
+    if (in_array($n, ['aantal', 'qty', 'quantity', 'stuks', 'stuk', 'aant', 'qty ordered', 'besteld', 'aantal stuks'], true)
+        || (str_contains($n, 'aantal') && !str_contains($n, 'artikel'))) {
         return 'qty';
     }
     if (in_array($n, ['prijs', 'stukprijs', 'price', 'eur', 'bedrag', 'tarief'], true) || str_contains($n, 'prijs')) {
@@ -529,6 +601,12 @@ function quoteLinesFromRows(array $rows): array {
         $size = isset($map['size']) ? trim((string) ($row[$map['size']] ?? '')) : '';
         $qtyRaw = isset($map['qty']) ? $row[$map['qty']] ?? '' : '';
         $price = isset($map['price']) ? quoteParseNumber($row[$map['price']] ?? '') : null;
+        if ($article === '') {
+            $article = quoteExtractArticle($name !== '' ? $name : $first);
+        }
+        if ($size === '') {
+            $size = quoteExtractSizeFromText(trim($name . ' ' . $first));
+        }
         $print = quotePrintKeyFromName($name !== '' ? $name : $first);
 
         if ($sizeCols !== [] && (!isset($map['size']) || $size === '')) {
@@ -602,6 +680,12 @@ function quoteGuessLooseRow(array $row): ?array {
         $nameParts[] = $cell;
     }
     $name = trim(implode(' ', $nameParts));
+    if ($article === '') {
+        $article = quoteExtractArticle($name);
+    }
+    if ($size === '') {
+        $size = quoteExtractSizeFromText($name);
+    }
     $print = quotePrintKeyFromName($name);
     if ($qty === null) {
         return null;
@@ -741,10 +825,10 @@ function quotePdfToText(string $bytes): string {
     foreach ($streams[1] as $raw) {
         $raw = rtrim($raw, "\r\n");
         $dec = @gzuncompress($raw);
-        if (!is_string($dec) || $dec === '' || !str_contains($dec, ' TJ')) {
+        if (!is_string($dec) || $dec === '' || (!str_contains($dec, ' TJ') && !str_contains($dec, ' Tj'))) {
             continue;
         }
-        if (!preg_match_all('/1 0 0 1 ([0-9.]+) ([0-9.]+) Tm(.*?)TJ/s', $dec, $mm, PREG_SET_ORDER)) {
+        if (!preg_match_all('/1 0 0 1 ([0-9.]+) ([0-9.]+) Tm(.*?)(?:TJ|Tj)/s', $dec, $mm, PREG_SET_ORDER)) {
             continue;
         }
         $items = [];
@@ -774,20 +858,40 @@ function quoteLooksLikeProseOffer(string $text): bool {
         && (bool) preg_match('/\b(Junior|Senior|Maten|Stanno|Footless|Bedrukkingen|initialen)\b/iu', $text);
 }
 
-function quoteParseQtySizeList(string $chunk): array {
+function quoteParseQtySizeList(string $chunk, string $band = ''): array {
     $chunk = trim($chunk);
     $chunk = preg_replace('/€\s*[\d.,]+.*$/', '', $chunk) ?? $chunk;
     $chunk = preg_replace('/(\d)\s+(\d)\s*\//', '$1$2/', $chunk) ?? $chunk;
     $out = [];
-    if (preg_match_all('/(\d+)\s*\/\s*([A-Za-z]{1,4}|\d{2,3}(?:\s*[-\/]\s*\d{2,3})?)/u', $chunk, $m, PREG_SET_ORDER)) {
+    if (preg_match_all('/(\d+)\s*(?:x|×|\*)?\s*\/\s*([A-Za-z]{1,4}|\d{2,3}(?:\s*[-\/]\s*\d{2,3})?)/u', $chunk, $m, PREG_SET_ORDER)) {
+        foreach ($m as $hit) {
+            $out[] = ['qty' => (int) $hit[1], 'size' => trim(str_replace(' ', '', $hit[2]))];
+        }
+    }
+    if ($out === [] && preg_match_all('/(\d+)\s*(?:x|×|\*)\s*([A-Za-z]{1,4}|\d{2,3}(?:[\/-]\d{2,3})?)/u', $chunk, $m, PREG_SET_ORDER)) {
         foreach ($m as $hit) {
             $out[] = ['qty' => (int) $hit[1], 'size' => trim(str_replace(' ', '', $hit[2]))];
         }
     }
     $compact = strtolower(preg_replace('/\s+/', '', $chunk) ?? $chunk);
-    if ($out === [] && (str_contains($compact, 'onesize') || preg_match('/\b(jr|sr)\b/iu', $chunk))) {
-        $size = str_contains($compact, 'onesize') ? 'één maat' : (preg_match('/\b(jr|sr)\b/iu', $chunk, $m) ? $m[1] : '');
+    if ($out === [] && (str_contains($compact, 'onesize') || str_contains($compact, 'eenmaat') || str_contains($compact, 'éénmaat') || str_contains($compact, 'onemaat') || preg_match('/\b(jr|sr)\b/iu', $chunk))) {
+        $size = (str_contains($compact, 'onesize') || str_contains($compact, 'eenmaat') || str_contains($compact, 'éénmaat'))
+            ? 'één maat'
+            : (preg_match('/\b(jr|sr)\b/iu', $chunk, $m) ? $m[1] : '');
         $out[] = ['qty' => 0, 'size' => $size];
+    }
+    if ($out === [] && preg_match('/^(\d+)\s*$/', $chunk, $m)) {
+        $size = $band === 'junior' ? 'JR' : ($band === 'senior' ? 'SR' : '');
+        $out[] = ['qty' => (int) $m[1], 'size' => $size];
+    }
+    if ($out !== [] && $band !== '') {
+        foreach ($out as &$sz) {
+            if (($sz['size'] ?? '') !== '') {
+                continue;
+            }
+            $sz['size'] = $band === 'junior' ? 'JR' : ($band === 'senior' ? 'SR' : '');
+        }
+        unset($sz);
     }
     return $out;
 }
@@ -802,10 +906,26 @@ function quoteLinesFromProse(string $text): array {
     $rows = preg_split('/\n+/', $text) ?: [];
     $lines = [];
     $pending = null;
-    $flush = static function () use (&$pending, &$lines): void {
-        if (!is_array($pending) || empty($pending['sizes'])) {
-            $pending = null;
+    $addSizes = static function (array $sizes) use (&$pending): void {
+        if (!is_array($pending)) {
             return;
+        }
+        foreach ($sizes as $sz) {
+            if (($sz['qty'] ?? 0) < 1) {
+                $sz['qty'] = (int) ($pending['qty'] ?? 0);
+            }
+            if (($sz['qty'] ?? 0) < 1 && ($sz['size'] ?? '') === '') {
+                continue;
+            }
+            $pending['sizes'][] = $sz;
+        }
+    };
+    $flush = static function () use (&$pending, &$lines): void {
+        if (!is_array($pending)) {
+            return;
+        }
+        if (empty($pending['sizes']) && (int) ($pending['qty'] ?? 0) > 0) {
+            $pending['sizes'] = [['qty' => (int) $pending['qty'], 'size' => '']];
         }
         foreach ($pending['sizes'] as $sz) {
             $qty = (int) $sz['qty'];
@@ -830,53 +950,62 @@ function quoteLinesFromProse(string $text): array {
 
     foreach ($rows as $row) {
         $row = trim(preg_replace('/\s+/u', ' ', $row) ?? $row);
-        if ($row === '' || preg_match('/^(beste |hartelijk |hierbij |totaalprijs|drukwerk |prijzen:|betaling:|levertijd:|ik vertrouw|met vriendelijke|sponsorcommissie|tino |raalte,|sponsor:|pagina )/iu', $row)) {
+        if ($row === '' || preg_match('/^(beste |hartelijk |hierbij |totaalprijs|drukwerk |prijzen:|betaling:|levertijd:|ik vertrouw|met vriendelijke|sponsorcommissie|tino |raalte,|sponsor:|pagina |bedrukkingen)/iu', $row)) {
             continue;
         }
-        if (preg_match('/^(\d+)\s+(.+?)(?:\s+€\s*([\d.,]+))?\s*$/u', $row, $m)) {
-            $name = trim($m[2]);
-            $print = quotePrintKeyFromName($name);
-            $hasArt = (bool) preg_match('/\d{5,7}/', $name);
-            if ($print !== null && !$hasArt) {
+        if (is_array($pending) && ($pending['article'] ?? '') === '' && quoteExtractArticle($row) !== '' && preg_match('/^[\d\s-]+$/', $row)) {
+            $pending['article'] = quoteExtractArticle($row);
+            continue;
+        }
+        if (preg_match('/^(Junior|Senior|Maten)\s*:?\s*(.*)$/iu', $row, $m)) {
+            if (!is_array($pending)) {
+                continue;
+            }
+            $band = strtolower($m[1]);
+            $rest = trim((string) $m[2]);
+            if ($rest === '') {
+                continue;
+            }
+            $sizes = quoteParseQtySizeList($rest, $band === 'maten' ? '' : $band);
+            if (preg_match('/€\s*([\d.,]+)/u', $rest, $pm)) {
+                $pending['price'] = quoteParseNumber($pm[1]);
+            }
+            $addSizes($sizes);
+            continue;
+        }
+        if (is_array($pending)) {
+            $sizes = quoteParseQtySizeList($row);
+            if ($sizes !== []) {
+                $addSizes($sizes);
+                continue;
+            }
+            $loneSize = quoteExtractSizeFromText($row);
+            if ($loneSize !== '' && preg_match('/^(onesize|one size|een maat|één maat|jr|sr|116|128|140|152|164|s|m|l|xl|xxl)$/iu', $row)) {
+                $addSizes([['qty' => 0, 'size' => $loneSize]]);
+                continue;
+            }
+        }
+        if (preg_match('/^(\d+)\s+(.+)$/u', $row, $m)) {
+            $rest = trim($m[2]);
+            $print = quotePrintKeyFromName($rest);
+            $article = quoteExtractArticle($rest);
+            if ($print !== null && $article === '') {
                 $flush();
                 $lines[] = [
                     'article' => '',
-                    'name' => $name,
+                    'name' => $rest,
                     'size' => '',
                     'qty' => (int) $m[1],
-                    'price' => isset($m[3]) ? quoteParseNumber($m[3]) : null,
+                    'price' => preg_match('/€\s*([\d.,]+)/u', $rest, $pm) ? quoteParseNumber($pm[1]) : null,
                     'print' => $print,
                     'raw' => $row,
                 ];
                 continue;
             }
-        }
-        if (preg_match('/^(Junior|Senior|Maten)\s*:\s*(.+)$/iu', $row, $m)) {
-            if (!is_array($pending)) {
-                continue;
-            }
-            $sizes = quoteParseQtySizeList($m[2]);
-            $price = null;
-            if (preg_match('/€\s*([\d.,]+)/u', $m[2], $pm)) {
-                $price = quoteParseNumber($pm[1]);
-            }
-            if ($price !== null) {
-                $pending['price'] = $price;
-            }
-            foreach ($sizes as $sz) {
-                if ($sz['qty'] < 1) {
-                    $sz['qty'] = (int) ($pending['qty'] ?? 0);
-                }
-                $pending['sizes'][] = $sz;
-            }
-            continue;
-        }
-        if (preg_match('/^(\d+)\s+(.+)$/u', $row, $m) && preg_match('/(\d{5,7}(?:\s*-\s*\d{3,4})?)/', $m[2], $am)) {
             $flush();
-            $rest = $m[2];
-            $article = preg_replace('/\s+/', '', $am[1]) ?? $am[1];
-            $name = trim((string) preg_replace('/,?\s*' . preg_quote($article, '/') . '.*/', '', $rest));
-            $name = trim($name, " \t,");
+            $name = $article !== ''
+                ? trim((string) preg_replace('/,?\s*' . preg_quote($article, '/') . '.*/', '', $rest), " \t,")
+                : $rest;
             $pending = [
                 'qty' => (int) $m[1],
                 'article' => $article,
@@ -886,12 +1015,7 @@ function quoteLinesFromProse(string $text): array {
                 'raw' => $row,
             ];
             $inline = quoteParseQtySizeList($rest);
-            foreach ($inline as $sz) {
-                if ($sz['qty'] < 1) {
-                    $sz['qty'] = (int) $pending['qty'];
-                }
-                $pending['sizes'][] = $sz;
-            }
+            $addSizes($inline);
             continue;
         }
     }
@@ -1008,9 +1132,44 @@ function expectedQuotePrints(array $printRows): array {
     return $groups;
 }
 
+function quoteResolveExpectedKey(array $expected, string $base, string $sizeKey): ?string {
+    if ($base === '') {
+        return null;
+    }
+    $arts = quoteArticleAliases($base);
+    if (!in_array($base, $arts, true)) {
+        array_unshift($arts, $base);
+    }
+    foreach ($arts as $art) {
+        $try = 'a:' . $art . '|' . $sizeKey;
+        if (isset($expected[$try])) {
+            return $try;
+        }
+    }
+    $band = quoteSizeBand($sizeKey);
+    $hits = [];
+    foreach ($expected as $ek => $ex) {
+        if (($ex['kind'] ?? '') !== 'garment') {
+            continue;
+        }
+        $exBase = (string) ($ex['article_base'] ?? '');
+        if ($exBase === '' || !in_array($exBase, $arts, true)) {
+            continue;
+        }
+        if ($sizeKey === '' || ($band !== '' && $band === quoteSizeBand((string) ($ex['size_key'] ?? '')))) {
+            $hits[] = $ek;
+        }
+    }
+    return count($hits) === 1 ? $hits[0] : null;
+}
+
 function compareQuoteToOrder(array $shopByType, array $printRows, array $quoteLines): array {
     $quoteHasPrint = false;
     foreach ($quoteLines as $line) {
+        $article = trim((string) ($line['article'] ?? ''));
+        if (quoteArticleBase($article) !== '') {
+            continue;
+        }
         $print = $line['print'] ?? null;
         if ((!is_string($print) || $print === '') && trim((string) ($line['name'] ?? '')) !== '') {
             $print = quotePrintKeyFromName((string) $line['name']);
@@ -1042,34 +1201,28 @@ function compareQuoteToOrder(array $shopByType, array $printRows, array $quoteLi
             $print = quotePrintKeyFromName($name);
         }
         $article = trim((string) ($line['article'] ?? ''));
+        if ($article === '') {
+            $article = quoteExtractArticle($name);
+        }
         $base = quoteArticleBase($article);
         $sizeKey = quoteSizeKey((string) ($line['size'] ?? ''));
+        if ($sizeKey === '') {
+            $sizeKey = quoteExtractSizeFromText($name);
+        }
 
         $key = null;
-        if (is_string($print) && $print !== '' && ($base === '' || $article === '')) {
+        if (is_string($print) && $print !== '' && $base === '') {
             $key = 'p:' . $print;
         } elseif ($base !== '') {
-            $key = 'a:' . $base . '|' . $sizeKey;
-            if (!isset($expected[$key])) {
-                foreach (quoteArticleAliases($base) as $alias) {
-                    $try = 'a:' . $alias . '|' . $sizeKey;
-                    if (isset($expected[$try])) {
-                        $key = $try;
-                        $skuDiff[$try] = $article !== '' ? $article : $base;
-                        break;
-                    }
+            $resolved = quoteResolveExpectedKey($expected, $base, $sizeKey);
+            if ($resolved !== null) {
+                $key = $resolved;
+                $wantBase = (string) ($expected[$key]['article_base'] ?? '');
+                if ($wantBase !== '' && $wantBase !== $base) {
+                    $skuDiff[$key] = $article !== '' ? $article : $base;
                 }
-            }
-            if (!isset($expected[$key]) && $sizeKey === '') {
-                $cands = [];
-                foreach (array_keys($expected) as $ek) {
-                    if (str_starts_with((string) $ek, 'a:' . $base . '|')) {
-                        $cands[] = $ek;
-                    }
-                }
-                if (count($cands) === 1) {
-                    $key = $cands[0];
-                }
+            } else {
+                $key = 'a:' . $base . '|' . $sizeKey;
             }
         } else {
             $nameKey = quoteNormText($name);
@@ -1178,6 +1331,48 @@ function compareQuoteToOrder(array $shopByType, array $printRows, array $quoteLi
 
     $skuN = count(array_filter($rows, static fn($r) => ($r['status'] ?? '') === 'sku'));
     $problems = $missing + $short;
+    $hints = [];
+    if (!$quoteHasPrint) {
+        $printNeed = 0;
+        foreach ($printRows as $row) {
+            $printNeed += (int) ($row['count'] ?? 0);
+        }
+        if ($printNeed > 0) {
+            $hints[] = 'Geen bedrukking op deze offerte; we controleren alleen kleding.';
+        }
+    }
+    $artRoll = [];
+    foreach ($rows as $r) {
+        if (($r['kind'] ?? '') !== 'garment') {
+            continue;
+        }
+        $b = quoteArticleBase((string) $r['article']);
+        if ($b === '') {
+            continue;
+        }
+        $artRoll[$b]['name'] = (string) $r['name'];
+        $artRoll[$b]['app'] = ($artRoll[$b]['app'] ?? 0) + (int) $r['app'];
+        $artRoll[$b]['quote'] = ($artRoll[$b]['quote'] ?? 0) + (int) $r['quote'];
+        if (!in_array((string) $r['status'], ['ok', 'sku'], true)) {
+            $artRoll[$b]['bad'] = true;
+        }
+    }
+    foreach ($unknown as $u) {
+        $b = quoteArticleBase((string) ($u['article'] ?? ''));
+        if ($b === '') {
+            continue;
+        }
+        $artRoll[$b]['quote'] = ($artRoll[$b]['quote'] ?? 0) + (int) $u['qty'];
+        $artRoll[$b]['loose'] = true;
+    }
+    foreach ($artRoll as $b => $info) {
+        $appN = (int) ($info['app'] ?? 0);
+        $quoteN = (int) ($info['quote'] ?? 0);
+        if ($appN > 0 && $appN === $quoteN && !empty($info['bad'])) {
+            $hints[] = 'Artikel ' . $b . ' (' . (string) ($info['name'] ?? '') . '): totaal klopt (' . $appN . ' stuks), maar de maten komen niet 1-op-1 overeen.';
+        }
+    }
+
     return [
         'ok' => $problems === 0 && $unknown === [] && $skuN === 0,
         'complete' => $problems === 0,
@@ -1193,6 +1388,8 @@ function compareQuoteToOrder(array $shopByType, array $printRows, array $quoteLi
         ],
         'rows' => $rows,
         'unknown' => $unknown,
+        'hints' => $hints,
+        'has_print' => $quoteHasPrint,
     ];
 }
 

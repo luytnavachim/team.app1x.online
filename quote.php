@@ -966,6 +966,7 @@ function parseQuoteUpload(?array $file, string $pasted): array {
 function quoteArticleAliases(string $base): array {
     $groups = [
         ['420000', '420004'],
+        ['484837', '484838'],
     ];
     foreach ($groups as $group) {
         if (in_array($base, $group, true)) {

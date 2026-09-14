@@ -1297,7 +1297,7 @@ function ensurePackageTypes(mysqli $db): void {
     $rows = [
         13 => ['field_jack', 'Field Jack (regenjas)', '454002', 'Regenjack pakket 14-2', 24.94, 26.34],
         14 => ['prime_padded_jacket', 'Prime Padded Jacket (Winterjas)', '456004', 'Winterjas pakket 14-2', 63.22, 66.73],
-        15 => ['pro_backpack_prime', 'Pro Backpack Prime (rugzak)', '484838', 'Rugzak pakket 14-2', 29.50, 29.50],
+        15 => ['pro_bag_prime', 'Pro Bag Prime (sporttas)', '484837', 'Sporttas pakket 14-2', 29.50, 29.50],
     ];
     foreach ($rows as $id => $r) {
         [$name, $display, $article, $desc, $small, $large] = $r;

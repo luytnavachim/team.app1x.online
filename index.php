@@ -1686,7 +1686,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     ?>
     <div class="quote-check" id="offerte">
       <h4>Offerte controleren</h4>
-      <p class="hint">Laad de offerte van de winkel (Excel, CSV of PDF). We zetten artikel, maat en aantal naast wat er in Kitroom besteld moet worden.</p>
+      <p class="hint">Laad de offerte van de winkel of sponsorcommissie (Excel, CSV of PDF). We zetten artikel, maat en aantal naast de Kitroom-bestelling. Junior zonder maat (JR) hoort bij 164, bedrukking telt alleen mee als die écht op de offerte staat.</p>
       <form class="quote-upload" id="quoteForm">
         <div class="fileline">
           <input type="file" id="quoteFile" name="quote" accept=".xlsx,.xlsm,.csv,.txt,.pdf,.tsv">
@@ -1720,6 +1720,9 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
       <?php if (!empty($quoteStored['warnings'])): ?>
       <p class="hint"><?= h(implode(' ', $quoteStored['warnings'])) ?></p>
       <?php endif; ?>
+      <?php foreach (($quoteReport['hints'] ?? []) as $hint): ?>
+      <p class="hint"><?= h((string) $hint) ?></p>
+      <?php endforeach; ?>
       <div class="tablewrap" style="margin-top:12px">
         <table>
           <thead>
@@ -1772,6 +1775,33 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
           </tbody>
         </table>
       </div>
+      <?php endif; ?>
+      <?php if (!empty($quoteStored['lines'])): ?>
+      <details class="shop-more" style="margin-top:12px">
+        <summary>Herkende offertregels (<?= (int) count($quoteStored['lines']) ?>)</summary>
+        <div class="tablewrap">
+          <table>
+            <thead>
+              <tr>
+                <th class="name">Regel</th>
+                <th>Artikel</th>
+                <th>Maat</th>
+                <th>Aantal</th>
+              </tr>
+            </thead>
+            <tbody>
+              <?php foreach ($quoteStored['lines'] as $ql): ?>
+              <tr>
+                <td class="name"><?= h((string) (($ql['name'] ?? '') !== '' ? $ql['name'] : ($ql['raw'] ?? ''))) ?><?php if (!empty($ql['print'])): ?> <span class="muted">print</span><?php endif; ?></td>
+                <td><?= h((string) ($ql['article'] ?? '')) ?></td>
+                <td><?= h((string) ($ql['size'] ?? '')) ?></td>
+                <td><?= (int) ($ql['qty'] ?? 0) ?></td>
+              </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        </div>
+      </details>
       <?php endif; ?>
       <?php endif; ?>
     </div>

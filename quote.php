@@ -1083,6 +1083,10 @@ function compareQuoteToOrder(array $shopByType, array $printRows, array $quoteLi
                     $try = 'a:' . $alias . '|' . $sizeKey;
                     if (isset($expected[$try])) {
                         $key = $try;
+                        $skuDiff[$try] = $article !== '' ? $article : $base;
+                        if ($name !== '') {
+                            $skuDiff[$try] = ($article !== '' ? $article : $base) . ($name !== '' ? ' · ' . $name : '');
+                        }
                         break;
                     }
                 }

@@ -264,9 +264,12 @@ function quoteLetterModel(array $shopByType, array $printRows, array $types, ?ar
         $name = quoteLetterProductName($base, (string) $item['label'], (string) $item['brand']);
         $color = mb_strtolower(trim((string) $item['color']), 'UTF-8');
         $quoteArt = $base !== '' ? quoteLetterQuoteArticle($index, $base) : '';
-        $skuDiff = $quoteArt !== '' && quoteArticleBase($quoteArt) !== $base && quoteArticleBase($quoteArt) !== quoteArticleBase($article);
+        $skuDiff = $quoteArt !== '' && (
+            quoteArticleIsMalformed($quoteArt)
+            || (quoteArticleBase($quoteArt) !== $base && quoteArticleBase($quoteArt) !== quoteArticleBase($article))
+        );
         $displayArt = $article;
-        if ($quoteArt !== '' && quoteArticleBase($quoteArt) === $base) {
+        if ($quoteArt !== '' && !quoteArticleIsMalformed($quoteArt) && quoteArticleBase($quoteArt) === $base) {
             $displayArt = $quoteArt;
         }
 
@@ -524,7 +527,7 @@ function quoteLetterHtml(array $letter): string {
             . ' ' . h((string) $block['name']);
         $art = trim((string) $block['article']);
         if ($art !== '') {
-            $title .= ', ' . quoteLetterMark($art, !empty($block['sku_diff']));
+            $title .= ', ' . h($art);
             if (!empty($block['quote_article'])) {
                 $title .= ' ' . quoteLetterMark('(offerte ' . (string) $block['quote_article'] . ')', true);
             }

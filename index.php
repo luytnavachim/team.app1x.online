@@ -1693,7 +1693,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         'short' => 'Te weinig',
         'over' => 'Te veel',
         'missing' => 'Ontbreekt op offerte',
-        'sku' => 'Ander artikelnummer',
+        'sku' => 'Raar / ander artikelnummer',
       ];
     ?>
     <div class="quote-check" id="offerte">
@@ -1750,7 +1750,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             <?php foreach ($quoteReport['rows'] as $qr): ?>
             <tr class="is-<?= h((string) $qr['status']) ?>">
               <td class="name"><?= h((string) $qr['name']) ?><?= ($qr['kind'] ?? '') === 'print' ? ' <span class="muted">print</span>' : '' ?></td>
-              <td><?= h((string) $qr['article']) ?><?php if (($qr['quote_article'] ?? '') !== '' && quoteArticleBase((string) $qr['quote_article']) !== quoteArticleBase((string) $qr['article'])): ?><div class="place">offerte <?= h((string) $qr['quote_article']) ?></div><?php endif; ?></td>
+              <td><?= h((string) $qr['article']) ?><?php if (($qr['quote_article'] ?? '') !== ''): ?><div class="place">offerte <?= h((string) $qr['quote_article']) ?></div><?php endif; ?></td>
               <td><?= h((string) $qr['size']) ?></td>
               <td><?= (int) $qr['app'] ?></td>
               <td><?= (int) $qr['quote'] ?></td>

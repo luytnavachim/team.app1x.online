@@ -78,12 +78,45 @@ function quoteArticleBase(string $article): string {
     return $s;
 }
 
+function quoteArticleStem(string $article): string {
+    $s = quoteNormalizeArticle($article);
+    if (preg_match('/^(\d+)/', $s, $m)) {
+        return $m[1];
+    }
+    return '';
+}
+
+/** Stanno-artikelen zijn 6 cijfers, eventueel met kleurcode. 4848378 of 48483 is een PDF-/tikfout. */
+function quoteArticleIsMalformed(string $article): bool {
+    $stem = quoteArticleStem($article);
+    return $stem !== '' && strlen($stem) !== 6;
+}
+
+function quoteMalformedArticleWarnings(array $lines): array {
+    $out = [];
+    foreach ($lines as $line) {
+        if (!is_array($line)) {
+            continue;
+        }
+        $art = trim((string) ($line['article'] ?? ''));
+        if ($art === '' || !quoteArticleIsMalformed($art) || isset($out[$art])) {
+            continue;
+        }
+        $hint = 'Artikel ' . $art . ' is geen geldig Stanno-nummer (6 cijfers).';
+        $base = quoteArticleBase($art);
+        if ($base === '484837' || str_starts_with(quoteArticleStem($art), '48483')) {
+            $hint .= ' De sporttas is 484837, geen ' . quoteArticleStem($art) . '.';
+        }
+        $out[$art] = $hint;
+    }
+    return array_values($out);
+}
+
 /** PDF-extractie zet spaties in artikelnummers en maten: "42000 0-8200", "1 4/S", "On e SIZE". */
 function quoteHealOfferText(string $text): string {
     $text = str_replace("\x00", '', $text);
     $text = preg_replace('/(\d{4,6})\s+(\d{1,2})\s*-\s*(\d{3,4})/', '$1$2-$3', $text) ?? $text;
-    $text = preg_replace('/(\d{5,7})\s*-\s*(\d{3,4})/', '$1-$2', $text) ?? $text;
-    $text = preg_replace('/\b(\d{6})\d-(\d{3,4})\b/', '$1-$2', $text) ?? $text;
+    $text = preg_replace('/(\d{5,6})\s*-\s*(\d{3,4})/', '$1-$2', $text) ?? $text;
     $text = preg_replace('/(\d)\s+(\d)\s*\//', '$1$2/', $text) ?? $text;
     $text = preg_replace('/(\d+)\s*\/\s+/', '$1/', $text) ?? $text;
     $text = preg_replace('/(\d{2})\s*[\-–]\s*(\d{2})\b/', '$1-$2', $text) ?? $text;
@@ -700,7 +733,7 @@ function parseQuoteBytes(string $bytes, string $filename): array {
             if ($prose !== []) {
                 return [
                     'lines' => $prose,
-                    'warnings' => [],
+                    'warnings' => quoteMalformedArticleWarnings($prose),
                     'format' => ($ext === 'pdf' || str_starts_with($bytes, '%PDF')) ? 'pdf' : 'text',
                     'sheets' => ['offerte'],
                 ];
@@ -1167,6 +1200,12 @@ function compareQuoteToOrder(array $shopByType, array $printRows, array $quoteLi
         }
         if ($name !== '' && ($quoteMeta[$key]['name'] ?? '') === '') {
             $quoteMeta[$key]['name'] = $name;
+        }
+        if (($expected[$key]['kind'] ?? '') === 'garment' && $article !== '') {
+            $exArt = (string) ($expected[$key]['article'] ?? '');
+            if (quoteArticleIsMalformed($article) || ($exArt !== '' && quoteArticleBase($article) !== quoteArticleBase($exArt))) {
+                $skuDiff[$key] = $article;
+            }
         }
     }
 

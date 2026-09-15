@@ -81,8 +81,9 @@ function quoteArticleBase(string $article): string {
 /** PDF-extractie zet spaties in artikelnummers en maten: "42000 0-8200", "1 4/S", "On e SIZE". */
 function quoteHealOfferText(string $text): string {
     $text = str_replace("\x00", '', $text);
-    $text = preg_replace('/(\d{4,6})\s+(\d)\s*-\s*(\d{3,4})/', '$1$2-$3', $text) ?? $text;
+    $text = preg_replace('/(\d{4,6})\s+(\d{1,2})\s*-\s*(\d{3,4})/', '$1$2-$3', $text) ?? $text;
     $text = preg_replace('/(\d{5,7})\s*-\s*(\d{3,4})/', '$1-$2', $text) ?? $text;
+    $text = preg_replace('/\b(\d{6})\d-(\d{3,4})\b/', '$1-$2', $text) ?? $text;
     $text = preg_replace('/(\d)\s+(\d)\s*\//', '$1$2/', $text) ?? $text;
     $text = preg_replace('/(\d+)\s*\/\s+/', '$1/', $text) ?? $text;
     $text = preg_replace('/(\d{2})\s*[\-–]\s*(\d{2})\b/', '$1-$2', $text) ?? $text;
@@ -799,6 +800,12 @@ function quoteLooksLikeProseOffer(string $text): bool {
         && (bool) preg_match('/\b(Junior|Senior|Maten|Stanno|Footless|Bedrukkingen|initialen)\b/iu', $text);
 }
 
+function quoteIsSockSizePair(string $left, string $right): bool {
+    $a = (int) $left;
+    $b = (int) $right;
+    return $a >= 25 && $a <= 45 && $b >= 29 && $b <= 48 && strlen($left) === 2 && strlen($right) === 2;
+}
+
 function quoteParseQtySizeList(string $chunk): array {
     $chunk = trim($chunk);
     $chunk = preg_replace('/€\s*[\d.,]+.*$/', '', $chunk) ?? $chunk;
@@ -806,7 +813,12 @@ function quoteParseQtySizeList(string $chunk): array {
     $out = [];
     if (preg_match_all('/(\d+)\s*\/\s*([A-Za-z]{1,4}|\d{2,3}(?:\s*[-\/]\s*\d{2,3})?)/u', $chunk, $m, PREG_SET_ORDER)) {
         foreach ($m as $hit) {
-            $out[] = ['qty' => (int) $hit[1], 'size' => trim(str_replace(' ', '', $hit[2]))];
+            $size = trim(str_replace(' ', '', $hit[2]));
+            if (ctype_digit($hit[1]) && ctype_digit($size) && quoteIsSockSizePair($hit[1], $size)) {
+                $out[] = ['qty' => 0, 'size' => $hit[1] . '/' . $size];
+                continue;
+            }
+            $out[] = ['qty' => (int) $hit[1], 'size' => $size];
         }
     }
     $compact = strtolower(preg_replace('/\s+/', '', $chunk) ?? $chunk);
@@ -815,6 +827,21 @@ function quoteParseQtySizeList(string $chunk): array {
         $out[] = ['qty' => 0, 'size' => $size];
     }
     return $out;
+}
+
+function quoteFillSizeQtys(array $sizes, int $total): array {
+    $used = 0;
+    foreach ($sizes as $sz) {
+        $used += max(0, (int) ($sz['qty'] ?? 0));
+    }
+    $left = max(0, $total - $used);
+    foreach ($sizes as $i => $sz) {
+        if ((int) ($sz['qty'] ?? 0) < 1) {
+            $sizes[$i]['qty'] = $left > 0 ? $left : 1;
+            $left = 0;
+        }
+    }
+    return $sizes;
 }
 
 /**
@@ -888,10 +915,7 @@ function quoteLinesFromProse(string $text): array {
             if ($price !== null) {
                 $pending['price'] = $price;
             }
-            foreach ($sizes as $sz) {
-                if ($sz['qty'] < 1) {
-                    $sz['qty'] = (int) ($pending['qty'] ?? 0);
-                }
+            foreach (quoteFillSizeQtys($sizes, (int) ($pending['qty'] ?? 0)) as $sz) {
                 $pending['sizes'][] = $sz;
             }
             continue;
@@ -914,10 +938,7 @@ function quoteLinesFromProse(string $text): array {
                 'raw' => $row,
             ];
             $inline = quoteParseQtySizeList($rest);
-            foreach ($inline as $sz) {
-                if ($sz['qty'] < 1) {
-                    $sz['qty'] = (int) $pending['qty'];
-                }
+            foreach (quoteFillSizeQtys($inline, (int) $pending['qty']) as $sz) {
                 $pending['sizes'][] = $sz;
             }
             continue;

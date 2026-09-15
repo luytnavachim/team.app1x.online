@@ -188,6 +188,7 @@ function packageCellView(array $person, int $colTid, string $who): array {
 
 $portal = loadScoutPortal();
 syncPlayersFromScout($mysqli, $players, $portal);
+restorePlayersOnScoutTeam14($mysqli, $players, $portal);
 archivePlayersNotOnScoutTeam14($mysqli, $players, $portal);
 
 $active = array_values(array_filter($players, static fn($p) => ($p['status'] ?? '') === 'active' && !(int) $p['is_guest'] && playerOnScoutTeam14($p, $portal)));

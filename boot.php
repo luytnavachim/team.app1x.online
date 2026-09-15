@@ -238,6 +238,12 @@ function scoutLineFromPos(?string $pos): string {
     return 'midfielder';
 }
 
+function isScoutTeam14(string $huidig): bool {
+    $h = strtoupper(preg_replace('/\s+/', '', trim($huidig)) ?? '');
+    $h = str_replace('JO', 'O', $h);
+    return $h === '14-2' || $h === 'O14-2';
+}
+
 function loadScoutPortal(): array {
     $file = '/var/www/knvb-scouting-portal/.data/portal.json';
     $byId = [];
@@ -262,7 +268,7 @@ function loadScoutPortal(): array {
             'huidig' => trim((string) ($sp['huidig'] ?? '')),
         ];
         $byId[$id] = $rec;
-        if ($rec['huidig'] !== '14-2') {
+        if (!isScoutTeam14($rec['huidig'])) {
             continue;
         }
         $key = normName($naam);
@@ -276,7 +282,7 @@ function loadScoutPortal(): array {
 
 function findScoutForPlayer(array $p, array $portal): ?array {
     $sid = (int) ($p['scout_id'] ?? 0);
-    if ($sid > 0 && isset($portal['byId'][$sid]) && trim((string) ($portal['byId'][$sid]['huidig'] ?? '')) === '14-2') {
+    if ($sid > 0 && isset($portal['byId'][$sid]) && isScoutTeam14((string) ($portal['byId'][$sid]['huidig'] ?? ''))) {
         return $portal['byId'][$sid];
     }
     $key = playerKey($p);
@@ -302,6 +308,9 @@ function playerOnScoutTeam14(array $p, array $portal): bool {
 }
 
 function archivePlayersNotOnScoutTeam14(mysqli $db, array &$players, array $portal): int {
+    if (($portal['byName14'] ?? []) === []) {
+        return 0;
+    }
     $changed = 0;
     $status = 'inactive';
     $upd = $db->prepare('UPDATE players SET status=?, updated_at=NOW() WHERE id=? AND status=\'active\'');
@@ -316,6 +325,30 @@ function archivePlayersNotOnScoutTeam14(mysqli $db, array &$players, array $port
         $upd->bind_param('si', $status, $id);
         $upd->execute();
         $p['status'] = 'inactive';
+        $changed++;
+    }
+    unset($p);
+    return $changed;
+}
+
+function restorePlayersOnScoutTeam14(mysqli $db, array &$players, array $portal): int {
+    if (($portal['byName14'] ?? []) === []) {
+        return 0;
+    }
+    $changed = 0;
+    $status = 'active';
+    $upd = $db->prepare('UPDATE players SET status=?, updated_at=NOW() WHERE id=? AND status=\'inactive\'');
+    foreach ($players as $id => &$p) {
+        if (($p['status'] ?? '') !== 'inactive' || (int) ($p['is_guest'] ?? 0) === 1) {
+            continue;
+        }
+        if (!playerOnScoutTeam14($p, $portal)) {
+            continue;
+        }
+        $id = (int) $id;
+        $upd->bind_param('si', $status, $id);
+        $upd->execute();
+        $p['status'] = 'active';
         $changed++;
     }
     unset($p);

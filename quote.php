@@ -1262,3 +1262,5 @@ function quoteCheckPayload(array $parsed, array $shopByType, array $printRows): 
         'report' => $report,
     ];
 }
+
+require_once __DIR__ . '/quote-letter.php';

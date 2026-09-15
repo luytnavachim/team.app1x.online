@@ -587,6 +587,14 @@ if ($csvKind === 'bestel' || $csvKind === 'regels') {
     );
 }
 
+if ($canEdit && (string) ($_GET['pdf'] ?? '') === 'offerte') {
+    $letter = quoteLetterModel($shopByType, $printRows, $types, is_array($quoteStored) ? $quoteStored : [], $quoteReport);
+    if ((string) ($_GET['download'] ?? '') === '1') {
+        sendQuoteLetterPdf($letter);
+    }
+    renderQuoteLetterPage($letter);
+}
+
 $byLine = [];
 $cardPlayers = array_merge($active, $guestPlayers);
 foreach ($posOrder as $pos) {
@@ -1670,6 +1678,9 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
     <div class="actions">
       <a class="btn dark" href="?csv=bestel">Excel-bestellijst</a>
+      <?php if ($canEdit): ?>
+      <a class="btn dark" href="?pdf=offerte">PDF zoals offerte</a>
+      <?php endif; ?>
       <a class="btn" href="javascript:window.print()">Print</a>
       <?php if ($canEdit): ?>
       <button type="button" class="btn assign-package-all" data-who="player">Pakket aan alle spelers</button>
@@ -1687,12 +1698,13 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     ?>
     <div class="quote-check" id="offerte">
       <h4>Offerte controleren</h4>
-      <p class="hint">Laad de offerte van de winkel (Excel, CSV of PDF). We zetten artikel, maat en aantal naast wat er in Kitroom besteld moet worden.</p>
+      <p class="hint">Laad de offerte van de winkel (Excel, CSV of PDF). We zetten artikel, maat en aantal naast wat er in Kitroom besteld moet worden. PDF-export heeft dezelfde briefindeling; wat afwijkt staat in het rood.</p>
       <form class="quote-upload" id="quoteForm">
         <div class="fileline">
           <input type="file" id="quoteFile" name="quote" accept=".xlsx,.xlsm,.csv,.txt,.pdf,.tsv">
           <button type="submit" class="btn dark" id="quoteBtn">Controleren</button>
           <?php if ($quoteStored): ?>
+          <a class="btn dark" href="?pdf=offerte">PDF zoals offerte</a>
           <button type="button" class="btn" id="quoteClear">Offerte wissen</button>
           <?php endif; ?>
         </div>

@@ -1157,6 +1157,11 @@ details.fold[open] > summary.fold-head{margin-bottom:2px;border-bottom:1px solid
 .quote-check tr.is-ok td.status{color:var(--green)}
 .quote-check tr.is-short td.status,.quote-check tr.is-missing td.status{color:var(--miss)}
 .quote-check tr.is-over td.status,.quote-check tr.is-sku td.status{color:var(--warn)}
+.quote-check tr.is-bad-art td.status,.quote-check tr.is-bad-art td.art{color:var(--miss)}
+.quote-check .quote-sku-err{
+  margin-top:4px;color:var(--miss);font-size:12.5px;font-weight:800;line-height:1.35;white-space:normal;text-align:left;
+}
+.quote-check .quote-sku-err b{font-weight:800}
 @media(min-width:1200px){
   .quote-check,.quote-check .tablewrap{width:100%}
   .quote-check th,.quote-check td{padding:10px 14px}
@@ -1949,6 +1954,9 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
           <button type="submit" class="btn dark" id="quoteBtn">Controleren</button>
           <?php if ($quoteStored): ?>
           <a class="btn dark" href="?pdf=offerte">PDF zoals offerte</a>
+          <?php if ($quoteReport): ?>
+          <button type="button" class="btn" id="quoteCopyDiffs">Kopieer afwijkingen</button>
+          <?php endif; ?>
           <button type="button" class="btn" id="quoteClear">Offerte wissen</button>
           <?php endif; ?>
         </div>
@@ -1974,9 +1982,16 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         }
       ?>
       <p class="quote-status <?= h($boxClass) ?>"><?= h($boxText) ?> App <?= h(formatOrderPieces(['garments' => (int) ($qc['app_garments'] ?? $orderCounts['garments']), 'prints' => (int) ($qc['app_prints'] ?? $orderCounts['prints'])])) ?> · offerte <?= h(formatOrderPieces(['garments' => (int) ($qc['quote_garments'] ?? 0), 'prints' => (int) ($qc['quote_prints'] ?? 0)])) ?>.</p>
-      <?php if (!empty($quoteStored['warnings'])): ?>
-      <p class="hint"><?= h(implode(' ', $quoteStored['warnings'])) ?></p>
+      <?php
+        $looseWarnings = array_values(array_filter(
+            $quoteStored['warnings'] ?? [],
+            static fn($w) => !str_contains((string) $w, 'geen geldig Stanno-nummer')
+        ));
+      ?>
+      <?php if ($looseWarnings): ?>
+      <p class="hint"><?= h(implode(' ', $looseWarnings)) ?></p>
       <?php endif; ?>
+      <textarea id="quoteDiffsText" class="sr-only" readonly hidden tabindex="-1" aria-hidden="true"><?= h(quoteDiffsMailText($quoteReport, $quoteStored)) ?></textarea>
       <div class="tablewrap" style="margin-top:12px">
         <table>
           <thead>
@@ -1991,15 +2006,39 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             </tr>
           </thead>
           <tbody>
-            <?php foreach ($quoteReport['rows'] as $qr): ?>
-            <tr class="is-<?= h((string) $qr['status']) ?>">
+            <?php foreach ($quoteReport['rows'] as $qr):
+              $issue = is_array($qr['article_issue'] ?? null) ? $qr['article_issue'] : null;
+              $rowClass = 'is-'.(string) $qr['status'];
+              if ($issue) {
+                  $rowClass .= !empty($issue['malformed']) ? ' is-bad-art' : ' is-sku';
+              }
+              $statusLabel = $qStatus[$qr['status']] ?? $qr['status'];
+              if ($issue && !empty($issue['malformed'])) {
+                  $statusLabel = 'Ongeldig artikelnummer';
+              }
+            ?>
+            <tr class="<?= h($rowClass) ?>">
               <td class="name"><?= h((string) $qr['name']) ?><?= ($qr['kind'] ?? '') === 'print' ? ' <span class="muted">print</span>' : '' ?></td>
-              <td><?= h((string) $qr['article']) ?><?php if (($qr['quote_article'] ?? '') !== ''): ?><div class="place">offerte <?= h((string) $qr['quote_article']) ?></div><?php endif; ?></td>
+              <td class="art">
+                <?= h((string) $qr['article']) ?>
+                <?php if ($issue): ?>
+                <div class="quote-sku-err">
+                  <?php if (!empty($issue['malformed'])): ?>
+                  Offerte <?= h((string) $issue['quoted']) ?> is geen geldig Stanno-nummer (6 cijfers).
+                  <?php else: ?>
+                  Offerte <?= h((string) $issue['quoted']) ?> wijkt af.
+                  <?php endif; ?>
+                  <?php if (($issue['suggest'] ?? '') !== ''): ?> Juist: <b><?= h((string) $issue['suggest']) ?></b><?php endif; ?>
+                </div>
+                <?php elseif (($qr['quote_article'] ?? '') !== ''): ?>
+                <div class="place">offerte <?= h((string) $qr['quote_article']) ?></div>
+                <?php endif; ?>
+              </td>
               <td><?= h((string) $qr['size']) ?></td>
               <td><?= (int) $qr['app'] ?></td>
               <td><?= (int) $qr['quote'] ?></td>
               <td><?= (int) $qr['diff'] === 0 ? '0' : ((int) $qr['diff'] > 0 ? '+' . (int) $qr['diff'] : (string) (int) $qr['diff']) ?></td>
-              <td class="status"><?= h($qStatus[$qr['status']] ?? $qr['status']) ?></td>
+              <td class="status"><?= h((string) $statusLabel) ?></td>
             </tr>
             <?php endforeach; ?>
           </tbody>
@@ -2018,10 +2057,24 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             </tr>
           </thead>
           <tbody>
-            <?php foreach ($quoteReport['unknown'] as $uq): ?>
-            <tr>
+            <?php foreach ($quoteReport['unknown'] as $uq):
+              $uIssue = is_array($uq['article_issue'] ?? null) ? $uq['article_issue'] : null;
+            ?>
+            <tr<?= $uIssue ? ' class="is-bad-art"' : '' ?>>
               <td class="name"><?= h((string) $uq['name']) ?></td>
-              <td><?= h((string) $uq['article']) ?></td>
+              <td class="art">
+                <?= h((string) $uq['article']) ?>
+                <?php if ($uIssue): ?>
+                <div class="quote-sku-err">
+                  <?php if (!empty($uIssue['malformed'])): ?>
+                  Offerte <?= h((string) $uIssue['quoted']) ?> is geen geldig Stanno-nummer (6 cijfers).
+                  <?php else: ?>
+                  Offerte <?= h((string) $uIssue['quoted']) ?> wijkt af.
+                  <?php endif; ?>
+                  <?php if (($uIssue['suggest'] ?? '') !== ''): ?> Juist: <b><?= h((string) $uIssue['suggest']) ?></b><?php endif; ?>
+                </div>
+                <?php endif; ?>
+              </td>
               <td><?= h((string) $uq['size']) ?></td>
               <td><?= (int) $uq['qty'] ?></td>
             </tr>
@@ -3709,6 +3762,26 @@ document.getElementById('quoteForm')?.addEventListener('submit', async e=>{
     location.reload();
   } finally {
     if(btn) btn.disabled=false;
+  }
+});
+document.getElementById('quoteCopyDiffs')?.addEventListener('click', async ()=>{
+  const el=document.getElementById('quoteDiffsText');
+  const text=el?String(el.value||''):'';
+  if(!text.trim()){ toast('Geen afwijkingen'); return; }
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      await navigator.clipboard.writeText(text);
+    }else{
+      el.hidden=false;
+      el.classList.remove('sr-only');
+      el.focus();
+      el.select();
+      document.execCommand('copy');
+      el.classList.add('sr-only');
+    }
+    toast('Afwijkingen gekopieerd');
+  }catch(err){
+    toast('Kopiëren mislukt');
   }
 });
 document.getElementById('quoteClear')?.addEventListener('click', async ()=>{

@@ -98,18 +98,137 @@ function quoteMalformedArticleWarnings(array $lines): array {
         if (!is_array($line)) {
             continue;
         }
-        $art = trim((string) ($line['article'] ?? ''));
-        if ($art === '' || !quoteArticleIsMalformed($art) || isset($out[$art])) {
+        $issue = quoteArticleIssue((string) ($line['article'] ?? ''));
+        if ($issue === null) {
             continue;
         }
-        $hint = 'Artikel ' . $art . ' is geen geldig Stanno-nummer (6 cijfers).';
-        $base = quoteArticleBase($art);
-        if ($base === '484837' || str_starts_with(quoteArticleStem($art), '48483')) {
-            $hint .= ' De sporttas is 484837, geen ' . quoteArticleStem($art) . '.';
+        $key = (string) $issue['quoted'];
+        if ($key === '' || isset($out[$key])) {
+            continue;
         }
-        $out[$art] = $hint;
+        $out[$key] = (string) $issue['note'];
     }
     return array_values($out);
+}
+
+function quoteSuggestArticle(string $quoted, string $expected = ''): string {
+    $stem = quoteArticleStem($quoted);
+    if (str_starts_with($stem, '48483')) {
+        return '484837';
+    }
+    $exp = quoteArticleBase($expected);
+    if (strlen($exp) === 6) {
+        return $exp;
+    }
+    $base = quoteArticleBase($quoted);
+    return strlen($base) === 6 ? $base : '';
+}
+
+/** @return array{malformed:bool,suggest:string,note:string,quoted:string}|null */
+function quoteArticleIssue(string $quoted, string $expected = ''): ?array {
+    $quoted = trim($quoted);
+    if ($quoted === '') {
+        return null;
+    }
+    $malformed = quoteArticleIsMalformed($quoted);
+    $expBase = quoteArticleBase($expected);
+    $gotBase = quoteArticleBase($quoted);
+    $wrongBase = $expBase !== '' && $gotBase !== '' && $gotBase !== $expBase
+        && !in_array($expBase, quoteArticleAliases($gotBase), true);
+    if (!$malformed && !$wrongBase) {
+        return null;
+    }
+    $suggest = quoteSuggestArticle($quoted, $expected);
+    if ($malformed) {
+        $note = 'Artikel ' . $quoted . ' is geen geldig Stanno-nummer (6 cijfers).';
+        if ($suggest !== '' && $suggest !== quoteArticleStem($quoted)) {
+            $note .= ' Juist: ' . $suggest . '.';
+        }
+    } else {
+        $note = 'Artikel ' . $quoted . ' wijkt af van Kitroom' . ($expected !== '' ? ' ' . $expected : '') . '.';
+        if ($suggest !== '') {
+            $note .= ' Juist: ' . $suggest . '.';
+        }
+    }
+    return [
+        'malformed' => $malformed,
+        'suggest' => $suggest,
+        'note' => $note,
+        'quoted' => $quoted,
+    ];
+}
+
+function quoteDiffsMailText(array $report, array $stored = []): string {
+    $file = trim((string) ($stored['file'] ?? 'offerte'));
+    $when = trim((string) ($stored['when'] ?? ''));
+    $out = ['Afwijkingen offerte 14-2 t.o.v. Kitroom'];
+    if ($file !== '') {
+        $out[] = 'Offerte: ' . $file . ($when !== '' ? ' · ' . $when : '');
+    }
+    $out[] = '';
+
+    $sku = $missing = $qty = $extra = [];
+    foreach ($report['rows'] ?? [] as $r) {
+        if (!is_array($r)) {
+            continue;
+        }
+        $name = trim((string) ($r['name'] ?? ''));
+        $size = trim((string) ($r['size'] ?? ''));
+        $who = $name . ($size !== '' ? ', maat ' . $size : '');
+        $issue = is_array($r['article_issue'] ?? null) ? $r['article_issue'] : null;
+        if ($issue !== null) {
+            $sku[] = '• ' . $who . ' — ' . (string) $issue['note'];
+        } elseif (($r['status'] ?? '') === 'sku' && trim((string) ($r['quote_article'] ?? '')) !== '') {
+            $sku[] = '• ' . $who . ' — op offerte ' . trim((string) $r['quote_article']) . ', in Kitroom ' . trim((string) ($r['article'] ?? ''));
+        }
+        $status = (string) ($r['status'] ?? '');
+        if ($status === 'missing') {
+            $missing[] = '• ' . $who . ' — ' . (int) ($r['app'] ?? 0) . ' stuks ontbreken op de offerte';
+        } elseif ($status === 'short' || $status === 'over') {
+            $diff = (int) ($r['diff'] ?? 0);
+            $qty[] = '• ' . $who . ' — Kitroom ' . (int) ($r['app'] ?? 0) . ', offerte ' . (int) ($r['quote'] ?? 0)
+                . ' (' . ($diff > 0 ? '+' . $diff : (string) $diff) . ')';
+        }
+    }
+    foreach ($report['unknown'] ?? [] as $u) {
+        if (!is_array($u)) {
+            continue;
+        }
+        $name = trim((string) ($u['name'] ?? 'regel'));
+        $art = trim((string) ($u['article'] ?? ''));
+        $size = trim((string) ($u['size'] ?? ''));
+        $line = '• ' . $name . ($size !== '' ? ', maat ' . $size : '') . ($art !== '' ? ' · ' . $art : '')
+            . ' — ' . (int) ($u['qty'] ?? 0) . ' stuks, niet in Kitroom';
+        if (is_array($u['article_issue'] ?? null) && (string) ($u['article_issue']['note'] ?? '') !== '') {
+            $line .= '. ' . (string) $u['article_issue']['note'];
+        }
+        $extra[] = $line;
+    }
+
+    if ($sku !== []) {
+        $out[] = 'Artikelnummer';
+        array_push($out, ...$sku);
+        $out[] = '';
+    }
+    if ($missing !== []) {
+        $out[] = 'Ontbreekt op de offerte';
+        array_push($out, ...$missing);
+        $out[] = '';
+    }
+    if ($qty !== []) {
+        $out[] = 'Aantal wijkt af';
+        array_push($out, ...$qty);
+        $out[] = '';
+    }
+    if ($extra !== []) {
+        $out[] = 'Staat op de offerte, niet in Kitroom';
+        array_push($out, ...$extra);
+        $out[] = '';
+    }
+    if ($sku === [] && $missing === [] && $qty === [] && $extra === []) {
+        $out[] = 'Geen afwijkingen.';
+    }
+    return trim(implode("\n", $out)) . "\n";
 }
 
 /** PDF-extractie zet spaties in artikelnummers en maten: "42000 0-8200", "1 4/S", "On e SIZE". */
@@ -1167,9 +1286,6 @@ function compareQuoteToOrder(array $shopByType, array $printRows, array $quoteLi
                     if (isset($expected[$try])) {
                         $key = $try;
                         $skuDiff[$try] = $article !== '' ? $article : $base;
-                        if ($name !== '') {
-                            $skuDiff[$try] = ($article !== '' ? $article : $base) . ($name !== '' ? ' · ' . $name : '');
-                        }
                         break;
                     }
                 }
@@ -1209,6 +1325,7 @@ function compareQuoteToOrder(array $shopByType, array $printRows, array $quoteLi
             $unknown[] = [
                 'name' => $name !== '' ? $name : ($article !== '' ? $article : 'Onbekende regel'),
                 'article' => $article,
+                'article_issue' => quoteArticleIssue($article),
                 'size' => (string) ($line['size'] ?? ''),
                 'qty' => $qty,
                 'raw' => (string) ($line['raw'] ?? ''),
@@ -1264,12 +1381,18 @@ function compareQuoteToOrder(array $shopByType, array $printRows, array $quoteLi
             $status = 'ok';
             $ok++;
         }
+        $quotedArt = trim((string) ($skuDiff[$key] ?? ($quoteMeta[$key]['article'] ?? '')));
+        $issue = quoteArticleIssue($quotedArt, (string) ($ex['article'] ?? ''));
+        if ($status === 'ok' && $issue !== null) {
+            $status = 'sku';
+        }
         $rows[] = [
             'status' => $status,
             'kind' => $ex['kind'],
             'name' => implode(' + ', array_keys($ex['names'])),
             'article' => $ex['article'],
-            'quote_article' => (string) ($skuDiff[$key] ?? ''),
+            'quote_article' => $quotedArt,
+            'article_issue' => $issue,
             'size' => $ex['size'],
             'app' => $need,
             'quote' => $got,
@@ -1282,9 +1405,11 @@ function compareQuoteToOrder(array $shopByType, array $printRows, array $quoteLi
             continue;
         }
         $meta = $quoteMeta[$key] ?? [];
+        $unknownArt = (string) ($meta['article'] ?? '');
         $unknown[] = [
             'name' => (string) ($meta['name'] ?? $key),
-            'article' => (string) ($meta['article'] ?? ''),
+            'article' => $unknownArt,
+            'article_issue' => quoteArticleIssue($unknownArt),
             'size' => str_contains((string) $key, '|') ? explode('|', (string) $key, 2)[1] : '',
             'qty' => $got,
             'raw' => '',

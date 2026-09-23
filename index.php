@@ -777,10 +777,12 @@ body:not(.editing) .stats{grid-template-columns:repeat(3,minmax(0,1fr))}
 .nav .count.wait{background:var(--warn);color:#12151A}
 .note.alert{
   border-left-color:var(--green);background:var(--greenbg);color:var(--ink);
+  display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;
 }
 .note.alert b{color:var(--green)}
 .note.alert.hidden{display:none}
-.note .okbtn{margin-left:8px}
+.note.alert #parentAlertText{flex:1 1 12rem;min-width:0}
+.note .okbtn{margin-left:auto}
 .progress{height:5px;background:var(--raise);border-radius:99px;overflow:hidden;margin-top:9px}
 .progress i{display:block;height:100%;background:linear-gradient(90deg,var(--accent-dim),var(--accent));border-radius:99px}
 
@@ -1294,8 +1296,9 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   </div>
 
   <div class="note alert hidden" id="parentAlert">
-    <b>Nieuw ingevuld:</b> <span id="parentAlertNames"></span>
-    <a href="#ouders">Bekijken</a>
+    <b>Nieuw ingevuld:</b>
+    <span id="parentAlertText"></span>
+    <button type="button" class="btn" id="parentAlertView" hidden>Bekijken</button>
     <button type="button" class="btn okbtn" id="parentAlertOk">Gezien</button>
   </div>
 
@@ -2454,6 +2457,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 const TEAM = {
   csrf: <?= json_encode($csrf) ?>,
   editing: <?= $canEdit ? 'true' : 'false' ?>,
+  viewer: <?= json_encode($canEdit ? 'editor' : 'guest') ?>,
   vat: <?= json_encode(vatRate()) ?>,
   parentFills: <?= json_encode($parentFillJs, JSON_UNESCAPED_UNICODE) ?>,
   packageTypes: <?= json_encode(packageTypeIds()) ?>,
@@ -2511,24 +2515,68 @@ function toast(msg){
   toast._t=setTimeout(()=>el.classList.remove('show'), 2200);
 }
 (function(){
-  const KEY='kitroom-parent-seen';
+  if(!TEAM.editing) return;
+  const KEY='kitroom-parent-seen:'+(TEAM.viewer||'editor');
+  const LEGACY='kitroom-parent-seen';
   const fills=Array.isArray(TEAM.parentFills)?TEAM.parentFills:[];
-  const seen=parseInt(localStorage.getItem(KEY)||'0',10)||0;
-  const neu=fills.filter(f=>f.at>seen);
   const box=document.getElementById('parentAlert');
-  const names=document.getElementById('parentAlertNames');
+  const textEl=document.getElementById('parentAlertText');
+  const viewBtn=document.getElementById('parentAlertView');
   const nav=document.getElementById('ouderNavCount');
+  let open=false;
+  function readSeen(){
+    try{
+      const raw=localStorage.getItem(KEY)||localStorage.getItem(LEGACY)||'';
+      if(!raw) return null;
+      if(/^\d+$/.test(raw)){
+        const n=parseInt(raw,10);
+        return n>0?n:null;
+      }
+      const obj=JSON.parse(raw);
+      const n=obj&&Number(obj.at);
+      return Number.isFinite(n)&&n>0?n:null;
+    }catch(e){ return null; }
+  }
+  function writeSeen(at){
+    try{ localStorage.setItem(KEY, JSON.stringify({at:at})); }catch(e){}
+  }
+  let seen=readSeen();
+  if(seen==null){
+    seen=Date.now();
+    writeSeen(seen);
+  }
+  const neu=fills.filter(f=>f.at>seen).sort((a,b)=>(b.at||0)-(a.at||0));
+  function render(){
+    if(!box||!textEl) return;
+    if(!neu.length){
+      box.classList.add('hidden');
+      return;
+    }
+    const names=neu.map(f=>f.name);
+    const collapsed=names.length>3 && !open;
+    textEl.textContent=collapsed?(names.length+' nieuw ingevuld'):names.join(', ');
+    if(viewBtn){
+      viewBtn.hidden=names.length<=3;
+      viewBtn.textContent=open?'Inklappen':'Bekijken';
+    }
+    box.classList.remove('hidden');
+  }
   function markSeen(){
     const latest=fills.reduce((m,f)=>Math.max(m, f.at||0), Date.now());
-    try { localStorage.setItem(KEY, String(latest)); } catch(e) {}
+    writeSeen(latest);
     box?.classList.add('hidden');
     if(nav){ nav.textContent=String(fills.length); nav.classList.remove('wait'); nav.hidden=fills.length<1; }
   }
-  if(neu.length && box && names){
-    names.textContent=neu.map(f=>f.name).join(', ');
-    box.classList.remove('hidden');
-    if(nav){ nav.textContent=String(neu.length); nav.classList.add('wait'); nav.hidden=false; }
+  if(neu.length && nav){
+    nav.textContent=String(neu.length);
+    nav.classList.add('wait');
+    nav.hidden=false;
   }
+  render();
+  viewBtn?.addEventListener('click', ()=>{
+    open=!open;
+    render();
+  });
   document.getElementById('parentAlertOk')?.addEventListener('click', markSeen);
 })();
 async function api(payload){

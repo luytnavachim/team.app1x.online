@@ -122,14 +122,14 @@ function navIconLink(string $href, string $label, string $icon, string $extraCla
     return '<a href="'.h($href).'" class="'.h($cls).'" title="'.h($label).'" aria-label="'.h($label).'">'
         .navIconSvg($icon)
         .$badge
-        .'<span class="sr-only">'.h($label).'</span></a>';
+        .'<span class="nav-label" aria-hidden="true">'.h($label).'</span></a>';
 }
 
 function navIconButton(string $id, string $label, string $icon, string $extraClass = ''): string {
     $cls = trim('btn nav-ico '.$extraClass);
     return '<button type="button" class="'.h($cls).'" id="'.h($id).'" title="'.h($label).'" aria-label="'.h($label).'">'
         .navIconSvg($icon)
-        .'<span class="sr-only">'.h($label).'</span></button>';
+        .'<span class="nav-label" aria-hidden="true">'.h($label).'</span></button>';
 }
 
 function parentChecksHtml(string $scope, array $choices, array $selected, int $playerId = 0, array $defaultIds = []): string {
@@ -740,12 +740,17 @@ button.btn{font-family:inherit;cursor:pointer}
 .nav .nav-ico{
   width:42px;height:42px;padding:0;
   display:inline-flex;align-items:center;justify-content:center;
-  position:relative;
+  position:relative;gap:7px;
 }
-.nav .nav-ico svg{width:20px;height:20px;display:block}
+.nav .nav-ico svg{width:20px;height:20px;display:block;flex:0 0 auto}
+.nav .nav-label{display:none}
 #foldAllBtn .fold-ico-open{display:none}
 #foldAllBtn.is-closed .fold-ico-close{display:none}
 #foldAllBtn.is-closed .fold-ico-open{display:block}
+@media(min-width:768px){
+  .nav .nav-ico{width:auto;padding:0 12px 0 10px}
+  .nav .nav-label{display:inline;font-size:12.5px;font-weight:700;line-height:1}
+}
 .sr-only{
   position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
   clip:rect(0,0,0,0);white-space:nowrap;border:0;
@@ -1273,27 +1278,17 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   </header>
 
   <div class="navwrap">
-  <nav class="nav">
+  <nav class="nav" aria-label="Acties">
     <button type="button" class="btn nav-ico is-closed" id="foldAllBtn" title="Alles open" aria-label="Alles open">
       <span class="fold-ico fold-ico-close"><?= navIconSvg('collapse') ?></span>
       <span class="fold-ico fold-ico-open"><?= navIconSvg('expand') ?></span>
-      <span class="sr-only">Alles open of dicht</span>
+      <span class="nav-label" id="foldAllLabel" aria-hidden="true">Alles open</span>
     </button>
-    <?= navIconLink('#design', 'Design', 'design') ?>
-    <?= navIconLink('#pakketten', 'Pakketten', 'pakketten') ?>
-    <?= navIconLink('#spelers', 'Spelers', 'spelers') ?>
     <?php if ($canEdit): ?>
-    <?= navIconLink('#ouders', 'Ouders', 'ouders', '', $parentFilled ? '<span class="count" id="ouderNavCount">'.count($parentFilled).'</span>' : '<span class="count" id="ouderNavCount" hidden></span>') ?>
-    <?php endif; ?>
-    <?= navIconLink('#bestel', 'Bestelling', 'bestel', '', $canEdit && $quoteIssues > 0 ? '<span class="count wait">'.$quoteIssues.'</span>' : '') ?>
-    <?= navIconLink('#staf', 'Staf', 'staf') ?>
-    <?= navIconLink('#catalogus', 'Catalogus', 'catalogus') ?>
-    <?php if ($canEdit): ?>
-    <?= navIconLink('#beheer', 'Beheer', 'beheer') ?>
-    <?= navIconButton('saveAllBtn', 'Alles opslaan', 'save') ?>
-    <?= navIconButton('logoutBtn', 'Klaar', 'klaar') ?>
+    <?= navIconButton('saveAllBtn', 'Opslaan', 'save') ?>
+    <?= navIconButton('logoutBtn', 'Uitloggen', 'klaar') ?>
     <?php else: ?>
-    <?= navIconButton('editBtn', 'Beheer', 'login', 'dark') ?>
+    <?= navIconButton('editBtn', 'Inloggen', 'login', 'dark') ?>
     <?php endif; ?>
   </nav>
   </div>
@@ -2432,6 +2427,8 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     const label=anyOpen?'Alles dicht':'Alles open';
     btn.title=label;
     btn.setAttribute('aria-label', label);
+    const text=document.getElementById('foldAllLabel');
+    if(text) text.textContent=label;
   }
   mainFolds().forEach(d=>{ d.open=false; });
   document.querySelectorAll('details.shop-more').forEach(d=>{ d.open=false; });

@@ -428,7 +428,6 @@ foreach ($gaps as $g) {
 usort($orderGroups, static fn($a, $b) => [$a['tid'], $a['size']] <=> [$b['tid'], $b['size']]);
 usort($gaps, static fn($a, $b) => [$a['tid'], $a['who'], $a['size']] <=> [$b['tid'], $b['who'], $b['size']]);
 
-$orderPieces = array_sum(array_column($orderGroups, 'count'));
 $orderCost = 0.0;
 foreach ($orderGroups as $g) {
     if ($g['price'] === null) {
@@ -569,6 +568,10 @@ uksort($shopByType, static function ($a, $b) use ($types) {
     };
     return [$rank((int) $a), (int) $a] <=> [$rank((int) $b), (int) $b];
 });
+
+$orderCounts = orderPieceCounts($shopByType, $printRows);
+$orderPieces = (int) $orderCounts['garments'];
+$orderPiecesLabel = formatOrderPieces($orderCounts);
 
 $quoteStored = $canEdit ? loadQuoteCheck() : null;
 $quoteReport = null;
@@ -764,6 +767,7 @@ body:not(.editing) .stats{grid-template-columns:repeat(3,minmax(0,1fr))}
 .stat span{display:block;margin-top:4px;font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.2px;line-height:1.3}
 .stat:hover{border-color:var(--line2)}
 .stat.accent b{color:var(--accent-text)}
+.stat b.stat-split{font-size:clamp(13px,1.8vw,17px);letter-spacing:-.25px;line-height:1.25}
 .stat a{text-decoration:none}
 .nav .count{
   display:inline-block;min-width:1.15em;margin:0;padding:0 5px;border-radius:999px;
@@ -1297,7 +1301,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <div class="stats">
     <a class="stat" href="#spelers"><b><?= count($active) ?></b><span>spelers</span></a>
-    <a class="stat accent" href="#bestel"><b id="statPieces"><?= (int) $orderPieces ?></b><span>stuks te bestellen</span></a>
+    <a class="stat accent" href="#bestel"><b id="statPieces" class="stat-split"><?= h($orderPiecesLabel) ?></b><span>te bestellen</span></a>
     <?php if ($canEdit): ?>
     <div class="stat"><b id="statTotal"><?= euro($orderTotal) ?></b><span class="incl" id="statTotalIncl"><?= euroIncl($orderTotal) ?></span><span>richtprijs excl. btw<?= $printCost > 0 ? ' · kleding + print' : '' ?></span></div>
     <?php endif; ?>
@@ -1672,8 +1676,8 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   <?php endif; ?>
 
   <details class="section fold" id="bestel">
-    <summary class="fold-head"><h3>Bestelling</h3><span class="fold-meta" id="bestelMeta"><?= (int) $orderPieces ?> stuks</span></summary>
-    <p class="sub" id="bestelSub"><?= (int) $orderPieces ?> stuks<?php if ($canEdit && $orderTotal > 0): ?> · <?= euro($orderTotal) ?> excl. · <?= euroIncl($orderTotal) ?><?php endif; ?> · artikelnummers, maten en print.<?= $canEdit ? ' Uitvinken haalt het item uit prijs en Excel, niet van de speler.' : '' ?></p>
+    <summary class="fold-head"><h3>Bestelling</h3><span class="fold-meta" id="bestelMeta"><?= h($orderPiecesLabel) ?></span></summary>
+    <p class="sub" id="bestelSub"><?= h($orderPiecesLabel) ?><?php if ($canEdit && $orderTotal > 0): ?> · <?= euro($orderTotal) ?> excl. · <?= euroIncl($orderTotal) ?><?php endif; ?> · artikelnummers, maten en print.<?= $canEdit ? ' Uitvinken haalt het item uit prijs en Excel, niet van de speler.' : '' ?></p>
     <p class="shop-rule"><b>Shirt / keeperstenue / staf shirt / polo:</b> clublogo, logo sponsor voorkant, logo sponsor achterkant, initialen<?= ' · ' ?>nummer alleen op het spelersshirt, tekst staf op staf shirt en polo · <b>Regenjas:</b> initialen voorkant, logo sponsor achterkant · <b>Padded:</b> clublogo, logo sponsor voorkant, initialen · <b>Tas:</b> clublogo, logo sponsor, initialen · <b>Broek:</b> initialen · <b>Sokken:</b> geen bedrukking</p>
 
     <div class="actions">
@@ -1729,7 +1733,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
             $boxText = 'De offerte dekt de bestelling in de app: artikel, maat en aantal kloppen.';
         }
       ?>
-      <p class="quote-status <?= h($boxClass) ?>"><?= h($boxText) ?> App <?= (int) $qc['app_pieces'] ?> stuks · offerte <?= (int) $qc['quote_pieces'] ?> stuks.</p>
+      <p class="quote-status <?= h($boxClass) ?>"><?= h($boxText) ?> App <?= h(formatOrderPieces(['garments' => (int) ($qc['app_garments'] ?? $orderCounts['garments']), 'prints' => (int) ($qc['app_prints'] ?? $orderCounts['prints'])])) ?> · offerte <?= h(formatOrderPieces(['garments' => (int) ($qc['quote_garments'] ?? 0), 'prints' => (int) ($qc['quote_prints'] ?? 0)])) ?>.</p>
       <?php if (!empty($quoteStored['warnings'])): ?>
       <p class="hint"><?= h(implode(' ', $quoteStored['warnings'])) ?></p>
       <?php endif; ?>
@@ -1794,7 +1798,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     <div class="order-live" id="orderLive">
       <label class="shop-include"><input type="checkbox" id="orderSelectAll" checked> Alles meetellen</label>
       <div class="order-live-total">
-        <span><b id="livePieces"><?= (int) $orderPieces ?></b> stuks</span>
+        <span><b id="livePieces"><?= h($orderPiecesLabel) ?></b></span>
         <span><b id="liveExcl"><?= euro($orderTotal) ?></b> excl.</span>
         <span class="incl" id="liveIncl"><?= euroIncl($orderTotal) ?></span>
       </div>
@@ -2884,6 +2888,22 @@ function pendingWantRows(){
 function setText(el, text){
   if(el) el.textContent=text;
 }
+function orderPieceCountsFromRows(rows){
+  let garments=0;
+  const prints={};
+  rows.forEach(row=>{
+    garments+=1;
+    const t=typeById(+row.dataset.tid);
+    (t?.prints||[]).forEach(k=>{ prints[k]=(prints[k]||0)+1; });
+  });
+  return {
+    garments,
+    prints: Object.values(prints).reduce((a,n)=>a+n,0)
+  };
+}
+function formatOrderPieces(counts){
+  return (counts.garments||0)+' kledingstukken · '+(counts.prints||0)+' prints';
+}
 function personKitCostFromCard(card){
   let clothing=0, print=0, n=0;
   card.querySelectorAll('.kit-row').forEach(row=>{
@@ -2946,17 +2966,19 @@ function recalcOrder(){
     if(unit!=null) printCost+=unit*n;
   });
   const total=clothing+printCost;
-  setText(document.getElementById('statPieces'), String(pieces));
+  const pieceCounts=orderPieceCountsFromRows(rows);
+  const piecesLabel=formatOrderPieces(pieceCounts);
+  setText(document.getElementById('statPieces'), piecesLabel);
   recalcAllKitTotals();
   setText(document.getElementById('statTotal'), euroJs(total));
   setText(document.getElementById('statTotalIncl'), euroInclJs(total));
-  setText(document.getElementById('livePieces'), String(pieces));
+  setText(document.getElementById('livePieces'), piecesLabel);
   setText(document.getElementById('liveExcl'), euroJs(total));
   setText(document.getElementById('liveIncl'), euroInclJs(total));
-  setText(document.getElementById('bestelMeta'), pieces+' stuks');
+  setText(document.getElementById('bestelMeta'), piecesLabel);
   const sub=document.getElementById('bestelSub');
   if(sub){
-    sub.textContent=pieces+' stuks · '+euroJs(total)+' excl. · '+euroInclJs(total)+' · artikelnummers, maten en print. Uitvinken haalt het item uit prijs en Excel, niet van de speler.';
+    sub.textContent=piecesLabel+' · '+euroJs(total)+' excl. · '+euroInclJs(total)+' · artikelnummers, maten en print. Uitvinken haalt het item uit prijs en Excel, niet van de speler.';
   }
   setText(document.getElementById('orderPiecesCell'), String(pieces));
   setText(document.getElementById('orderCostCell'), euroPairJs(clothing));

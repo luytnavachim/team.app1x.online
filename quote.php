@@ -1090,6 +1090,35 @@ function expectedQuotePrints(array $printRows): array {
     return $groups;
 }
 
+function quoteLinePieceCounts(array $quoteLines): array {
+    $garments = 0;
+    $prints = 0;
+    foreach ($quoteLines as $line) {
+        if (!is_array($line)) {
+            continue;
+        }
+        $qty = (int) ($line['qty'] ?? 0);
+        if ($qty < 1) {
+            continue;
+        }
+        $print = $line['print'] ?? null;
+        $name = trim((string) ($line['name'] ?? ''));
+        if (!is_string($print) || $print === '') {
+            $print = quotePrintKeyFromName($name);
+        }
+        $article = trim((string) ($line['article'] ?? ''));
+        if (is_string($print) && $print !== '' && ($article === '' || quoteArticleBase($article) === '')) {
+            $prints += $qty;
+        } else {
+            $garments += $qty;
+        }
+    }
+    return [
+        'garments' => $garments,
+        'prints' => $prints,
+    ];
+}
+
 function compareQuoteToOrder(array $shopByType, array $printRows, array $quoteLines): array {
     $quoteHasPrint = false;
     foreach ($quoteLines as $line) {
@@ -1269,6 +1298,8 @@ function compareQuoteToOrder(array $shopByType, array $printRows, array $quoteLi
 
     $skuN = count(array_filter($rows, static fn($r) => ($r['status'] ?? '') === 'sku'));
     $problems = $missing + $short;
+    $appCounts = orderPieceCounts($shopByType, $printRows);
+    $quoteCounts = quoteLinePieceCounts($quoteLines);
     return [
         'ok' => $problems === 0 && $unknown === [] && $skuN === 0,
         'complete' => $problems === 0,
@@ -1279,8 +1310,12 @@ function compareQuoteToOrder(array $shopByType, array $printRows, array $quoteLi
             'missing' => $missing,
             'sku' => $skuN,
             'unknown' => count($unknown),
-            'app_pieces' => $appPieces,
-            'quote_pieces' => $quotePieces,
+            'app_garments' => $appCounts['garments'],
+            'app_prints' => $appCounts['prints'],
+            'quote_garments' => $quoteCounts['garments'],
+            'quote_prints' => $quoteCounts['prints'],
+            'app_pieces' => $appCounts['garments'] + $appCounts['prints'],
+            'quote_pieces' => $quoteCounts['garments'] + $quoteCounts['prints'],
         ],
         'rows' => $rows,
         'unknown' => $unknown,

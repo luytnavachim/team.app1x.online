@@ -3343,6 +3343,39 @@ function itemPrintMarks(array $g): array {
     ];
 }
 
+/**
+ * Kledingstukken en print-applicaties in dezelfde bestelling.
+ *
+ * @param array<int|string, array<string, mixed>> $shopByType
+ * @param array<string, array<string, mixed>> $printRows
+ * @return array{garments:int,prints:int}
+ */
+function orderPieceCounts(array $shopByType, array $printRows): array {
+    $garments = 0;
+    foreach ($shopByType as $shop) {
+        if (!is_array($shop)) {
+            continue;
+        }
+        $n = (int) ($shop['count'] ?? 0);
+        if ($n < 1 && isset($shop['sizes']) && is_array($shop['sizes'])) {
+            $n = (int) array_sum($shop['sizes']);
+        }
+        $garments += $n;
+    }
+    $prints = 0;
+    foreach ($printRows as $row) {
+        $prints += is_array($row) ? (int) ($row['count'] ?? 0) : (int) $row;
+    }
+    return [
+        'garments' => $garments,
+        'prints' => $prints,
+    ];
+}
+
+function formatOrderPieces(array $counts): string {
+    return (int) ($counts['garments'] ?? 0) . ' kledingstukken · ' . (int) ($counts['prints'] ?? 0) . ' prints';
+}
+
 function orderListRows(array $shopByType, int $orderPieces, array $gaps = [], ?DateTimeInterface $stamp = null): array {
     $stamp ??= new DateTimeImmutable('now', new DateTimeZone('Europe/Amsterdam'));
     $when = $stamp->format('d-m-Y H:i');

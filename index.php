@@ -257,6 +257,33 @@ function staffSectionStatus(array $staff): array {
     return foldStatus('warn', $ok.'/'.$n);
 }
 
+function staffRoleLabel(string $role): string {
+    $role = trim($role);
+    if ($role === '') {
+        return 'Staf';
+    }
+    return mb_strtoupper(mb_substr($role, 0, 1, 'UTF-8'), 'UTF-8').mb_substr($role, 1, null, 'UTF-8');
+}
+
+/** @param list<array<string,mixed>> $staff
+ *  @return list<array{label:string,count:int}>
+ */
+function staffPublicRoles(array $staff): array {
+    $roles = [];
+    foreach ($staff as $s) {
+        if (!is_array($s)) {
+            continue;
+        }
+        $label = staffRoleLabel((string) ($s['role'] ?? ''));
+        $key = mb_strtolower($label, 'UTF-8');
+        if (!isset($roles[$key])) {
+            $roles[$key] = ['label' => $label, 'count' => 0];
+        }
+        $roles[$key]['count']++;
+    }
+    return array_values($roles);
+}
+
 function catalogSectionStatus(array $types): array {
     $n = 0;
     $noSku = 0;
@@ -768,7 +795,10 @@ $packagesStatus = packagesSectionStatus(
 $playersStatus = playersSectionStatus($active);
 $parentLinksStatus = parentLinksSectionStatus(count($parentFilled), count($active));
 $orderStatus = orderSectionStatus($quoteReport, $orderPiecesLabel, $gaps, $canEdit);
-$staffStatus = staffSectionStatus($staff);
+$staffStatus = $canEdit
+    ? staffSectionStatus($staff)
+    : foldStatus('ok', foldCountLabel(count($staff), 'staflid', 'stafleden'));
+$staffPublicRoles = $canEdit ? [] : staffPublicRoles($staff);
 $catalogStatus = catalogSectionStatus($types);
 $adminStatus = adminSectionStatus($season);
 
@@ -2290,7 +2320,17 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <details class="section fold" id="staf">
     <summary class="fold-head"><h3>Staf</h3><?= foldStatusHtml($staffStatus) ?></summary>
-    <p class="sub">Stafpakket: padded, shirt, polo en broek.<?= $canEdit ? ' Maat of vinkje wordt meteen opgeslagen. <b>Pakket</b> zet de set in één keer.' : '' ?></p>
+    <?php if (!$canEdit): ?>
+    <p class="sub"><?= h(foldCountLabel(count($staff), 'staflid', 'stafleden')) ?></p>
+    <?php if ($staffPublicRoles): ?>
+    <div class="pills">
+      <?php foreach ($staffPublicRoles as $roleRow): ?>
+      <span class="pill"><?= h((string) $roleRow['label']) ?><?= ((int) $roleRow['count'] > 1) ? ' · '.(int) $roleRow['count'] : '' ?></span>
+      <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+    <?php else: ?>
+    <p class="sub">Stafpakket: padded, shirt, polo en broek. Maat of vinkje wordt meteen opgeslagen. <b>Pakket</b> zet de set in één keer.</p>
     <div class="cards">
       <?php foreach ($staff as $s): ?>
       <article class="card<?= !empty($s['missing']) ? ' gap' : '' ?>" id="card-s-<?= (int) $s['id'] ?>">
@@ -2356,6 +2396,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
       </article>
       <?php endforeach; ?>
     </div>
+    <?php endif; ?>
   </details>
 
   <details class="section fold" id="catalogus">

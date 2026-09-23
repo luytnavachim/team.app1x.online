@@ -697,6 +697,9 @@ if ($action === 'save_kit') {
     if (array_key_exists('season', $body)) {
         $kit['season'] = $body['season'];
     }
+    if (array_key_exists('price_display', $body)) {
+        $kit['price_display'] = $body['price_display'];
+    }
     saveKitSettings($kit);
     jsonOut(['ok' => true, 'settings' => loadKitSettings()]);
 }

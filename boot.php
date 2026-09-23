@@ -43,6 +43,15 @@ function euroIncl(?float $n): string {
     return $v === null ? '—' : euro($v) . ' incl. btw';
 }
 
+function euroExcl(?float $n): string {
+    return $n === null ? '—' : euro($n) . ' excl. btw';
+}
+
+function normalizePriceDisplay(mixed $raw): string {
+    $v = strtolower(trim((string) $raw));
+    return $v === 'excl' ? 'excl' : 'incl';
+}
+
 function euroPair(?float $n): string {
     if ($n === null) {
         return '—';
@@ -442,6 +451,7 @@ function defaultKitSettings(): array {
             'staff_text' => null,
         ],
         'season' => '26/27',
+        'price_display' => 'incl',
     ];
 }
 
@@ -479,6 +489,7 @@ function loadKitSettings(bool $reload = false): array {
         'package_staff' => $packageStaff,
         'print' => $print,
         'season' => substr($season, 0, 16),
+        'price_display' => normalizePriceDisplay($raw['price_display'] ?? $def['price_display']),
     ];
     return $cached;
 }
@@ -506,6 +517,7 @@ function saveKitSettings(array $settings): void {
         'package_staff' => $packageStaff,
         'print' => $print,
         'season' => substr($season, 0, 16),
+        'price_display' => normalizePriceDisplay($settings['price_display'] ?? $def['price_display']),
     ];
     file_put_contents(kitSettingsPath(), json_encode($clean, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
     loadKitSettings(true);

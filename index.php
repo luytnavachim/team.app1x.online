@@ -94,6 +94,7 @@ foreach ($staff as &$s) {
 }
 unset($s);
 $season = trim((string) ($kitSettings['season'] ?? '26/27')) ?: '26/27';
+$priceDisplay = normalizePriceDisplay($kitSettings['price_display'] ?? 'incl');
 
 function navIconSvg(string $name): string {
     $paths = [
@@ -1239,6 +1240,7 @@ td .shop-cmp-link{display:flex;flex-direction:column;align-items:flex-end;gap:2p
   width:100%;min-width:88px;border:1px solid var(--line2);border-radius:8px;padding:5px 8px;
   font-weight:700;font-size:12.5px;background:var(--raise);color:var(--ink);font-family:inherit;
 }
+select.cat-input{cursor:pointer;min-height:34px}
 .print-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}
 .print-tags i{font-style:normal;font-size:10px;font-weight:800;letter-spacing:.3px;color:var(--dim);background:var(--raise);border-radius:999px;padding:2px 7px}
 .cat-prints{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
@@ -1504,7 +1506,17 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     <a class="stat" href="#spelers"><b><?= count($active) ?></b><span>spelers</span></a>
     <a class="stat accent" href="#bestel"><b id="statPieces" class="stat-split"><?= h($orderPiecesLabel) ?></b><span>te bestellen</span></a>
     <?php if ($canEdit): ?>
-    <div class="stat"><b id="statTotal"><?= euro($orderTotal) ?></b><span class="incl" id="statTotalIncl"><?= euroIncl($orderTotal) ?></span><span>richtprijs excl. btw<?= $printCost > 0 ? ' · kleding + print' : '' ?></span></div>
+    <?php
+      $statMain = $priceDisplay === 'incl' ? euro(withVat($orderTotal)) : euro($orderTotal);
+      $statAlt = $priceDisplay === 'incl' ? euroExcl($orderTotal) : euroIncl($orderTotal);
+      $statCap = ($priceDisplay === 'incl' ? 'richtprijs incl. btw' : 'richtprijs excl. btw')
+          . ($printCost > 0 ? ' · kleding + print' : '');
+    ?>
+    <div class="stat">
+      <b id="statTotal"><?= h($statMain) ?></b>
+      <span class="incl" id="statTotalIncl"><?= h($statAlt) ?></span>
+      <span id="statTotalCap" data-extra="<?= $printCost > 0 ? ' · kleding + print' : '' ?>"><?= h($statCap) ?></span>
+    </div>
     <?php endif; ?>
     <?php if ($canEdit): ?>
     <a class="stat accent" href="#ouders">
@@ -2405,13 +2417,19 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   ?>
   <details class="section fold" id="beheer">
     <summary class="fold-head"><h3>Beheer</h3><?= foldStatusHtml($adminStatus) ?></summary>
-    <p class="sub">CMS: seizoen, staf, catalogus. Spelers zijn alleen de huidige 14-2 selectie uit de scout-app.</p>
+    <p class="sub">CMS: seizoen, prijsweergave, staf, catalogus. Spelers zijn alleen de huidige 14-2 selectie uit de scout-app.</p>
 
     <div class="parent-defaults">
-      <h4>Seizoen</h4>
+      <h4>Instellingen</h4>
       <div class="cms-grid">
         <label>Seizoen
           <input class="cat-input" id="seasonInput" value="<?= h($season) ?>" maxlength="16" placeholder="26/27">
+        </label>
+        <label>Prijsweergave
+          <select class="cat-input" id="priceDisplayInput">
+            <option value="incl"<?= $priceDisplay === 'incl' ? ' selected' : '' ?>>Incl. btw</option>
+            <option value="excl"<?= $priceDisplay === 'excl' ? ' selected' : '' ?>>Excl. btw</option>
+          </select>
         </label>
         <button type="button" class="btn dark" id="seasonSave">Opslaan</button>
       </div>
@@ -2659,6 +2677,7 @@ const TEAM = {
   editing: <?= $canEdit ? 'true' : 'false' ?>,
   viewer: <?= json_encode($canEdit ? 'editor' : 'guest') ?>,
   vat: <?= json_encode(vatRate()) ?>,
+  priceDisplay: <?= json_encode($priceDisplay) ?>,
   parentFills: <?= json_encode($parentFillJs, JSON_UNESCAPED_UNICODE) ?>,
   packageTypes: <?= json_encode(packageTypeIds()) ?>,
   shortsTypes: <?= json_encode(shortsSlotTypeIds()) ?>,
@@ -3109,6 +3128,18 @@ function withVatJs(n){
 function euroInclJs(n){
   return euroJs(withVatJs(n))+' incl. btw';
 }
+function euroExclJs(n){
+  return euroJs(n)+' excl. btw';
+}
+function fillStatTotal(total){
+  const incl=TEAM.priceDisplay!=='excl';
+  setText(document.getElementById('statTotal'), incl?euroJs(withVatJs(total)):euroJs(total));
+  setText(document.getElementById('statTotalIncl'), incl?euroExclJs(total):euroInclJs(total));
+  const cap=document.getElementById('statTotalCap');
+  if(cap){
+    cap.textContent=(incl?'richtprijs incl. btw':'richtprijs excl. btw')+(cap.dataset.extra||'');
+  }
+}
 function euroPairJs(n){
   return euroJs(n)+' · '+euroJs(withVatJs(n))+' incl.';
 }
@@ -3231,8 +3262,7 @@ function recalcOrder(){
   const piecesLabel=formatOrderPieces(pieceCounts);
   setText(document.getElementById('statPieces'), piecesLabel);
   recalcAllKitTotals();
-  setText(document.getElementById('statTotal'), euroJs(total));
-  setText(document.getElementById('statTotalIncl'), euroInclJs(total));
+  fillStatTotal(total);
   setText(document.getElementById('livePieces'), piecesLabel);
   setText(document.getElementById('liveExcl'), euroJs(total));
   setText(document.getElementById('liveIncl'), euroInclJs(total));
@@ -3503,7 +3533,8 @@ async function cmsOk(out, okMsg){
 }
 document.getElementById('seasonSave')?.addEventListener('click', async ()=>{
   const season=document.getElementById('seasonInput')?.value||'';
-  await cmsOk(await api({action:'save_kit', csrf:TEAM.csrf, season}), 'Seizoen opgeslagen');
+  const price_display=document.getElementById('priceDisplayInput')?.value||'incl';
+  await cmsOk(await api({action:'save_kit', csrf:TEAM.csrf, season, price_display}), 'Instellingen opgeslagen');
 });
 document.getElementById('backupBtn')?.addEventListener('click', ()=>{
   const btn=document.getElementById('backupBtn');

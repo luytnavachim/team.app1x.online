@@ -695,7 +695,7 @@ a{color:inherit}
 .club{display:flex;gap:11px;align-items:center;min-width:0}
 .top-right{display:flex;align-items:center;gap:8px;flex:0 0 auto}
 .theme-switch{display:flex;gap:7px;align-items:center}
-.theme-switch button,.badge{
+.theme-switch button{
   width:42px;height:42px;padding:0;border:1px solid var(--line);border-radius:999px;
   background:var(--surface);color:var(--ink);
   display:inline-flex;align-items:center;justify-content:center;
@@ -715,8 +715,11 @@ a{color:inherit}
 .club b{display:block;font-size:19px;font-weight:800;letter-spacing:-.3px;line-height:1.15}
 .club small{display:block;color:var(--muted);font-size:11.5px;font-weight:600;letter-spacing:.1px}
 .badge{
-  background:var(--accent);color:var(--on-accent);border-color:var(--accent);
-  cursor:default;
+  height:42px;padding:0 12px;border:1px solid var(--accent);border-radius:999px;
+  background:var(--accent);color:var(--on-accent);
+  display:inline-flex;align-items:center;justify-content:center;
+  font-weight:800;font-size:12px;letter-spacing:-.15px;line-height:1.2;
+  cursor:default;font-family:inherit;flex:0 0 auto;white-space:nowrap;
 }
 
 /* ---------- nav ---------- */
@@ -1265,7 +1268,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         <button type="button" data-theme-set="dark" aria-pressed="true" title="Donker" aria-label="Donker"><?= navIconSvg('moon') ?><span class="sr-only">Donker</span></button>
         <button type="button" data-theme-set="light" aria-pressed="false" title="Licht" aria-label="Licht"><?= navIconSvg('sun') ?><span class="sr-only">Licht</span></button>
       </div>
-      <div class="badge" title="Seizoen <?= h($season) ?>"><?= h($season) ?></div>
+      <div class="badge" title="Seizoen <?= h($season) ?>" aria-label="Seizoen <?= h($season) ?>">Seizoen <?= h($season) ?></div>
     </div>
   </header>
 

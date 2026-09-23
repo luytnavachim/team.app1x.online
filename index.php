@@ -854,7 +854,10 @@ body{
   background-attachment:fixed;
   font-variant-numeric:tabular-nums;
 }
-.wrap{max-width:1080px;margin:auto;padding:16px 16px 80px}
+.wrap{max-width:600px;margin:auto;padding:16px 16px 80px}
+@media(min-width:1200px){
+  .wrap{max-width:960px}
+}
 a{color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
 
@@ -935,7 +938,7 @@ button.btn{font-family:inherit;cursor:pointer}
 .editbar b{color:var(--accent-text)}
 
 /* ---------- stats ---------- */
-.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px;width:100%}
 body:not(.editing) .stats{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media(max-width:720px){.stats,body:not(.editing) .stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 13px;min-width:0}
@@ -944,6 +947,12 @@ body:not(.editing) .stats{grid-template-columns:repeat(3,minmax(0,1fr))}
 .stat:hover{border-color:var(--line2)}
 .stat.accent b{color:var(--accent-text)}
 .stat b.stat-split{font-size:clamp(13px,1.8vw,17px);letter-spacing:-.25px;line-height:1.25}
+@media(min-width:1200px){
+  .stats{gap:12px}
+  .stat{padding:16px 18px}
+  .stat b{font-size:clamp(22px,1.8vw,28px)}
+  .stat b.stat-split{font-size:clamp(15px,1.2vw,18px)}
+}
 .stat a{text-decoration:none}
 .nav .count{
   display:inline-block;min-width:1.15em;margin:0;padding:0 5px;border-radius:999px;
@@ -1114,8 +1123,9 @@ details.fold[open] > summary.fold-head{margin-bottom:2px;border-bottom:1px solid
 .order-live .hint{margin:0;font-size:12px}
 .quote-check{
   border:1px solid var(--line);border-radius:var(--r);padding:14px 16px;
-  background:var(--surface2);margin:14px 0;
+  background:var(--surface2);margin:14px 0;width:100%;
 }
+.quote-check .tablewrap{width:100%}
 .quote-check h4{margin:0 0 4px;font-size:15px;font-weight:800}
 .quote-check .quote-status{margin:10px 0 0;padding:10px 12px;border-radius:12px;font-size:13px;font-weight:700}
 .quote-check .quote-status.ok{background:var(--greenbg);color:var(--green)}
@@ -1133,6 +1143,10 @@ details.fold[open] > summary.fold-head{margin-bottom:2px;border-bottom:1px solid
 .quote-check tr.is-ok td.status{color:var(--green)}
 .quote-check tr.is-short td.status,.quote-check tr.is-missing td.status{color:var(--miss)}
 .quote-check tr.is-over td.status,.quote-check tr.is-sku td.status{color:var(--warn)}
+@media(min-width:1200px){
+  .quote-check,.quote-check .tablewrap{width:100%}
+  .quote-check th,.quote-check td{padding:10px 14px}
+}
 .card .actions{margin-top:auto;padding-top:4px}
 .card .actions .btn{padding:8px 12px;font-size:12px}
 .save-state{font-size:11px;font-weight:800;color:var(--muted);min-height:16px}

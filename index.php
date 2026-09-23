@@ -283,6 +283,19 @@ function adminSectionStatus(string $season): array {
     return foldStatus('ok', 'seizoen '.$season);
 }
 
+function assignPackageAllAttrs(string $who, int $count, array $types): string {
+    $ids = match ($who) {
+        'staff' => staffPackageTypeIds(),
+        'keeper' => keeperPackageTypeIds(),
+        default => packageTypeIds(),
+    };
+    $names = [];
+    foreach ($ids as $tid) {
+        $names[] = shortTypeName((int) $tid, $types);
+    }
+    return ' data-who="'.h($who).'" data-count="'.$count.'" data-items="'.h(implode(', ', $names)).'"';
+}
+
 function parentChecksHtml(string $scope, array $choices, array $selected, int $playerId = 0, array $defaultIds = []): string {
     $html = '<div class="checks" data-parent-scope="'.h($scope).'" data-id="'.$playerId.'" data-default="'.h(implode(',', $defaultIds)).'">';
     foreach ($choices as $tid) {
@@ -1199,6 +1212,17 @@ tr.parent-done td.name{box-shadow:inset 3px 0 0 var(--green)}
 
 .chip{display:inline-flex;gap:6px;align-items:center;background:var(--raise);border-radius:999px;padding:5px 10px;font-size:11px;font-weight:700;margin:0 6px 6px 0}
 .actions{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0 0;align-items:center}
+.btn.warn-outline{
+  background:transparent;color:var(--miss);border:1.5px solid var(--miss);font-weight:800;
+}
+.btn.warn-outline:hover{background:var(--missbg);border-color:var(--miss);color:var(--miss)}
+.pack-all-bar{
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;
+  margin:14px 0 4px;padding:12px 14px;
+  border:1px dashed var(--miss);border-radius:var(--r);background:var(--missbg);
+}
+.pack-all-bar .hint{margin:0;flex:1 1 16rem;font-size:12.5px;color:var(--muted);font-weight:500;line-height:1.4}
+.modalbox.wide{width:min(460px,100%)}
 .muted{color:var(--muted);font-size:12px}
 .checks{display:flex;flex-wrap:wrap;gap:7px;margin:8px 0 4px}
 .checks label{
@@ -1443,7 +1467,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         --fold-ok:#0B6B40;--fold-warn:#7A6410}
   html{color-scheme:light}
   body{background:#fff;color:#111}
-  .navwrap,.filters,.actions,.note,.toast,.modal,.theme-switch,#parentAlert,.assign,.addrow,.money,.cat-input,#printPrices,.parent-defaults,.packfold > summary,#beheer,.quote-upload{display:none !important}
+  .navwrap,.filters,.actions,.pack-all-bar,.note,.toast,.modal,.theme-switch,#parentAlert,.assign,.addrow,.money,.cat-input,#printPrices,.parent-defaults,.packfold > summary,#beheer,.quote-upload{display:none !important}
   .packfold{display:block}
   .packshot{max-width:360px}
   .kit-design{grid-template-columns:1fr 1fr;break-inside:avoid}
@@ -1558,7 +1582,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         <p class="sub">Tas, regenjas, padded, shirt, footless, broek, grip.</p>
         <?php if ($canEdit): ?>
         <div class="actions" style="margin:0 0 10px">
-          <button type="button" class="btn dark assign-package-all" data-who="player">Pakket aan alle spelers</button>
+          <button type="button" class="btn warn-outline assign-package-all"<?= assignPackageAllAttrs('player', count($fieldPlayers), $types) ?>>Pakket aan alle spelers</button>
         </div>
         <?php endif; ?>
         <div class="pack-tablewrap">
@@ -1591,7 +1615,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         <p class="sub">Padded, staf shirt, polo, broek.</p>
         <?php if ($canEdit): ?>
         <div class="actions" style="margin:0 0 10px">
-          <button type="button" class="btn dark assign-package-all" data-who="staff">Pakket aan alle staf</button>
+          <button type="button" class="btn warn-outline assign-package-all"<?= assignPackageAllAttrs('staff', count($staff), $types) ?>>Pakket aan alle staf</button>
         </div>
         <?php endif; ?>
         <div class="pack-tablewrap">
@@ -1627,7 +1651,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         <p class="sub">Keeperpakket plus extra’s die hij bestelt. Grijs is n.v.t., niet in de bestelling.</p>
         <?php if ($canEdit): ?>
         <div class="actions" style="margin:0 0 10px">
-          <button type="button" class="btn dark assign-package-all" data-who="keeper">Pakket aan keepers</button>
+          <button type="button" class="btn warn-outline assign-package-all"<?= assignPackageAllAttrs('keeper', count($keeperPlayers), $types) ?>>Pakket aan keepers</button>
         </div>
         <?php endif; ?>
         <div class="pack-tablewrap">
@@ -1899,10 +1923,13 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
       <a class="btn dark" href="?pdf=offerte">PDF zoals offerte</a>
       <?php endif; ?>
       <a class="btn" href="javascript:window.print()">Print</a>
-      <?php if ($canEdit): ?>
-      <button type="button" class="btn assign-package-all" data-who="player">Pakket aan alle spelers</button>
-      <?php endif; ?>
     </div>
+    <?php if ($canEdit): ?>
+    <div class="pack-all-bar">
+      <button type="button" class="btn warn-outline assign-package-all"<?= assignPackageAllAttrs('player', count($fieldPlayers), $types) ?>>Pakket aan alle spelers</button>
+      <p class="hint">Zet ontbrekende pakketstukken bij alle veldspelers op bestellen. Bestaande items blijven staan.</p>
+    </div>
+    <?php endif; ?>
 
     <?php if ($canEdit):
       $qStatus = [
@@ -2602,6 +2629,16 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
       <button class="btn" type="button" id="pinCancel">Annuleren</button>
     </div>
   </form>
+</div>
+<div id="packageAllModal" class="modal hidden">
+  <div class="modalbox wide" role="dialog" aria-modal="true" aria-labelledby="packageAllTitle">
+    <h3 id="packageAllTitle">Pakket toewijzen?</h3>
+    <p id="packageAllText"></p>
+    <div class="actions">
+      <button type="button" class="btn warn-outline" id="packageAllOk">Toch uitvoeren</button>
+      <button type="button" class="btn dark" id="packageAllCancel">Annuleren</button>
+    </div>
+  </div>
 </div>
 <div id="toast" class="toast"></div>
 <script>
@@ -3388,11 +3425,48 @@ document.getElementById('assignPackage')?.addEventListener('click', ()=>{
   const {who,id}=assignPersonParts();
   addPackage(who, id, 'pending');
 });
+function confirmPackageAll(btn){
+  return new Promise(resolve=>{
+    const modal=document.getElementById('packageAllModal');
+    const title=document.getElementById('packageAllTitle');
+    const text=document.getElementById('packageAllText');
+    if(!modal||!title||!text){
+      resolve(false);
+      return;
+    }
+    const who=btn.dataset.who||'player';
+    const n=Math.max(0, parseInt(btn.dataset.count||'0', 10)||0);
+    const items=btn.dataset.items||'pakketitems';
+    const noun=who==='staff'?(n===1?'staflid':'stafleden'):(who==='keeper'?(n===1?'keeper':'keepers'):(n===1?'veldspeler':'veldspelers'));
+    title.textContent=who==='staff'?'Pakket aan alle staf?':(who==='keeper'?'Pakket aan keepers?':'Pakket aan alle spelers?');
+    const skip=who==='player'?' Keepers worden overgeslagen.':'';
+    text.textContent=n+' '+noun+' krijgen ontbrekende pakketitems op bestellen: '+items+'. Bestaande items (in bezit, te bestellen of n.v.t.) worden niet overschreven.'+skip+' Zonder bruikbare maat wordt een item overgeslagen.';
+    modal.classList.remove('hidden');
+    const ok=document.getElementById('packageAllOk');
+    const cancel=document.getElementById('packageAllCancel');
+    const done=yes=>{
+      modal.classList.add('hidden');
+      ok?.removeEventListener('click', onOk);
+      cancel?.removeEventListener('click', onCancel);
+      modal.removeEventListener('click', onBackdrop);
+      document.removeEventListener('keydown', onKey);
+      resolve(yes);
+    };
+    const onOk=()=>done(true);
+    const onCancel=()=>done(false);
+    const onBackdrop=e=>{ if(e.target===modal) done(false); };
+    const onKey=e=>{ if(e.key==='Escape') done(false); };
+    ok?.addEventListener('click', onOk);
+    cancel?.addEventListener('click', onCancel);
+    modal.addEventListener('click', onBackdrop);
+    document.addEventListener('keydown', onKey);
+    (cancel||ok)?.focus();
+  });
+}
 document.querySelectorAll('.assign-package-all').forEach(btn=>{
   btn.addEventListener('click', async ()=>{
+    if(!await confirmPackageAll(btn)) return;
     const who=btn.dataset.who||'player';
-    const label=who==='staff'?'alle staf':(who==='keeper'?'keepers':'alle spelers');
-    if(!confirm('Pakket op bestellen zetten voor '+label+' die die items nog niet hebben?')) return;
     const out=await api({action:'add_package_all', csrf:TEAM.csrf, mode:'pending', who});
     if(!out.ok){ toast(out.error||'Mislukt'); return; }
     toast((out.people||0)+' personen · '+(out.saved||0)+' items');

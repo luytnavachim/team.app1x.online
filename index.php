@@ -439,14 +439,17 @@ $STAFF_OVERVIEW = packOverviewTypeIds($STAFF_PACKAGE, $staff, 'staff');
 
 $parentFilled = array_values(array_filter($active, static fn($p) => !empty($p['parent_saved_at'])));
 usort($parentFilled, static fn($a, $b) => strcmp((string) ($b['parent_saved_at'] ?? ''), (string) ($a['parent_saved_at'] ?? '')));
-$parentFillJs = array_map(static function ($p) {
-    $ts = strtotime((string) $p['parent_saved_at']);
-    return [
-        'id' => (int) $p['id'],
-        'name' => fullName($p),
-        'at' => $ts ? $ts * 1000 : 0,
-    ];
-}, $parentFilled);
+$parentFillJs = [];
+if ($canEdit) {
+    $parentFillJs = array_map(static function ($p) {
+        $ts = strtotime((string) $p['parent_saved_at']);
+        return [
+            'id' => (int) $p['id'],
+            'name' => fullName($p),
+            'at' => $ts ? $ts * 1000 : 0,
+        ];
+    }, $parentFilled);
+}
 
 $parentLinks = [];
 if ($canEdit) {
@@ -493,7 +496,7 @@ if ($canEdit) {
 }
 
 $gaps = [];
-$addGap = static function (array $person, int $tid, string $whoLabel) use (&$gaps, $types): void {
+$addGap = static function (array $person, int $tid, string $whoLabel) use (&$gaps, $types, $canEdit): void {
     $t = $types[$tid] ?? null;
     $it = itemFor($person, $tid);
     if (!$t || !typeIsActive($t) || isPrintCatalogType($t) || !isPendingItem($it)) {
@@ -501,10 +504,10 @@ $addGap = static function (array $person, int $tid, string $whoLabel) use (&$gap
     }
     $sz = trim((string) ($it['size'] ?? ''));
     $gaps[] = [
-        'who' => $whoLabel,
-        'first' => trim((string) ($person['first_name'] ?? '')),
-        'ini' => playerInitials($person),
-        'jersey' => trim((string) ($person['jersey_number'] ?? '')),
+        'who' => $canEdit ? $whoLabel : '',
+        'first' => $canEdit ? trim((string) ($person['first_name'] ?? '')) : '',
+        'ini' => $canEdit ? playerInitials($person) : '',
+        'jersey' => $canEdit ? trim((string) ($person['jersey_number'] ?? '')) : '',
         'tid' => $tid,
         'type' => $t,
         'size' => $sz,
@@ -559,8 +562,10 @@ foreach ($gaps as $g) {
         ];
     }
     $orderGroups[$key]['count']++;
-    $label = $g['who'] . ($g['ini'] !== '' ? ' · ' . $g['ini'] : '');
-    $orderGroups[$key]['names'][] = $label;
+    if ($canEdit) {
+        $label = $g['who'] . ($g['ini'] !== '' ? ' · ' . $g['ini'] : '');
+        $orderGroups[$key]['names'][] = $label;
+    }
     if ($orderGroups[$key]['rohda']) {
         $orderBrand['rohda']++;
     }
@@ -691,6 +696,7 @@ foreach ($orderGroups as $g) {
         $shopByType[$tid]['cost'] += $g['price'] * $g['count'];
     }
 }
+if ($canEdit) {
 foreach ($gaps as $g) {
     $tid = (int) $g['tid'];
     if (!isset($shopByType[$tid])) {
@@ -709,6 +715,7 @@ foreach ($gaps as $g) {
         $shopByType[$tid]['size_lines'][$sz]['letters'][] = (string) $g['ini'];
     }
 }
+}
 foreach ($shopByType as &$shopRow) {
     uksort($shopRow['sizes'], static fn($a, $b) => $sizeRank((string) $a) <=> $sizeRank((string) $b));
     uksort($shopRow['size_lines'], static fn($a, $b) => $sizeRank((string) $a) <=> $sizeRank((string) $b));
@@ -723,6 +730,11 @@ foreach ($shopByType as &$shopRow) {
         usort($line['numbers'], static fn($a, $b) => ((int) $a) <=> ((int) $b));
     }
     unset($line);
+    if (!$canEdit) {
+        $shopRow['numbers'] = [];
+        $shopRow['letters'] = [];
+        $shopRow['size_lines'] = [];
+    }
 }
 unset($shopRow);
 uksort($shopByType, static function ($a, $b) use ($types) {
@@ -763,6 +775,12 @@ $adminStatus = adminSectionStatus($season);
 $csvKind = (string) ($_GET['csv'] ?? $_GET['xls'] ?? '');
 
 if ($csvKind === 'bestel' || $csvKind === 'regels') {
+    if (!$canEdit) {
+        http_response_code(403);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo 'Log in om de bestellijst te downloaden.';
+        exit;
+    }
     $stamp = new DateTimeImmutable('now', new DateTimeZone('Europe/Amsterdam'));
     sendXlsxDownload(
         'kitroom-14-2-bestelling-' . $stamp->format('d-m-Y-H.i') . '.xlsx',
@@ -868,10 +886,11 @@ body{
   background-attachment:fixed;
   font-variant-numeric:tabular-nums;
 }
-.wrap{max-width:600px;margin:auto;padding:16px 16px 80px}
+.wrap{width:100%;max-width:600px;margin:auto;padding:16px 16px 80px}
 @media(min-width:1200px){
   .wrap{max-width:960px}
 }
+.stats,.section,.quote-check{width:100%}
 a{color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
 
@@ -955,12 +974,19 @@ button.btn{font-family:inherit;cursor:pointer}
 .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px;width:100%}
 body:not(.editing) .stats{grid-template-columns:repeat(3,minmax(0,1fr))}
 @media(max-width:720px){.stats,body:not(.editing) .stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+a.stat{text-decoration:none;color:inherit}
 .stat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 13px;min-width:0}
-.stat b{display:block;font-size:clamp(18px,2.4vw,26px);line-height:1.1;font-weight:800;letter-spacing:-.8px;overflow-wrap:anywhere}
+.stat b{display:block;font-size:clamp(18px,2.4vw,26px);line-height:1.1;font-weight:800;letter-spacing:-.8px;overflow-wrap:anywhere;text-decoration:none}
 .stat span{display:block;margin-top:4px;font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.2px;line-height:1.3}
 .stat:hover{border-color:var(--line2)}
 .stat.accent b{color:var(--accent-text)}
 .stat b.stat-split{font-size:clamp(13px,1.8vw,17px);letter-spacing:-.25px;line-height:1.25}
+.stat b.stat-garments,.stat .stat-cap-desk{display:none}
+@media(min-width:768px){
+  .stat-pieces b.stat-split,.stat-pieces .stat-cap-mobile{display:none}
+  .stat-pieces b.stat-garments,.stat-pieces .stat-cap-desk{display:block}
+  .stat-pieces b.stat-garments{overflow-wrap:normal}
+}
 @media(min-width:1200px){
   .stats{gap:12px}
   .stat{padding:16px 18px}
@@ -1012,14 +1038,14 @@ details.fold > summary.fold-head::-webkit-details-marker{display:none}
 details.fold > summary.fold-head h3{margin:0;min-width:0;grid-column:1}
 .fold-meta{
   flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;
-  min-height:28px;max-width:min(62%,24rem);
+  min-height:28px;min-width:0;max-width:100%;
   font-size:13.5px;font-weight:800;line-height:1.25;color:var(--ink);
-  white-space:normal;text-align:right;
+  white-space:nowrap;text-align:right;overflow:hidden;
 }
 .fold-meta .fold-dot{
   width:9px;height:9px;border-radius:50%;flex:0 0 auto;background:currentColor;
 }
-.fold-meta .fold-reason{min-width:0}
+.fold-meta .fold-reason{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fold-meta.is-ok{color:var(--fold-ok)}
 .fold-meta.is-warn{color:var(--fold-warn)}
 details.fold > summary.fold-head::after{
@@ -1437,7 +1463,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   details.fold > summary.fold-head::after{grid-column:2}
   .fold-meta{
     grid-column:1/-1;max-width:100%;justify-content:flex-end;
-    white-space:normal;line-height:1.35;font-size:13px;
+    white-space:nowrap;line-height:1.35;font-size:13px;
   }
   .pack-table th,.pack-table td{padding:8px 7px}
 }
@@ -1533,7 +1559,12 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
 
   <div class="stats">
     <a class="stat" href="#spelers"><b><?= count($active) ?></b><span>spelers</span></a>
-    <a class="stat accent" href="#bestel"><b id="statPieces" class="stat-split"><?= h($orderPiecesLabel) ?></b><span>te bestellen</span></a>
+    <a class="stat accent stat-pieces" href="#bestel">
+      <b id="statPieces" class="stat-split"><?= h($orderPiecesLabel) ?></b>
+      <b class="stat-garments" id="statGarments"><?= (int) $orderCounts['garments'] ?></b>
+      <span class="stat-cap-mobile">te bestellen</span>
+      <span class="stat-cap-desk" id="statPiecesDesk">kledingstukken · <?= (int) $orderCounts['prints'] ?> prints te bestellen</span>
+    </a>
     <?php if ($canEdit): ?>
     <?php
       $statMain = $priceDisplay === 'incl' ? euro(withVat($orderTotal)) : euro($orderTotal);
@@ -1572,6 +1603,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     </div>
   </details>
 
+  <?php if ($canEdit): ?>
   <details class="section fold" id="pakketten">
     <summary class="fold-head"><h3>Pakketten</h3><?= foldStatusHtml($packagesStatus) ?></summary>
     <p class="sub">Drie sets, zoals op de foto’s. Groen is in bezit, geel te bestellen, rood ontbreekt. <?= $canEdit ? '<b>Pakket</b> vult ontbrekende items in één keer.' : '' ?></p>
@@ -1689,10 +1721,14 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
       </div>
     </div>
   </details>
+  <?php endif; ?>
 
   <details class="section fold" id="spelers">
     <summary class="fold-head"><h3>Spelers</h3><?= foldStatusHtml($playersStatus) ?></summary>
-    <p class="sub"><?= $canEdit ? 'Maat of vinkje wordt meteen opgeslagen. Uitvinken houdt het item op de kaart, buiten prijs en Excel. Weghalen alleen via <b>Wis</b>. <b>Pakket</b> zet de spelerset in één keer.' : 'Overzicht van maten en rugnummers.' ?></p>
+    <?php if (!$canEdit): ?>
+    <p class="note">Log in om spelergegevens te zien.</p>
+    <?php else: ?>
+    <p class="sub">Maat of vinkje wordt meteen opgeslagen. Uitvinken houdt het item op de kaart, buiten prijs en Excel. Weghalen alleen via <b>Wis</b>. <b>Pakket</b> zet de spelerset in één keer.</p>
     <div class="filters" id="playerFilters">
       <button class="on" data-f="all">Iedereen</button>
       <?php if ($guestPlayers): ?>
@@ -1811,6 +1847,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         </div>
       <?php endforeach; ?>
     </div>
+    <?php endif; ?>
   </details>
 
   <?php if ($canEdit):
@@ -1923,8 +1960,8 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     <p class="shop-rule"><b>Shirt / keeperstenue / staf shirt / polo:</b> clublogo, logo sponsor voorkant, logo sponsor achterkant, initialen<?= ' · ' ?>nummer alleen op het spelersshirt, tekst staf op staf shirt en polo · <b>Regenjas:</b> initialen voorkant, logo sponsor achterkant · <b>Padded:</b> clublogo, logo sponsor voorkant, initialen · <b>Tas:</b> clublogo, logo sponsor, initialen · <b>Broek:</b> initialen · <b>Sokken:</b> geen bedrukking</p>
 
     <div class="actions">
-      <a class="btn dark" href="?csv=bestel">Excel-bestellijst</a>
       <?php if ($canEdit): ?>
+      <a class="btn dark" href="?csv=bestel">Excel-bestellijst</a>
       <a class="btn dark" href="?pdf=offerte">PDF zoals offerte</a>
       <?php endif; ?>
       <a class="btn" href="javascript:window.print()">Print</a>
@@ -2166,6 +2203,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
           <?php if (!empty($shop['staff_text'])): ?><i>Tekst staf <b><?= (int) $shop['staff_text'] ?></b></i><?php endif; ?>
         </div>
         <?php endif; ?>
+        <?php if ($canEdit): ?>
         <?php foreach (($shop['size_lines'] ?? []) as $sz => $line):
           if (empty($line['letters']) && empty($line['numbers'])) {
               continue;
@@ -2180,6 +2218,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
         ?>
         <div class="shop-nums"><?= h((string) $sz) ?>: <b><?= h(implode(' · ', $bits)) ?></b></div>
         <?php endforeach; ?>
+        <?php endif; ?>
       </div>
       <?php endforeach; ?>
     </div>
@@ -2768,11 +2807,11 @@ const TEAM = {
   viewer: <?= json_encode($canEdit ? 'editor' : 'guest') ?>,
   vat: <?= json_encode(vatRate()) ?>,
   priceDisplay: <?= json_encode($priceDisplay) ?>,
-  parentFills: <?= json_encode($parentFillJs, JSON_UNESCAPED_UNICODE) ?>,
+  parentFills: <?= json_encode($canEdit ? $parentFillJs : [], JSON_UNESCAPED_UNICODE) ?>,
   packageTypes: <?= json_encode(packageTypeIds()) ?>,
   shortsTypes: <?= json_encode(shortsSlotTypeIds()) ?>,
   printPrices: <?= json_encode($printPrices, JSON_UNESCAPED_UNICODE) ?>,
-  suggest: <?= json_encode(array_reduce($active, static function ($acc, $p) use ($types) {
+  suggest: <?= json_encode($canEdit ? array_reduce($active, static function ($acc, $p) use ($types) {
       $id = (int) $p['id'];
       $jacket = suggestedJacketSize($p);
       $acc[$id] = [];
@@ -2785,7 +2824,7 @@ const TEAM = {
           }
       }
       return $acc;
-  }, []), JSON_UNESCAPED_UNICODE) ?>,
+  }, []) : new stdClass(), JSON_UNESCAPED_UNICODE) ?>,
   types: <?= json_encode(array_values(array_map(static function ($t) use ($types) {
       $id = (int) $t['id'];
       $prints = [];
@@ -3323,6 +3362,7 @@ function recalcAllKitTotals(){
 }
 function recalcOrder(){
   if(!TEAM.editing) return;
+  if(!TEAM.editing) return;
   const rows=pendingWantRows();
   let pieces=0, clothing=0;
   const byTid={};
@@ -3351,6 +3391,8 @@ function recalcOrder(){
   const pieceCounts=orderPieceCountsFromRows(rows);
   const piecesLabel=formatOrderPieces(pieceCounts);
   setText(document.getElementById('statPieces'), piecesLabel);
+  setText(document.getElementById('statGarments'), String(pieceCounts.garments||0));
+  setText(document.getElementById('statPiecesDesk'), 'kledingstukken · '+(pieceCounts.prints||0)+' prints te bestellen');
   recalcAllKitTotals();
   fillStatTotal(total);
   setText(document.getElementById('livePieces'), piecesLabel);
@@ -3791,7 +3833,7 @@ document.getElementById('quoteClear')?.addEventListener('click', async ()=>{
   location.hash='bestel';
   location.reload();
 });
-recalcOrder();
+if(TEAM.editing) recalcOrder();
 </script>
 </body>
 </html>

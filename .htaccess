@@ -1,5 +1,6 @@
 DirectoryIndex index.php
 RedirectMatch 404 /\.git
+RedirectMatch 404 /\.data
 
 <Files "config.php">
   Require all denied
@@ -7,6 +8,15 @@ RedirectMatch 404 /\.git
 <Files "boot.php">
   Require all denied
 </Files>
+<Files "quote.php">
+  Require all denied
+</Files>
+<Files "quote-letter.php">
+  Require all denied
+</Files>
+<FilesMatch "\.(xlsx|xls|csv)$">
+  Require all denied
+</FilesMatch>
 
 <IfModule mod_headers.c>
   <FilesMatch "\.(html|htm|js|php)$">

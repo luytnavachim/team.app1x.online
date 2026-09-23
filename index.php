@@ -132,6 +132,156 @@ function navIconButton(string $id, string $label, string $icon, string $extraCla
         .'<span class="nav-label" aria-hidden="true">'.h($label).'</span></button>';
 }
 
+/** @return array{tone:'ok'|'warn', label:string} */
+function foldStatus(string $tone, string $label): array {
+    return [
+        'tone' => $tone === 'ok' ? 'ok' : 'warn',
+        'label' => $label,
+    ];
+}
+
+function foldCountLabel(int $n, string $one, string $many): string {
+    return $n . ' ' . ($n === 1 ? $one : $many);
+}
+
+function foldStatusHtml(array $status, string $id = '', array $attrs = []): string {
+    $tone = (($status['tone'] ?? '') === 'ok') ? 'ok' : 'warn';
+    $label = (string) ($status['label'] ?? '');
+    $state = $tone === 'ok' ? 'Compleet' : 'Actie nodig';
+    $idAttr = $id !== '' ? ' id="'.h($id).'"' : '';
+    $extra = '';
+    foreach ($attrs as $name => $value) {
+        if ($value === null || $value === '') {
+            continue;
+        }
+        $extra .= ' '.h((string) $name).'="'.h((string) $value).'"';
+    }
+    return '<span class="fold-meta is-'.$tone.'"'.$idAttr.$extra
+        .' title="'.h($state.' · '.$label).'">'
+        .'<i class="fold-dot" aria-hidden="true"></i>'
+        .'<span class="sr-only">'.$state.': </span>'
+        .'<span class="fold-reason">'.h($label).'</span>'
+        .'</span>';
+}
+
+function designSectionStatus(string $dir): array {
+    $player = is_file(rtrim($dir, '/').'/speler-kit.png');
+    $staff = is_file(rtrim($dir, '/').'/kader-kit.png');
+    if ($player && $staff) {
+        return foldStatus('ok', 'speler · kader');
+    }
+    $missing = [];
+    if (!$player) {
+        $missing[] = 'speler';
+    }
+    if (!$staff) {
+        $missing[] = 'kader';
+    }
+    return foldStatus('warn', 'foto ontbreekt: '.implode(' · ', $missing));
+}
+
+function packagesSectionStatus(int $playerOk, int $playerN, int $keeperOk, int $keeperN, int $staffOk, int $staffN): array {
+    $label = $playerOk.'/'.$playerN.' spelers · '.$keeperOk.'/'.$keeperN.' keepers · '.$staffOk.'/'.$staffN.' staf';
+    $complete = ($playerN === 0 || $playerOk === $playerN)
+        && ($keeperN === 0 || $keeperOk === $keeperN)
+        && ($staffN === 0 || $staffOk === $staffN);
+    return foldStatus($complete ? 'ok' : 'warn', $label);
+}
+
+function playersSectionStatus(array $players): array {
+    $n = count($players);
+    $noJersey = 0;
+    foreach ($players as $p) {
+        if (!is_array($p)) {
+            continue;
+        }
+        if (normalizeJerseyNumber($p['jersey_number'] ?? '') === null) {
+            $noJersey++;
+        }
+    }
+    if ($noJersey > 0) {
+        return foldStatus('warn', foldCountLabel($noJersey, 'zonder nummer', 'zonder nummer'));
+    }
+    return foldStatus('ok', (string) $n);
+}
+
+function parentLinksSectionStatus(int $filled, int $total): array {
+    $label = $filled.'/'.$total;
+    $complete = $total === 0 || $filled === $total;
+    return foldStatus($complete ? 'ok' : 'warn', $label);
+}
+
+function orderSectionStatus(?array $quoteReport, string $piecesLabel, array $gaps, bool $canEdit): array {
+    if (is_array($quoteReport)) {
+        $c = is_array($quoteReport['counts'] ?? null) ? $quoteReport['counts'] : [];
+        $diffs = (int) ($c['missing'] ?? 0)
+            + (int) ($c['short'] ?? 0)
+            + (int) ($c['over'] ?? 0)
+            + (int) ($c['sku'] ?? 0)
+            + (int) ($c['unknown'] ?? 0);
+        if ($diffs > 0) {
+            return foldStatus('warn', foldCountLabel($diffs, 'afwijking', 'afwijkingen'));
+        }
+    }
+    $noSize = 0;
+    foreach ($gaps as $g) {
+        if (!is_array($g)) {
+            continue;
+        }
+        $size = trim((string) ($g['size'] ?? ''));
+        if ($size === '' || $size === 'maat onbekend' || $size === 'onbekend') {
+            $noSize++;
+        }
+    }
+    if ($noSize > 0) {
+        return foldStatus('warn', foldCountLabel($noSize, 'zonder maat', 'zonder maat'));
+    }
+    if ($canEdit && $quoteReport === null) {
+        return foldStatus('warn', 'offerte ontbreekt');
+    }
+    return foldStatus('ok', $piecesLabel);
+}
+
+function staffSectionStatus(array $staff): array {
+    $n = count($staff);
+    $ok = 0;
+    foreach ($staff as $s) {
+        if (is_array($s) && !empty($s['pack_ok'])) {
+            $ok++;
+        }
+    }
+    if ($n === 0 || $ok === $n) {
+        return foldStatus('ok', (string) $n);
+    }
+    return foldStatus('warn', $ok.'/'.$n);
+}
+
+function catalogSectionStatus(array $types): array {
+    $n = 0;
+    $noSku = 0;
+    foreach ($types as $t) {
+        if (!is_array($t) || !typeIsActive($t) || isPrintCatalogType($t)) {
+            continue;
+        }
+        $n++;
+        if (trim((string) ($t['article_number'] ?? '')) === '') {
+            $noSku++;
+        }
+    }
+    if ($noSku > 0) {
+        return foldStatus('warn', foldCountLabel($noSku, 'zonder artikelnummer', 'zonder artikelnummer'));
+    }
+    return foldStatus('ok', foldCountLabel($n, 'artikel', 'artikelen'));
+}
+
+function adminSectionStatus(string $season): array {
+    $season = trim($season);
+    if ($season === '') {
+        return foldStatus('warn', 'seizoen ontbreekt');
+    }
+    return foldStatus('ok', 'seizoen '.$season);
+}
+
 function parentChecksHtml(string $scope, array $choices, array $selected, int $playerId = 0, array $defaultIds = []): string {
     $html = '<div class="checks" data-parent-scope="'.h($scope).'" data-id="'.$playerId.'" data-default="'.h(implode(',', $defaultIds)).'">';
     foreach ($choices as $tid) {
@@ -580,6 +730,22 @@ if (is_array($quoteStored)) {
 }
 $quoteIssues = is_array($quoteReport) ? ((int) ($quoteReport['counts']['missing'] ?? 0) + (int) ($quoteReport['counts']['short'] ?? 0)) : 0;
 
+$designStatus = designSectionStatus(__DIR__);
+$packagesStatus = packagesSectionStatus(
+    (int) $playerPackOk,
+    count($fieldPlayers),
+    (int) $keeperPackOk,
+    count($keeperPlayers),
+    (int) $staffPackOk,
+    count($staff)
+);
+$playersStatus = playersSectionStatus($active);
+$parentLinksStatus = parentLinksSectionStatus(count($parentFilled), count($active));
+$orderStatus = orderSectionStatus($quoteReport, $orderPiecesLabel, $gaps, $canEdit);
+$staffStatus = staffSectionStatus($staff);
+$catalogStatus = catalogSectionStatus($types);
+$adminStatus = adminSectionStatus($season);
+
 $csvKind = (string) ($_GET['csv'] ?? $_GET['xls'] ?? '');
 
 if ($csvKind === 'bestel' || $csvKind === 'regels') {
@@ -651,6 +817,7 @@ $voetLabel = static function (string $v): string {
   --editbar-bg:rgba(201,162,74,.12); --editbar-ink:#FFFFFF;
   --pill-ink:#E8E8EA;
   --modal-shadow:0 24px 60px rgba(0,0,0,.55);
+  --fold-ok:#4AD49A; --fold-warn:#E2C36A;
   --r:14px; --r-lg:20px;
 }
 html[data-theme="light"]{
@@ -671,6 +838,7 @@ html[data-theme="light"]{
   --editbar-bg:rgba(201,162,74,.12); --editbar-ink:#111111;
   --pill-ink:#2A2A2E;
   --modal-shadow:0 24px 60px rgba(17,17,17,.12);
+  --fold-ok:#0B6B40; --fold-warn:#7A6410;
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth;color-scheme:dark;-webkit-text-size-adjust:100%}
@@ -812,14 +980,27 @@ body:not(.editing) .stats{grid-template-columns:repeat(3,minmax(0,1fr))}
 .section{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px;margin-bottom:14px}
 .section h3{margin:0 0 4px;font-size:17px;font-weight:800;letter-spacing:-.3px}
 details.fold > summary.fold-head{
-  list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  list-style:none;cursor:pointer;
+  display:grid;grid-template-columns:minmax(0,1fr) auto auto;
+  align-items:center;column-gap:10px;row-gap:4px;
   padding:2px 0 8px;min-height:44px;
 }
 details.fold > summary.fold-head::-webkit-details-marker{display:none}
-details.fold > summary.fold-head h3{margin:0;flex:1;min-width:0}
-.fold-meta{flex:0 0 auto;font-size:12px;font-weight:800;color:var(--muted)}
+details.fold > summary.fold-head h3{margin:0;min-width:0;grid-column:1}
+.fold-meta{
+  flex:0 0 auto;display:inline-flex;align-items:center;gap:7px;
+  min-height:28px;max-width:min(62%,24rem);
+  font-size:13.5px;font-weight:800;line-height:1.25;color:var(--ink);
+  white-space:normal;text-align:right;
+}
+.fold-meta .fold-dot{
+  width:9px;height:9px;border-radius:50%;flex:0 0 auto;background:currentColor;
+}
+.fold-meta .fold-reason{min-width:0}
+.fold-meta.is-ok{color:var(--fold-ok)}
+.fold-meta.is-warn{color:var(--fold-warn)}
 details.fold > summary.fold-head::after{
-  content:'▾';flex:0 0 auto;color:var(--dim);font-size:14px;font-weight:800;line-height:1;
+  content:'▾';grid-column:3;grid-row:1;color:var(--dim);font-size:14px;font-weight:800;line-height:1;
 }
 details.fold:not([open]) > summary.fold-head{padding-bottom:0}
 details.fold:not([open]) > summary.fold-head::after{content:'▸';transform:none}
@@ -1207,8 +1388,12 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   .actions .btn{flex:1 1 calc(50% - 7px);text-align:center}
   .card .actions .btn{flex:1 1 auto}
   .pack-block .actions .btn{flex:1 1 100%}
-  details.fold > summary.fold-head{flex-wrap:wrap;align-items:flex-start;gap:6px 10px}
-  .fold-meta{white-space:normal;line-height:1.35;max-width:100%}
+  details.fold > summary.fold-head{grid-template-columns:minmax(0,1fr) auto}
+  details.fold > summary.fold-head::after{grid-column:2}
+  .fold-meta{
+    grid-column:1/-1;max-width:100%;justify-content:flex-end;
+    white-space:normal;line-height:1.35;font-size:13px;
+  }
   .pack-table th,.pack-table td{padding:8px 7px}
 }
 @media(max-width:560px){
@@ -1227,7 +1412,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   .who .jersey-select{max-width:none;width:100%;min-height:42px}
   .packshot{max-width:100%;padding:8px}
   .section{padding:14px 12px;overflow-x:clip}
-  .fold-meta{font-size:11px}
+  .fold-meta{font-size:13px}
   .pack-tablewrap{margin-inline:-12px;border-radius:0;border-left:0;border-right:0}
   .pack-table td.name,.pack-table th.name{min-width:7.25rem;max-width:8.75rem;font-size:12px}
   .tablewrap{margin-inline:-12px;border-radius:0;border-left:0;border-right:0}
@@ -1238,7 +1423,8 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   :root{--bg:#fff;--surface:#fff;--surface2:#fff;--raise:#f4f4f5;--line:#d4d4d8;--line2:#a1a1aa;
         --ink:#111;--muted:#52525b;--dim:#71717a;--accent:#111;--on-accent:#fff;
         --green:#15803d;--greenbg:#dcfce7;--miss:#b91c1c;--missbg:#fee2e2;
-        --warn:#a16207;--warnbg:#fef3c7;--na:#71717a;--nabg:#fafafa}
+        --warn:#a16207;--warnbg:#fef3c7;--na:#71717a;--nabg:#fafafa;
+        --fold-ok:#0B6B40;--fold-warn:#7A6410}
   html{color-scheme:light}
   body{background:#fff;color:#111}
   .navwrap,.filters,.actions,.note,.toast,.modal,.theme-switch,#parentAlert,.assign,.addrow,.money,.cat-input,#printPrices,.parent-defaults,.packfold > summary,#beheer,.quote-upload{display:none !important}
@@ -1320,7 +1506,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   </div>
 
   <details class="section fold" id="design">
-    <summary class="fold-head"><h3>Design</h3><span class="fold-meta">speler · kader</span></summary>
+    <summary class="fold-head"><h3>Design</h3><?= foldStatusHtml($designStatus) ?></summary>
     <div class="kit-design">
     <figure>
       <img src="<?= assetUrl('speler-kit.png') ?>" width="1024" height="1020" alt="Spelerstenue 14-2: tas, jassen, shirt, broekje, footless en gripsokken">
@@ -1332,7 +1518,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   </details>
 
   <details class="section fold" id="pakketten">
-    <summary class="fold-head"><h3>Pakketten</h3><span class="fold-meta"><?= (int) $playerPackOk ?>/<?= count($fieldPlayers) ?> spelers · <?= (int) $keeperPackOk ?>/<?= count($keeperPlayers) ?> keepers · <?= (int) $staffPackOk ?>/<?= count($staff) ?> staf</span></summary>
+    <summary class="fold-head"><h3>Pakketten</h3><?= foldStatusHtml($packagesStatus) ?></summary>
     <p class="sub">Drie sets, zoals op de foto’s. Groen is in bezit, geel te bestellen, rood ontbreekt. <?= $canEdit ? '<b>Pakket</b> vult ontbrekende items in één keer.' : '' ?></p>
     <div class="legend">
       <span><i class="dot" style="background:var(--green)"></i>In bezit</span>
@@ -1450,7 +1636,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   </details>
 
   <details class="section fold" id="spelers">
-    <summary class="fold-head"><h3>Spelers</h3><span class="fold-meta"><?= count($active) ?></span></summary>
+    <summary class="fold-head"><h3>Spelers</h3><?= foldStatusHtml($playersStatus) ?></summary>
     <p class="sub"><?= $canEdit ? 'Maat of vinkje wordt meteen opgeslagen. Uitvinken houdt het item op de kaart, buiten prijs en Excel. Weghalen alleen via <b>Wis</b>. <b>Pakket</b> zet de spelerset in één keer.' : 'Overzicht van maten en rugnummers.' ?></p>
     <div class="filters" id="playerFilters">
       <button class="on" data-f="all">Iedereen</button>
@@ -1576,7 +1762,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     $parentForm = loadParentFormSettings();
   ?>
   <details class="section fold" id="ouders">
-    <summary class="fold-head"><h3>Ouderlinks</h3><span class="fold-meta"><?= count($parentFilled) ?>/<?= count($active) ?></span></summary>
+    <summary class="fold-head"><h3>Ouderlinks</h3><?= foldStatusHtml($parentLinksStatus) ?></summary>
     <p class="sub">Kopieer de link of stuur hem via WhatsApp. Een nieuwe link maakt de oude ongeldig.</p>
     <details class="shop-more" id="parentDefaultsWrap">
       <summary>Wat ouders invullen</summary>
@@ -1677,7 +1863,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   <?php endif; ?>
 
   <details class="section fold" id="bestel">
-    <summary class="fold-head"><h3>Bestelling</h3><span class="fold-meta" id="bestelMeta"><?= h($orderPiecesLabel) ?></span></summary>
+    <summary class="fold-head"><h3>Bestelling</h3><?= foldStatusHtml($orderStatus, 'bestelMeta', ($orderStatus['tone'] ?? '') === 'warn' ? ['data-lock' => '1'] : []) ?></summary>
     <p class="sub" id="bestelSub"><?= h($orderPiecesLabel) ?><?php if ($canEdit && $orderTotal > 0): ?> · <?= euro($orderTotal) ?> excl. · <?= euroIncl($orderTotal) ?><?php endif; ?> · artikelnummers, maten en print.<?= $canEdit ? ' Uitvinken haalt het item uit prijs en Excel, niet van de speler.' : '' ?></p>
     <p class="shop-rule"><b>Shirt / keeperstenue / staf shirt / polo:</b> clublogo, logo sponsor voorkant, logo sponsor achterkant, initialen<?= ' · ' ?>nummer alleen op het spelersshirt, tekst staf op staf shirt en polo · <b>Regenjas:</b> initialen voorkant, logo sponsor achterkant · <b>Padded:</b> clublogo, logo sponsor voorkant, initialen · <b>Tas:</b> clublogo, logo sponsor, initialen · <b>Broek:</b> initialen · <b>Sokken:</b> geen bedrukking</p>
 
@@ -1958,7 +2144,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   </details>
 
   <details class="section fold" id="staf">
-    <summary class="fold-head"><h3>Staf</h3><span class="fold-meta"><?= count($staff) ?></span></summary>
+    <summary class="fold-head"><h3>Staf</h3><?= foldStatusHtml($staffStatus) ?></summary>
     <p class="sub">Stafpakket: padded, shirt, polo en broek.<?= $canEdit ? ' Maat of vinkje wordt meteen opgeslagen. <b>Pakket</b> zet de set in één keer.' : '' ?></p>
     <div class="cards">
       <?php foreach ($staff as $s): ?>
@@ -2028,7 +2214,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
   </details>
 
   <details class="section fold" id="catalogus">
-    <summary class="fold-head"><h3>Catalogus · Stanno</h3></summary>
+    <summary class="fold-head"><h3>Catalogus · Stanno</h3><?= foldStatusHtml($catalogStatus) ?></summary>
     <p class="sub">Artikelnummers<?= $canEdit ? ', offerteprijzen excl. btw (incl. 21% eronder)' : '' ?> en per item de bedrukking zoals op de foto’s: clublogo, logo sponsor voor/achter, initialen, nummer, tekst staf. <?= $canEdit ? 'Stanno.com en Teamswear.nl zijn webshopprijzen incl. btw (sept. 2026), met excl. eronder ter vergelijking.' : '' ?></p>
     <?php if ($canEdit): ?>
     <details class="shop-more" id="packageDefaults">
@@ -2204,7 +2390,7 @@ details.shop-more[open] > summary{margin-bottom:10px;color:var(--accent-text)}
     };
   ?>
   <details class="section fold" id="beheer">
-    <summary class="fold-head"><h3>Beheer</h3></summary>
+    <summary class="fold-head"><h3>Beheer</h3><?= foldStatusHtml($adminStatus) ?></summary>
     <p class="sub">CMS: seizoen, staf, catalogus. Spelers zijn alleen de huidige 14-2 selectie uit de scout-app.</p>
 
     <div class="parent-defaults">
@@ -2936,6 +3122,19 @@ function pendingWantRows(){
 function setText(el, text){
   if(el) el.textContent=text;
 }
+function setFoldMeta(el, tone, label){
+  if(!el) return;
+  const ok=tone==='ok';
+  el.classList.toggle('is-ok', ok);
+  el.classList.toggle('is-warn', !ok);
+  const state=ok?'Compleet':'Actie nodig';
+  el.title=state+' · '+label;
+  const reason=el.querySelector('.fold-reason');
+  if(reason) reason.textContent=label;
+  else el.textContent=label;
+  const sr=el.querySelector('.sr-only');
+  if(sr) sr.textContent=state+': ';
+}
 function orderPieceCountsFromRows(rows){
   let garments=0;
   const prints={};
@@ -3023,7 +3222,10 @@ function recalcOrder(){
   setText(document.getElementById('livePieces'), piecesLabel);
   setText(document.getElementById('liveExcl'), euroJs(total));
   setText(document.getElementById('liveIncl'), euroInclJs(total));
-  setText(document.getElementById('bestelMeta'), piecesLabel);
+  const bestelMeta=document.getElementById('bestelMeta');
+  if(bestelMeta && bestelMeta.dataset.lock!=='1'){
+    setFoldMeta(bestelMeta, bestelMeta.classList.contains('is-warn')?'warn':'ok', piecesLabel);
+  }
   const sub=document.getElementById('bestelSub');
   if(sub){
     sub.textContent=piecesLabel+' · '+euroJs(total)+' excl. · '+euroInclJs(total)+' · artikelnummers, maten en print. Uitvinken haalt het item uit prijs en Excel, niet van de speler.';

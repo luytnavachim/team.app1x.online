@@ -849,6 +849,11 @@ $voetLabel = static function (string $v): string {
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Kitroom · 14-2</title>
 <meta name="theme-color" content="#0B0B0D">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Kitroom">
+<meta name="application-name" content="Kitroom">
 <script>
 (function(){
   var t='dark';
@@ -858,7 +863,10 @@ $voetLabel = static function (string $v): string {
   document.documentElement.style.colorScheme=t;
 })();
 </script>
-<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%220%200%2032%2032%22%3E%3Crect%20width%3D%2232%22%20height%3D%2232%22%20rx%3D%228%22%20fill%3D%22%23111111%22%2F%3E%3Crect%20x%3D%226%22%20y%3D%227%22%20width%3D%225%22%20height%3D%2218%22%20rx%3D%221%22%20fill%3D%22%23C9A24A%22%2F%3E%3Crect%20x%3D%2213.5%22%20y%3D%227%22%20width%3D%225%22%20height%3D%2218%22%20rx%3D%221%22%20fill%3D%22%23C9A24A%22%2F%3E%3Crect%20x%3D%2221%22%20y%3D%227%22%20width%3D%225%22%20height%3D%2218%22%20rx%3D%221%22%20fill%3D%22%23C9A24A%22%2F%3E%3C%2Fsvg%3E">
+<link rel="icon" href="<?= assetUrl('favicon.svg') ?>" type="image/svg+xml">
+<link rel="icon" href="<?= assetUrl('favicon-32.png') ?>" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="<?= assetUrl('apple-touch-icon.png') ?>">
+<link rel="manifest" href="<?= assetUrl('manifest.webmanifest') ?>">
 <meta name="description" content="Kleding- en selectieoverzicht 14-2 · Triplet IT.">
 <style>
 :root,html[data-theme="dark"]{

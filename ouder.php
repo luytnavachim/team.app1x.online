@@ -57,8 +57,16 @@ $posLabel = [
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title><?= $person ? 'Maten · ' . h($name) : 'Link ongeldig' ?> · Kitroom</title>
 <meta name="theme-color" content="#0B0B0D">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Kitroom">
+<meta name="application-name" content="Kitroom">
 <meta name="robots" content="noindex,nofollow">
 <meta name="referrer" content="no-referrer">
+<link rel="icon" href="<?= assetUrl('favicon.svg') ?>" type="image/svg+xml">
+<link rel="icon" href="<?= assetUrl('favicon-32.png') ?>" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="<?= assetUrl('apple-touch-icon.png') ?>">
+<link rel="manifest" href="<?= assetUrl('manifest.webmanifest') ?>">
 <script>
 (function(){
   var t='dark';
